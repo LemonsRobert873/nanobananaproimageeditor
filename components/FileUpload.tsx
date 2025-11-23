@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface FileUploadProps {
   label: string;
@@ -20,6 +21,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     if (selectedFile) {
@@ -33,6 +35,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       onFileSelect(e.dataTransfer.files[0]);
     }
@@ -60,28 +63,28 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       )}
       
-      <div 
+      <motion.div 
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
-          e.currentTarget.classList.add('ring-2', 'ring-yellow-500', 'ring-opacity-50');
+          setIsDragOver(true);
         }}
         onDragLeave={(e) => {
           e.preventDefault();
-          e.currentTarget.classList.remove('ring-2', 'ring-yellow-500', 'ring-opacity-50');
+          setIsDragOver(false);
         }}
-        onDrop={(e) => {
-           e.currentTarget.classList.remove('ring-2', 'ring-yellow-500', 'ring-opacity-50');
-           handleDrop(e);
+        onDrop={handleDrop}
+        animate={{
+          borderColor: isDragOver ? '#EAB308' : (previewUrl ? '#3f3f46' : '#27272a'),
+          backgroundColor: isDragOver ? 'rgba(234, 179, 8, 0.05)' : (previewUrl ? '#18181b' : '#18181b'),
+          scale: isDragOver ? 1.01 : 1,
         }}
+        transition={{ duration: 0.2 }}
         className={`
           relative group cursor-pointer 
-          rounded-xl transition-all duration-200
-          ${previewUrl 
-            ? 'bg-zinc-900 ring-1 ring-zinc-700' 
-            : 'bg-zinc-900 border-2 border-dashed border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50'
-          }
+          rounded-xl border-2 border-dashed
           h-40 flex flex-col items-center justify-center overflow-hidden
+          transition-colors
         `}
       >
         <input 
@@ -92,37 +95,64 @@ const FileUpload: React.FC<FileUploadProps> = ({
           onChange={handleChange}
         />
 
-        {previewUrl ? (
-          <>
-            <img 
-              src={previewUrl} 
-              alt="Preview" 
-              className="w-full h-full object-contain bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-zinc-950/50" 
-            />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-               <span className="text-white font-medium flex items-center gap-2">
-                 <Upload size={16} /> Change Image
-               </span>
-            </div>
-            <button 
-              onClick={clearFile}
-              className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500/80 rounded-full text-white transition-colors"
+        <AnimatePresence mode="wait">
+          {previewUrl ? (
+            <motion.div 
+              key="preview"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="w-full h-full relative"
             >
-              <X size={14} />
-            </button>
-          </>
-        ) : (
-          <div className="text-center p-4">
-            <div className="mx-auto w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-              <Upload className="w-5 h-5 text-zinc-400 group-hover:text-yellow-400" />
-            </div>
-            <p className="text-sm text-zinc-400 group-hover:text-zinc-200 transition-colors">Upload image</p>
-            {helperText && (
-              <p className="text-xs text-zinc-600 mt-1">{helperText}</p>
-            )}
-          </div>
-        )}
-      </div>
+              <img 
+                src={previewUrl} 
+                alt="Preview" 
+                className="w-full h-full object-contain bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-zinc-950/50" 
+              />
+              <motion.div 
+                initial={{ opacity: 0 }}
+                whileHover={{ opacity: 1 }}
+                className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm"
+              >
+                 <span className="text-white font-medium flex items-center gap-2">
+                   <Upload size={16} /> Change Image
+                 </span>
+              </motion.div>
+              <motion.button 
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={clearFile}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500/80 rounded-full text-white transition-colors"
+              >
+                <X size={14} />
+              </motion.button>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="text-center p-4"
+            >
+              <motion.div 
+                className="mx-auto w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center mb-2"
+                animate={{ 
+                  scale: isDragOver ? 1.1 : 1,
+                  backgroundColor: isDragOver ? '#FACC15' : '#27272a',
+                  color: isDragOver ? '#000000' : '#a1a1aa'
+                }}
+              >
+                <Upload className="w-5 h-5" />
+              </motion.div>
+              <p className="text-sm text-zinc-400 group-hover:text-zinc-200 transition-colors">Upload image</p>
+              {helperText && (
+                <p className="text-xs text-zinc-600 mt-1">{helperText}</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 };

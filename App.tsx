@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, Sparkles, AlertCircle, Download, CheckCircle, 
   Layers, Type, Key, ImagePlus, User, Maximize2, Copy, X, 
-  FileText, Wand2, ToggleLeft, ToggleRight, Trash2, ArrowRight,
-  MessageSquare, ZoomIn, ZoomOut, RotateCcw, BookOpen, Scan
+  FileText, Wand2, Trash2, ArrowRight,
+  MessageSquare, ZoomIn, ZoomOut, Scan, BookOpen
 } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import Button from './components/Button';
 import FileUpload from './components/FileUpload';
 import KeySettings from './components/KeySettings';
@@ -257,10 +258,8 @@ function App() {
     }
 
     // Validation
-    // IMAGE_EDIT: Subject is now optional. If present -> Identity Edit. If absent -> Prompt Gen.
     if (mode === GenerationMode.IMAGE_EDIT) {
        if (!currentState.textPrompt.trim()) return setError(ERRORS.MISSING_PROMPT);
-       // Note: We don't error on missing subject anymore for this mode.
     }
     
     if (mode === GenerationMode.IMAGE_TO_IMAGE) {
@@ -274,7 +273,6 @@ function App() {
 
     setIsGenerating(true);
     
-    // Only show full progress screen for Image generation tasks
     const isImageGen = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
     if (isImageGen) setShowFullProgress(true);
     
@@ -301,7 +299,6 @@ function App() {
 
           const imageUrl = await generateImage(params);
           
-          // Force progress to 100% and wait a moment for animation to finish
           serviceProgressRef.current = 100;
           setProgressStep("Finishing up...");
           await new Promise(resolve => setTimeout(resolve, 600));
@@ -317,7 +314,6 @@ function App() {
           };
           setHistory(prev => [newHistoryItem, ...prev]);
       } else {
-          // PROMPT GENERATION MODES
           const params: PromptGenParams = {
               mode,
               subjectImage: currentState.subjectImage || undefined,
@@ -331,7 +327,6 @@ function App() {
           };
           const promptText = await generatePrompt(params);
 
-          // Force progress to 100% and wait a moment for animation to finish
           serviceProgressRef.current = 100;
           setProgressStep("Finalizing...");
           await new Promise(resolve => setTimeout(resolve, 600));
@@ -352,16 +347,11 @@ function App() {
       const msg = err.message || ERRORS.GENERIC;
       if (msg === ERRORS.AUTH_FAILED || msg === ERRORS.MISSING_KEY) {
         setHasKey(false);
-        // Prompt user to enter key if it failed due to auth
         if (!apiKey && !(window as any).aistudio) {
             setShowKeySettings(true);
-        } else if ((window as any).aistudio) {
-             // Let user know they need to reselect
-             // (logic handled in catch mostly by UI state update)
         }
       }
       setError(msg);
-      // If error, restore previous image if it was moved to comparison
       if (currentState.comparisonImage && !currentState.generatedImage) {
           updateCurrentState({ generatedImage: currentState.comparisonImage, comparisonImage: null });
       }
@@ -463,47 +453,73 @@ function App() {
       />
       
       {/* --- Top Bar --- */}
-      <header className="flex-none h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md z-20">
+      <motion.header 
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "circOut" }}
+        className="flex-none h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md z-20"
+      >
         <div className="max-w-[1800px] mx-auto px-4 h-full flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex items-center gap-2 w-auto min-w-[200px] shrink-0">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex items-center gap-2 w-auto min-w-[200px] shrink-0"
+          >
             <div className="text-2xl">
               🍌
             </div>
             <span className="font-semibold text-zinc-100 tracking-tight hidden md:inline whitespace-nowrap">NanoBanana Pro Studio</span>
-          </div>
+          </motion.div>
 
           {/* Center Mode Tabs */}
           <div className="flex-1 max-w-2xl mx-4 overflow-x-auto no-scrollbar">
-            <nav className="flex items-center bg-zinc-900/80 p-1 rounded-full border border-zinc-800 w-max mx-auto">
-                {[
-                    { id: GenerationMode.IMAGE_EDIT, label: 'Image Edit', icon: Type },
-                    { id: GenerationMode.IMAGE_TO_IMAGE, label: 'Image to Image', icon: Layers },
-                    { id: GenerationMode.IMG_TO_PROMPT, label: 'Img to Prompt', icon: FileText },
-                    { id: GenerationMode.TEXT_TO_PROMPT, label: 'Text Prompt Gen', icon: Wand2 },
-                ].map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setMode(tab.id as GenerationMode)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
-                            mode === tab.id
-                            ? 'bg-yellow-500 text-zinc-950 shadow-sm' 
-                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
-                        }`}
-                    >
-                        <tab.icon size={14} className="hidden sm:block" />
-                        <span>{tab.label}</span>
-                    </button>
-                ))}
-            </nav>
+            <LayoutGroup id="mode-tabs">
+                <nav className="flex items-center bg-zinc-900/80 p-1 rounded-full border border-zinc-800 w-max mx-auto relative">
+                    {[
+                        { id: GenerationMode.IMAGE_EDIT, label: 'Image Edit', icon: Type },
+                        { id: GenerationMode.IMAGE_TO_IMAGE, label: 'Image to Image', icon: Layers },
+                        { id: GenerationMode.IMG_TO_PROMPT, label: 'Img to Prompt', icon: FileText },
+                        { id: GenerationMode.TEXT_TO_PROMPT, label: 'Text Prompt Gen', icon: Wand2 },
+                    ].map((tab) => {
+                        const isActive = mode === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setMode(tab.id as GenerationMode)}
+                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap z-10 ${
+                                    isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-200'
+                                }`}
+                            >
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="activeTab"
+                                        className="absolute inset-0 bg-yellow-500 rounded-full shadow-sm"
+                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                        style={{ zIndex: -1 }}
+                                    />
+                                )}
+                                <tab.icon size={14} className="hidden sm:block" />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+            </LayoutGroup>
           </div>
 
           {/* Right API Key & Guide */}
-          <div className="flex items-center justify-end gap-3 w-auto shrink-0">
+          <motion.div 
+             initial={{ opacity: 0, x: 20 }}
+             animate={{ opacity: 1, x: 0 }}
+             transition={{ delay: 0.1 }}
+             className="flex items-center justify-end gap-3 w-auto shrink-0"
+          >
             <button 
               onClick={() => setShowGuide(true)}
-              className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all"
+              className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all hover:scale-105"
             >
               <BookOpen size={14} />
               <span className="hidden sm:inline">Guide</span>
@@ -511,7 +527,7 @@ function App() {
 
             <button 
               onClick={handleKeyClick}
-              className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border transition-all ${
+              className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border transition-all hover:scale-105 ${
                 hasKey 
                   ? 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200' 
                   : 'border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10'
@@ -519,56 +535,74 @@ function App() {
             >
               <Key size={14} />
               <span className="hidden sm:inline">{hasKey ? 'API Key Active' : 'Set API Key'}</span>
-              {hasKey && <div className="w-1.5 h-1.5 rounded-full bg-green-500 ml-1" />}
+              {hasKey && <div className="w-1.5 h-1.5 rounded-full bg-green-500 ml-1 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />}
             </button>
-          </div>
+          </motion.div>
         </div>
-      </header>
+      </motion.header>
 
       {/* --- Main Workspace --- */}
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full">
         
         {/* --- Left Column: Controls --- */}
         <aside className="w-full lg:w-[420px] xl:w-[460px] flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto">
-          <div className="p-6 space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+            className="p-6 space-y-8"
+          >
             
             {/* Subject Image (Hidden for Text-to-Prompt) */}
-            {mode !== GenerationMode.TEXT_TO_PROMPT && (
-                <section className="space-y-4">
-                <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
-                    <div className="flex items-center">
-                        {mode === GenerationMode.IMG_TO_PROMPT ? 'Input Image' : 'Subject Face'}
-                        {mode !== GenerationMode.IMAGE_EDIT && <span className="text-yellow-500 ml-1">*</span>}
-                        {mode === GenerationMode.IMAGE_EDIT && <span className="text-zinc-500 text-xs ml-2 font-normal">(Optional)</span>}
-                    </div>
-                </div>
-                
-                {/* Image Edit Mode Status Indicator */}
-                {mode === GenerationMode.IMAGE_EDIT && (
-                    <div className="mb-2">
-                        {currentState.subjectImage ? (
-                            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-950/20 px-3 py-2 rounded-lg border border-green-900/50">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
-                                <span className="font-medium">Identity-locked mode active</span>
+            <AnimatePresence mode="popLayout">
+                {mode !== GenerationMode.TEXT_TO_PROMPT && (
+                    <motion.section 
+                        key="subject-input"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-4 overflow-hidden"
+                    >
+                        <div className="flex items-center gap-2 text-zinc-100 font-medium">
+                            <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
+                            <div className="flex items-center">
+                                {mode === GenerationMode.IMG_TO_PROMPT ? 'Input Image' : 'Subject Face'}
+                                {mode !== GenerationMode.IMAGE_EDIT && <span className="text-yellow-500 ml-1">*</span>}
+                                {mode === GenerationMode.IMAGE_EDIT && <span className="text-zinc-500 text-xs ml-2 font-normal">(Optional)</span>}
                             </div>
-                        ) : (
-                            <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-950/20 px-3 py-2 rounded-lg border border-blue-900/50">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-                                <span className="font-medium">Prompt-only generation mode</span>
-                            </div>
+                        </div>
+                        
+                        {/* Image Edit Mode Status Indicator */}
+                        {mode === GenerationMode.IMAGE_EDIT && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="mb-2"
+                            >
+                                {currentState.subjectImage ? (
+                                    <div className="flex items-center gap-2 text-xs text-green-400 bg-green-950/20 px-3 py-2 rounded-lg border border-green-900/50">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+                                        <span className="font-medium">Identity-locked mode active</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-950/20 px-3 py-2 rounded-lg border border-blue-900/50">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>
+                                        <span className="font-medium">Prompt-only generation mode</span>
+                                    </div>
+                                )}
+                            </motion.div>
                         )}
-                    </div>
-                )}
 
-                <FileUpload 
-                    label="" 
-                    helperText={mode === GenerationMode.IMG_TO_PROMPT ? "Upload image to analyze." : "Clear front-facing photo of the subject."}
-                    selectedFile={currentState.subjectImage}
-                    onFileSelect={(f) => updateCurrentState({ subjectImage: f })}
-                />
-                </section>
-            )}
+                        <FileUpload 
+                            label="" 
+                            helperText={mode === GenerationMode.IMG_TO_PROMPT ? "Upload image to analyze." : "Clear front-facing photo of the subject."}
+                            selectedFile={currentState.subjectImage}
+                            onFileSelect={(f) => updateCurrentState({ subjectImage: f })}
+                        />
+                    </motion.section>
+                )}
+            </AnimatePresence>
 
             {/* Mode Specific Inputs */}
             <section className="space-y-4">
@@ -581,7 +615,10 @@ function App() {
                  'Configuration'}
               </div>
 
-              <div className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800/50 space-y-4">
+              <motion.div 
+                 layout
+                 className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800/50 space-y-4"
+              >
                 
                 {/* PROMPT GENERATOR TOGGLE */}
                 {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) && (
@@ -592,64 +629,77 @@ function App() {
                                 {currentState.useFaceFeature ? 'Strictly maintain face identity' : 'General portrait description'}
                             </span>
                         </div>
-                        <button 
+                        <motion.button 
+                            layout
                             onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${currentState.useFaceFeature ? 'bg-yellow-500' : 'bg-zinc-700'}`}
                         >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${currentState.useFaceFeature ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
+                            <motion.span 
+                               layout
+                               className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ${currentState.useFaceFeature ? 'translate-x-6' : 'translate-x-1'}`} 
+                            />
+                        </motion.button>
                     </div>
                 )}
 
                 {/* IMAGE REFERENCE UPLOAD */}
-                {mode === GenerationMode.IMAGE_TO_IMAGE && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div>
-                      <FileUpload 
-                        label="Reference Image"
-                        helperText="Clothing style or scene composition."
-                        selectedFile={currentState.referenceImage}
-                        onFileSelect={handleReferenceSelect}
-                        required
-                        className="mb-2"
-                      />
-                      {currentState.isRefLowRes && (
-                        <div className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded border border-yellow-500/20 mb-2">
-                          <AlertCircle size={12} />
-                          <span>Low resolution reference. Results may vary.</span>
+                <AnimatePresence>
+                    {mode === GenerationMode.IMAGE_TO_IMAGE && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 overflow-hidden"
+                    >
+                        <div>
+                        <FileUpload 
+                            label="Reference Image"
+                            helperText="Clothing style or scene composition."
+                            selectedFile={currentState.referenceImage}
+                            onFileSelect={handleReferenceSelect}
+                            required
+                            className="mb-2"
+                        />
+                        {currentState.isRefLowRes && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded border border-yellow-500/20 mb-2">
+                            <AlertCircle size={12} />
+                            <span>Low resolution reference. Results may vary.</span>
+                            </motion.div>
+                        )}
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Operation</label>
-                      <div className="grid grid-cols-1 gap-2">
-                        {/* Operations Buttons */}
-                        {[
-                            { op: ReferenceOperation.APPLY_CLOTHING, label: 'Apply Clothing', desc: 'Put subject in reference outfit', icon: User },
-                            { op: ReferenceOperation.REPLACE_FACE, label: 'Replace Face', desc: 'Swap face in reference scene', icon: ImagePlus },
-                            { op: ReferenceOperation.REPLICATE_REFERENCE, label: 'Replicate Reference Image', desc: 'Recreate full scene with subject', icon: Copy },
-                        ].map(item => (
-                            <button
-                                key={item.op}
-                                onClick={() => updateCurrentState({ refOperation: item.op })}
-                                className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
-                                    currentState.refOperation === item.op
-                                    ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' 
-                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                                }`}
-                            >
-                                <item.icon size={18} className="mt-0.5 shrink-0" />
-                                <div>
-                                    <span className="block text-sm font-medium">{item.label}</span>
-                                    <span className="block text-xs opacity-70 mt-0.5">{item.desc}</span>
-                                </div>
-                            </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                        
+                        <div className="space-y-2">
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Operation</label>
+                        <div className="grid grid-cols-1 gap-2">
+                            {/* Operations Buttons */}
+                            {[
+                                { op: ReferenceOperation.APPLY_CLOTHING, label: 'Apply Clothing', desc: 'Put subject in reference outfit', icon: User },
+                                { op: ReferenceOperation.REPLACE_FACE, label: 'Replace Face', desc: 'Swap face in reference scene', icon: ImagePlus },
+                                { op: ReferenceOperation.REPLICATE_REFERENCE, label: 'Replicate Reference Image', desc: 'Recreate full scene with subject', icon: Copy },
+                            ].map(item => (
+                                <motion.button
+                                    key={item.op}
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                    onClick={() => updateCurrentState({ refOperation: item.op })}
+                                    className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
+                                        currentState.refOperation === item.op
+                                        ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' 
+                                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                                    }`}
+                                >
+                                    <item.icon size={18} className="mt-0.5 shrink-0" />
+                                    <div>
+                                        <span className="block text-sm font-medium">{item.label}</span>
+                                        <span className="block text-xs opacity-70 mt-0.5">{item.desc}</span>
+                                    </div>
+                                </motion.button>
+                            ))}
+                        </div>
+                        </div>
+                    </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* TEXT INPUT AREA */}
                 <div className="space-y-2">
@@ -669,74 +719,93 @@ function App() {
                                 mode === GenerationMode.IMG_TO_PROMPT ? "e.g. Focus on the vintage car in the background..." :
                                 "Describe the scene, lighting, style..."
                             }
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none min-h-[120px]"
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none min-h-[120px] transition-shadow"
                         />
-                        {currentState.textPrompt && (
-                            <button 
-                                onClick={() => updateCurrentState({ textPrompt: '' })}
-                                className="absolute top-3 right-3 p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
-                                title="Clear Text"
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
+                        <AnimatePresence>
+                            {currentState.textPrompt && (
+                                <motion.button 
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                    onClick={() => updateCurrentState({ textPrompt: '' })}
+                                    className="absolute top-3 right-3 p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
+                                    title="Clear Text"
+                                >
+                                    <X size={14} />
+                                </motion.button>
+                            )}
+                        </AnimatePresence>
                    </div>
                 </div>
-              </div>
+              </motion.div>
             </section>
 
             {/* Output Settings (Only for Image Generation Modes) */}
-            {(mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE) && (
-                <section className="space-y-4">
-                <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">3</div>
-                    Image Settings
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                    <label className="text-xs text-zinc-500 font-medium ml-1">Aspect Ratio</label>
-                    <div className="relative">
-                        <select 
-                        value={currentState.aspectRatio}
-                        onChange={(e) => updateCurrentState({ aspectRatio: e.target.value as AspectRatio })}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm appearance-none focus:border-yellow-500 outline-none text-zinc-300"
-                        >
-                        {ASPECT_RATIOS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                        </select>
-                        <Maximize2 className="absolute right-3 top-3 text-zinc-600 pointer-events-none w-4 h-4" />
+            <AnimatePresence>
+                {(mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE) && (
+                    <motion.section 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 overflow-hidden"
+                    >
+                    <div className="flex items-center gap-2 text-zinc-100 font-medium">
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">3</div>
+                        Image Settings
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-500 font-medium ml-1">Aspect Ratio</label>
+                        <div className="relative">
+                            <select 
+                            value={currentState.aspectRatio}
+                            onChange={(e) => updateCurrentState({ aspectRatio: e.target.value as AspectRatio })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm appearance-none focus:border-yellow-500 outline-none text-zinc-300 transition-colors cursor-pointer hover:bg-zinc-800/50"
+                            >
+                            {ASPECT_RATIOS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                            </select>
+                            <Maximize2 className="absolute right-3 top-3 text-zinc-600 pointer-events-none w-4 h-4" />
+                        </div>
+                        </div>
+                        <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-500 font-medium ml-1">Resolution</label>
+                        <div className="relative">
+                            <select 
+                            value={currentState.resolution}
+                            onChange={(e) => updateCurrentState({ resolution: e.target.value as Resolution })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm appearance-none focus:border-yellow-500 outline-none text-zinc-300 transition-colors cursor-pointer hover:bg-zinc-800/50"
+                            >
+                            {RESOLUTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                            </select>
+                            <Settings className="absolute right-3 top-3 text-zinc-600 pointer-events-none w-4 h-4" />
+                        </div>
+                        </div>
                     </div>
-                    <div className="space-y-1.5">
-                    <label className="text-xs text-zinc-500 font-medium ml-1">Resolution</label>
-                    <div className="relative">
-                        <select 
-                        value={currentState.resolution}
-                        onChange={(e) => updateCurrentState({ resolution: e.target.value as Resolution })}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm appearance-none focus:border-yellow-500 outline-none text-zinc-300"
-                        >
-                        {RESOLUTIONS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                        </select>
-                        <Settings className="absolute right-3 top-3 text-zinc-600 pointer-events-none w-4 h-4" />
-                    </div>
-                    </div>
-                </div>
-                </section>
-            )}
+                    </motion.section>
+                )}
+            </AnimatePresence>
 
-          </div>
+          </motion.div>
 
           {/* Footer Action */}
           <div className="mt-auto p-6 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm">
-             {error && (
-              <div className="mb-4 bg-red-900/20 border border-red-800/50 rounded-lg p-3 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
-                <AlertCircle className="text-red-500 shrink-0 w-5 h-5 mt-0.5" />
-                <p className="text-sm text-red-200 leading-snug">{error}</p>
-              </div>
-            )}
+             <AnimatePresence>
+                {error && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="mb-4 bg-red-900/20 border border-red-800/50 rounded-lg p-3 flex items-start gap-3"
+                    >
+                        <AlertCircle className="text-red-500 shrink-0 w-5 h-5 mt-0.5" />
+                        <p className="text-sm text-red-200 leading-snug">{error}</p>
+                    </motion.div>
+                )}
+             </AnimatePresence>
             
             <Button 
               onClick={handleGenerate} 
@@ -756,7 +825,12 @@ function App() {
         <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden">
           
           {/* Canvas Toolbar */}
-          <div className="h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950 z-10">
+          <motion.div 
+             initial={{ y: -20, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             transition={{ delay: 0.2 }}
+             className="h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950 z-10"
+          >
             <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
                 {currentState.generatedText ? 'Generated Prompt' : 'Result Canvas'}
             </h2>
@@ -800,208 +874,272 @@ function App() {
                 </>
               )}
             </div>
-          </div>
+          </motion.div>
 
           {/* Canvas Viewport */}
           <div className={`flex-1 flex items-center justify-center bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] relative ${currentState.generatedText ? 'overflow-auto p-8' : 'overflow-hidden'}`}>
              
              {/* 1. Full Screen Progress UI (Images Only) */}
-             {isGenerating && showFullProgress ? (
-                <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-8 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-300 shadow-2xl max-w-md w-full">
-                   <div className="w-16 h-16 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-6 relative">
-                     <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30 animate-ping"></div>
-                     <Sparkles className="w-8 h-8 text-yellow-500 animate-pulse relative z-10" />
-                   </div>
-                   
-                   <div className="space-y-4">
-                      <h3 className="text-xl font-medium text-white text-center">{progressStep}</h3>
-                      <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative">
-                         <div 
-                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full transition-none"
-                            style={{ width: `${Math.min(100, Math.max(0, visualProgress))}%` }}
-                         />
-                      </div>
-                      <div className="flex justify-between text-xs text-zinc-500 font-medium uppercase tracking-wider">
-                        <span>Processing</span>
-                        <span>{Math.floor(visualProgress)}%</span>
-                      </div>
-                   </div>
-                </div>
-             ) : (
-                /* 2. Content (Specific to Current Mode) */
-                <>
-                  {/* TEXT RESULT VIEW */}
-                  {currentState.generatedText && (
-                      <div className="w-full max-w-3xl h-full flex flex-col animate-in zoom-in-95 duration-300">
-                          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl overflow-y-auto relative group">
-                              <button 
-                                  onClick={() => updateCurrentState({ generatedText: null })}
-                                  className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
-                                  title="Clear Result"
-                              >
-                                <X size={16} />
-                              </button>
-                              <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
-                                  {currentState.generatedText}
-                              </pre>
-                          </div>
-                      </div>
-                  )}
-
-                  {/* IMAGE RESULT VIEW */}
-                  {!currentState.generatedText && (
-                    <>
-                        {currentState.comparisonImage && (
-                            <div className="absolute left-4 bottom-4 md:left-8 md:bottom-8 lg:top-1/2 lg:-translate-y-1/2 w-48 lg:w-64 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl z-20 animate-in slide-in-from-right-10 fade-in duration-500">
-                            <div className="relative group">
-                                <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
-                                <button 
-                                    onClick={() => updateCurrentState({ comparisonImage: null })} 
-                                    className="absolute -top-3 -right-3 bg-zinc-800 text-white rounded-full p-1.5 border border-zinc-600 shadow-lg hover:bg-red-600 transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
-                                <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-[10px] text-white/90 backdrop-blur-md font-medium">Previous</div>
-                            </div>
-                            </div>
-                        )}
-
-                        {currentState.generatedImage ? (
-                            <div 
-                                className="w-full h-full flex items-center justify-center relative touch-none"
-                                onMouseDown={handleMouseDown}
-                                onMouseMove={handleMouseMove}
-                                onMouseUp={handleMouseUp}
-                                onMouseLeave={handleMouseUp}
-                                onWheel={handleWheel}
-                                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+             <AnimatePresence mode="wait">
+                {isGenerating && showFullProgress ? (
+                    <motion.div 
+                       key="loading"
+                       initial={{ opacity: 0, scale: 0.95 }}
+                       animate={{ opacity: 1, scale: 1 }}
+                       exit={{ opacity: 0, scale: 1.05 }}
+                       className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-8 backdrop-blur-sm shadow-2xl max-w-md w-full"
+                    >
+                        <div className="w-16 h-16 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-6 relative">
+                            <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30 animate-ping"></div>
+                            <motion.div
+                               animate={{ rotate: 360 }}
+                               transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                             >
-                                <div 
-                                   className="relative group shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800 animate-in zoom-in-95 duration-500 max-w-full max-h-full p-8"
-                                   style={{ 
-                                       transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, 
-                                       transition: isDragging ? 'none' : 'transform 0.1s ease-out' 
-                                   }}
+                                <Sparkles className="w-8 h-8 text-yellow-500" />
+                            </motion.div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-medium text-white text-center">{progressStep}</h3>
+                            <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative">
+                                <motion.div 
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min(100, Math.max(0, visualProgress))}%` }}
+                                    transition={{ ease: "linear" }}
+                                >
+                                    <motion.div 
+                                        className="absolute inset-0 bg-white/20"
+                                        animate={{ x: ['-100%', '100%'] }}
+                                        transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                    />
+                                </motion.div>
+                            </div>
+                            <div className="flex justify-between text-xs text-zinc-500 font-medium uppercase tracking-wider">
+                                <span>Processing</span>
+                                <span>{Math.floor(visualProgress)}%</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                ) : (
+                    /* 2. Content (Specific to Current Mode) */
+                    <motion.div 
+                        key="content" 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="w-full h-full flex items-center justify-center"
+                    >
+                        {/* TEXT RESULT VIEW */}
+                        {currentState.generatedText ? (
+                            <div className="w-full max-w-3xl h-full flex flex-col">
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl overflow-y-auto relative group"
                                 >
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
-                                        className="absolute top-12 right-12 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
-                                        title="Close Image"
+                                        onClick={() => updateCurrentState({ generatedText: null })}
+                                        className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
+                                        title="Clear Result"
                                     >
-                                        <X size={18} />
+                                        <X size={16} />
                                     </button>
-                                    <img 
-                                        src={currentState.generatedImage} 
-                                        alt="Generated result" 
-                                        draggable={false}
-                                        className="max-h-[calc(100vh-16rem)] object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-lg select-none" 
-                                    />
-                                </div>
-
-                                {/* Zoom Controls */}
-                                <div 
-                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 px-4 py-2 rounded-full backdrop-blur-md z-30 shadow-xl"
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                >
-                                   <button 
-                                      onClick={handleZoomOut} 
-                                      className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                      disabled={zoom <= 0.5}
-                                   >
-                                      <ZoomOut size={16}/>
-                                   </button>
-                                   
-                                   <input 
-                                      type="range" 
-                                      min="0.5" 
-                                      max="5" 
-                                      step="0.1" 
-                                      value={zoom}
-                                      onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                      className="w-24 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500 hover:accent-yellow-400"
-                                   />
-
-                                   <button 
-                                      onClick={handleZoomIn} 
-                                      className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                      disabled={zoom >= 5}
-                                   >
-                                      <ZoomIn size={16}/>
-                                   </button>
-                                   
-                                   <div className="w-px h-4 bg-zinc-700"></div>
-                                   
-                                   <span className="text-xs font-mono text-zinc-300 w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
-                                   
-                                   <div className="w-px h-4 bg-zinc-700"></div>
-
-                                   <button 
-                                      onClick={handleZoomToFit} 
-                                      className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                      title="Zoom to Fit"
-                                   >
-                                      <Scan size={14}/>
-                                   </button>
-                                </div>
+                                    <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
+                                        {currentState.generatedText}
+                                    </pre>
+                                </motion.div>
                             </div>
                         ) : (
-                            /* Placeholder only if no text result either */
-                            !isGenerating && (
-                                <div className="text-center space-y-6 max-w-md w-full opacity-60">
-                                <div className="space-y-4">
-                                    <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
-                                    <ImagePlus className="w-10 h-10 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                            /* IMAGE RESULT VIEW */
+                            <>
+                                {currentState.comparisonImage && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        className="absolute left-4 bottom-4 md:left-8 md:bottom-8 lg:top-1/2 lg:-translate-y-1/2 w-48 lg:w-64 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl z-20"
+                                    >
+                                    <div className="relative group">
+                                        <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
+                                        <button 
+                                            onClick={() => updateCurrentState({ comparisonImage: null })} 
+                                            className="absolute -top-3 -right-3 bg-zinc-800 text-white rounded-full p-1.5 border border-zinc-600 shadow-lg hover:bg-red-600 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                        <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-[10px] text-white/90 backdrop-blur-md font-medium">Previous</div>
                                     </div>
-                                    <div>
-                                    <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
-                                    <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
-                                        Select a mode above to start generating images or prompts.
-                                    </p>
-                                    </div>
-                                </div>
-                                </div>
-                            )
-                        )}
-                    </>
-                  )}
+                                    </motion.div>
+                                )}
 
-                  {/* Mini Progress Widget (For Text Gen or minimized Image Gen) */}
-                  {isGenerating && !showFullProgress && (
-                     <div className="absolute bottom-6 right-6 w-72 bg-zinc-900/90 border border-yellow-500/30 p-4 rounded-xl shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-4 duration-300 z-30">
+                                {currentState.generatedImage ? (
+                                    <div 
+                                        className="w-full h-full flex items-center justify-center relative touch-none"
+                                        onMouseDown={handleMouseDown}
+                                        onMouseMove={handleMouseMove}
+                                        onMouseUp={handleMouseUp}
+                                        onMouseLeave={handleMouseUp}
+                                        onWheel={handleWheel}
+                                        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                                    >
+                                        <motion.div 
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            className="relative group shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800 max-w-full max-h-full p-8"
+                                            style={{ 
+                                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, 
+                                                transition: isDragging ? 'none' : 'transform 0.1s ease-out' 
+                                            }}
+                                        >
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
+                                                className="absolute top-12 right-12 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
+                                                title="Close Image"
+                                            >
+                                                <X size={18} />
+                                            </button>
+                                            <img 
+                                                src={currentState.generatedImage} 
+                                                alt="Generated result" 
+                                                draggable={false}
+                                                className="max-h-[calc(100vh-16rem)] object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-lg select-none" 
+                                            />
+                                        </motion.div>
+
+                                        {/* Zoom Controls */}
+                                        <motion.div 
+                                            initial={{ y: 20, opacity: 0 }}
+                                            animate={{ y: 0, opacity: 1 }}
+                                            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 px-4 py-2 rounded-full backdrop-blur-md z-30 shadow-xl"
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        >
+                                        <button 
+                                            onClick={handleZoomOut} 
+                                            className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                            disabled={zoom <= 0.5}
+                                        >
+                                            <ZoomOut size={16}/>
+                                        </button>
+                                        
+                                        <input 
+                                            type="range" 
+                                            min="0.5" 
+                                            max="5" 
+                                            step="0.1" 
+                                            value={zoom}
+                                            onChange={(e) => setZoom(parseFloat(e.target.value))}
+                                            className="w-24 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500 hover:accent-yellow-400"
+                                        />
+
+                                        <button 
+                                            onClick={handleZoomIn} 
+                                            className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                            disabled={zoom >= 5}
+                                        >
+                                            <ZoomIn size={16}/>
+                                        </button>
+                                        
+                                        <div className="w-px h-4 bg-zinc-700"></div>
+                                        
+                                        <span className="text-xs font-mono text-zinc-300 w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+                                        
+                                        <div className="w-px h-4 bg-zinc-700"></div>
+
+                                        <button 
+                                            onClick={handleZoomToFit} 
+                                            className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                            title="Zoom to Fit"
+                                        >
+                                            <Scan size={14}/>
+                                        </button>
+                                        </motion.div>
+                                    </div>
+                                ) : (
+                                    /* Placeholder only if no text result either */
+                                    !isGenerating && (
+                                        <motion.div 
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-center space-y-6 max-w-md w-full opacity-60"
+                                        >
+                                        <div className="space-y-4">
+                                            <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
+                                            <ImagePlus className="w-10 h-10 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                                            </div>
+                                            <div>
+                                            <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
+                                            <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
+                                                Select a mode above to start generating images or prompts.
+                                            </p>
+                                            </div>
+                                        </div>
+                                        </motion.div>
+                                    )
+                                )}
+                            </>
+                        )}
+                    </motion.div>
+                )}
+             </AnimatePresence>
+
+              {/* Mini Progress Widget (For Text Gen or minimized Image Gen) */}
+              <AnimatePresence>
+                {isGenerating && !showFullProgress && (
+                     <motion.div 
+                        initial={{ opacity: 0, y: 20, x: 20 }}
+                        animate={{ opacity: 1, y: 0, x: 0 }}
+                        exit={{ opacity: 0, y: 20, x: 20 }}
+                        className="absolute bottom-6 right-6 w-72 bg-zinc-900/90 border border-yellow-500/30 p-4 rounded-xl shadow-2xl backdrop-blur-md z-30"
+                     >
                          <div className="flex items-center justify-between mb-3">
                              <div className="flex items-center gap-2 text-yellow-500">
-                                 <span className="animate-spin"><Sparkles size={14}/></span>
+                                 <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
                                  <span className="text-xs font-bold tracking-wide uppercase">Working...</span>
                              </div>
                              <span className="text-xs text-zinc-400 font-mono">{Math.floor(visualProgress)}%</span>
                          </div>
-                         <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2">
-                             <div 
-                               className="h-full bg-yellow-500 transition-none" 
+                         <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
+                             <motion.div 
+                               className="absolute h-full bg-yellow-500" 
                                style={{width: `${visualProgress}%`}} 
-                             />
+                             >
+                                <motion.div 
+                                    className="absolute inset-0 bg-white/30"
+                                    animate={{ x: ['-100%', '100%'] }}
+                                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                />
+                             </motion.div>
                          </div>
                          <p className="text-[10px] text-zinc-500 truncate font-medium">{progressStep}</p>
-                     </div>
+                     </motion.div>
                   )}
-                </>
-             )}
+              </AnimatePresence>
           </div>
 
           {/* History Strip (Global History) */}
-          <div className="h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center px-6 gap-4 overflow-x-auto">
+          <motion.div 
+             initial={{ y: 50, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             transition={{ delay: 0.3 }}
+             className="h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center px-6 gap-4 overflow-x-auto"
+          >
              {history.length === 0 ? (
                <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
              ) : (
                history.map(item => (
-                 <button 
+                 <motion.button 
+                   layout
+                   initial={{ opacity: 0, scale: 0.8 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
                    key={item.id}
                    onClick={() => handleHistorySelect(item)}
-                   className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all relative group flex flex-col items-center justify-center ${
+                   className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
                      !isGenerating && (
                        (item.type === 'image' && currentState.generatedImage === item.url) || 
                        (item.type === 'text' && currentState.generatedText === item.text)
-                     ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100 hover:border-zinc-600'
+                     ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
                    }`}
                    title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
                  >
@@ -1021,10 +1159,10 @@ function App() {
                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {item.type === 'text' && <div className="bg-zinc-950/80 p-1 rounded text-yellow-500"><Type size={10} /></div>}
                    </div>
-                 </button>
+                 </motion.button>
                ))
              )}
-          </div>
+          </motion.div>
 
         </section>
       </main>
