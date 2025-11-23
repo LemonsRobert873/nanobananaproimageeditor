@@ -3,11 +3,12 @@ import {
   Settings, Sparkles, AlertCircle, Download, CheckCircle, 
   Layers, Type, Key, ImagePlus, User, Maximize2, Copy, X, 
   FileText, Wand2, ToggleLeft, ToggleRight, Trash2, ArrowRight,
-  MessageSquare, ZoomIn, ZoomOut, RotateCcw
+  MessageSquare, ZoomIn, ZoomOut, RotateCcw, BookOpen
 } from 'lucide-react';
 import Button from './components/Button';
 import FileUpload from './components/FileUpload';
 import KeySettings from './components/KeySettings';
+import GuideModal from './components/GuideModal';
 import { 
   GenerationMode, 
   ReferenceOperation, 
@@ -43,6 +44,7 @@ function App() {
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [showKeySettings, setShowKeySettings] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.IMAGE_EDIT);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   
@@ -432,6 +434,11 @@ function App() {
         currentKey={apiKey}
       />
       
+      <GuideModal 
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+      />
+      
       {/* --- Top Bar --- */}
       <header className="flex-none h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md z-20">
         <div className="max-w-[1800px] mx-auto px-4 h-full flex items-center justify-between">
@@ -469,8 +476,16 @@ function App() {
             </nav>
           </div>
 
-          {/* Right API Key */}
-          <div className="flex items-center justify-end w-48 shrink-0">
+          {/* Right API Key & Guide */}
+          <div className="flex items-center justify-end gap-3 w-auto shrink-0">
+            <button 
+              onClick={() => setShowGuide(true)}
+              className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all"
+            >
+              <BookOpen size={14} />
+              <span className="hidden sm:inline">Guide</span>
+            </button>
+
             <button 
               onClick={handleKeyClick}
               className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border transition-all ${
