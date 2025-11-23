@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation } from '../types';
 import { MODEL_NAME, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
@@ -58,26 +59,40 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
   const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
   try {
-    updateProgress("Processing input images...", 10);
-    const subjectB64 = await fileToBase64(subjectImage);
     const parts: any[] = [];
     
     // --- MODE 1: Image Edit (Formerly Text Prompt) ---
     if (mode === GenerationMode.IMAGE_EDIT) {
-      updateProgress("Constructing prompt...", 25);
-      parts.push({
-        inlineData: { mimeType: subjectImage.type, data: subjectB64 }
-      });
-      
-      parts.push({ 
-        text: `The first image provided is the REFERENCE IDENTITY (face/character). Generate a new image of this person. ${textPrompt}` 
-      });
+      if (subjectImage) {
+        // Workflow 1: Subject Image + Prompt -> Identity-preserving edit
+        updateProgress("Processing subject image...", 10);
+        const subjectB64 = await fileToBase64(subjectImage);
+        
+        updateProgress("Constructing identity prompt...", 25);
+        parts.push({
+          inlineData: { mimeType: subjectImage.type, data: subjectB64 }
+        });
+        
+        parts.push({ 
+          text: `The first image provided is the REFERENCE IDENTITY (face/character). Generate a new image of this person. ${textPrompt}` 
+        });
+      } else {
+        // Workflow 2: Prompt Only -> Standard Text to Image
+        updateProgress("Constructing generation prompt...", 10);
+        parts.push({
+          text: textPrompt
+        });
+      }
 
       updateProgress("Generating image with Gemini Pro...", 50);
 
     } 
     // --- MODE 2: Image to Image Edit (Formerly Image Reference) ---
     else if (mode === GenerationMode.IMAGE_TO_IMAGE && referenceImage) {
+      if (!subjectImage) throw new Error(ERRORS.MISSING_SUBJECT);
+
+      updateProgress("Processing input images...", 10);
+      const subjectB64 = await fileToBase64(subjectImage);
       const refB64 = await fileToBase64(referenceImage);
       
       if (referenceOperation === ReferenceOperation.APPLY_CLOTHING) {
@@ -195,7 +210,7 @@ ${textPrompt ? `ADDITIONAL USER NOTES: ${textPrompt}` : ""}`
         });
         
         parts.push({
-          text: `Image 1 is the TARGET SCENE. Image 2 is the SOURCE FACE. Replace the face in Image 1 with the face from Image 2.
+          text: `Image 1 is the TARGET SCENE. Image 2 is the SOURCE FACE. Replace the face in Image 1 with the face in Image 2.
 CRITICAL INSTRUCTIONS FOR SEAMLESS BLENDING:
 1. LIGHTING MATCH: The new face must have the exact same lighting direction, intensity, color temperature, and shadow fallout as the original face in Image 1.
 2. SKIN TONE & TEXTURE: Adapt the skin tone of the source face to match the color grading and film grain of Image 1.

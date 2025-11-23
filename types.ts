@@ -1,3 +1,4 @@
+
 export enum GenerationMode {
   IMAGE_EDIT = 'IMAGE_EDIT',            // Formerly Text Prompt
   IMAGE_TO_IMAGE = 'IMAGE_TO_IMAGE',    // Formerly Image Reference
@@ -26,14 +27,25 @@ export enum Resolution {
 }
 
 export interface GeneratedImage {
+  type: 'image';
   id: string;
   url: string;
   timestamp: number;
   prompt: string;
 }
 
+export interface GeneratedText {
+  type: 'text';
+  id: string;
+  text: string;
+  timestamp: number;
+  sourcePrompt: string;
+}
+
+export type HistoryItem = GeneratedImage | GeneratedText;
+
 export interface GenerateParams {
-  subjectImage: File;
+  subjectImage?: File;
   mode: GenerationMode;
   textPrompt: string;
   referenceImage?: File;

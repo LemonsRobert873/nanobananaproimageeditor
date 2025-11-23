@@ -52,11 +52,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <div className={`w-full ${className}`}>
-      <div className="flex justify-between items-baseline mb-2">
-        <label className="block text-sm font-medium text-zinc-200">
-          {label} {required && <span className="text-yellow-500">*</span>}
-        </label>
-      </div>
+      {label && (
+        <div className="flex justify-between items-baseline mb-2">
+          <label className="block text-sm font-medium text-zinc-200">
+            {label} {required && <span className="text-yellow-500">*</span>}
+          </label>
+        </div>
+      )}
       
       <div 
         onClick={() => inputRef.current?.click()}

@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, Sparkles, AlertCircle, Download, CheckCircle, 
   Layers, Type, Key, ImagePlus, User, Maximize2, Copy, X, 
-  FileText, Wand2, ToggleLeft, ToggleRight, Trash2, ArrowRight
+  FileText, Wand2, ToggleLeft, ToggleRight, Trash2, ArrowRight,
+  MessageSquare
 } from 'lucide-react';
 import Button from './components/Button';
 import FileUpload from './components/FileUpload';
@@ -13,6 +15,8 @@ import {
   AspectRatio, 
   Resolution, 
   GeneratedImage,
+  GeneratedText,
+  HistoryItem,
   GenerateParams,
   PromptGenParams,
   ModeState
@@ -41,7 +45,7 @@ function App() {
   const [apiKey, setApiKey] = useState<string>('');
   const [showKeySettings, setShowKeySettings] = useState(false);
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.IMAGE_EDIT);
-  const [history, setHistory] = useState<GeneratedImage[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   
   // --- State: Per Mode ---
   const [modeStates, setModeStates] = useState<Record<GenerationMode, ModeState>>({
@@ -213,11 +217,16 @@ function App() {
     }
 
     // Validation
-    if (mode === GenerationMode.IMAGE_EDIT && !currentState.subjectImage) return setError(ERRORS.MISSING_SUBJECT);
-    if (mode === GenerationMode.IMAGE_EDIT && !currentState.textPrompt.trim()) return setError(ERRORS.MISSING_PROMPT);
+    // IMAGE_EDIT: Subject is now optional. If present -> Identity Edit. If absent -> Prompt Gen.
+    if (mode === GenerationMode.IMAGE_EDIT) {
+       if (!currentState.textPrompt.trim()) return setError(ERRORS.MISSING_PROMPT);
+       // Note: We don't error on missing subject anymore for this mode.
+    }
     
-    if (mode === GenerationMode.IMAGE_TO_IMAGE && !currentState.subjectImage) return setError(ERRORS.MISSING_SUBJECT);
-    if (mode === GenerationMode.IMAGE_TO_IMAGE && !currentState.referenceImage) return setError(ERRORS.MISSING_REF);
+    if (mode === GenerationMode.IMAGE_TO_IMAGE) {
+       if (!currentState.subjectImage) return setError(ERRORS.MISSING_SUBJECT);
+       if (!currentState.referenceImage) return setError(ERRORS.MISSING_REF);
+    }
     
     if (mode === GenerationMode.IMG_TO_PROMPT && !currentState.subjectImage) return setError(ERRORS.MISSING_SUBJECT);
     
@@ -236,7 +245,7 @@ function App() {
     try {
       if (isImageGen) {
           const params: GenerateParams = {
-            subjectImage: currentState.subjectImage!,
+            subjectImage: currentState.subjectImage || undefined,
             mode,
             textPrompt: currentState.textPrompt,
             referenceImage: currentState.referenceImage || undefined,
@@ -260,6 +269,7 @@ function App() {
           updateCurrentState({ generatedImage: imageUrl });
           
           const newHistoryItem: GeneratedImage = {
+            type: 'image',
             id: Date.now().toString(),
             url: imageUrl,
             timestamp: Date.now(),
@@ -287,6 +297,15 @@ function App() {
           await new Promise(resolve => setTimeout(resolve, 600));
 
           updateCurrentState({ generatedText: promptText });
+          
+          const newHistoryItem: GeneratedText = {
+            type: 'text',
+            id: Date.now().toString(),
+            text: promptText,
+            timestamp: Date.now(),
+            sourcePrompt: currentState.textPrompt || "Image analysis"
+          };
+          setHistory(prev => [newHistoryItem, ...prev]);
       }
 
     } catch (err: any) {
@@ -313,17 +332,22 @@ function App() {
     }
   };
 
-  const handleHistorySelect = (url: string) => {
-    // When selecting history, we simply show it in the current mode's viewer
-    // Note: History is image-only, so we treat it as an image result
-    updateCurrentState({ generatedImage: url, generatedText: null });
+  const handleHistorySelect = (item: HistoryItem) => {
+    if (item.type === 'image') {
+      updateCurrentState({ generatedImage: item.url, generatedText: null });
+      // If we are in a prompt gen mode, switch to an image mode to view it properly?
+      // For now, assume user knows what they are doing. The Canvas renders based on state.
+    } else if (item.type === 'text') {
+      updateCurrentState({ generatedText: item.text, generatedImage: null });
+    }
+    
     if (isGenerating) setShowFullProgress(false);
   };
 
   const handleDownload = (url: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `remix-${Date.now()}.png`;
+    link.download = `nanobanana-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -367,11 +391,11 @@ function App() {
         <div className="max-w-[1800px] mx-auto px-4 h-full flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex items-center gap-3 w-48 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-zinc-950 font-bold text-lg shadow-lg shadow-yellow-900/20">
-              <span className="translate-y-[1px]">N</span>
+          <div className="flex items-center gap-2 w-auto min-w-[200px] shrink-0">
+            <div className="text-2xl">
+              🍌
             </div>
-            <span className="font-semibold text-zinc-100 tracking-tight hidden md:inline">NanoBanana Pro Studio</span>
+            <span className="font-semibold text-zinc-100 tracking-tight hidden md:inline whitespace-nowrap">NanoBanana Pro Studio</span>
           </div>
 
           {/* Center Mode Tabs */}
@@ -429,14 +453,35 @@ function App() {
                 <section className="space-y-4">
                 <div className="flex items-center gap-2 text-zinc-100 font-medium">
                     <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
-                    {mode === GenerationMode.IMG_TO_PROMPT ? 'Input Image' : 'Subject Face'}
+                    <div className="flex items-center">
+                        {mode === GenerationMode.IMG_TO_PROMPT ? 'Input Image' : 'Subject Face'}
+                        {mode !== GenerationMode.IMAGE_EDIT && <span className="text-yellow-500 ml-1">*</span>}
+                        {mode === GenerationMode.IMAGE_EDIT && <span className="text-zinc-500 text-xs ml-2 font-normal">(Optional)</span>}
+                    </div>
                 </div>
+                
+                {/* Image Edit Mode Status Indicator */}
+                {mode === GenerationMode.IMAGE_EDIT && (
+                    <div className="mb-2">
+                        {currentState.subjectImage ? (
+                            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-950/20 px-3 py-2 rounded-lg border border-green-900/50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
+                                <span className="font-medium">Identity-locked mode active</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-950/20 px-3 py-2 rounded-lg border border-blue-900/50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                                <span className="font-medium">Prompt-only generation mode</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <FileUpload 
                     label="" 
                     helperText={mode === GenerationMode.IMG_TO_PROMPT ? "Upload image to analyze." : "Clear front-facing photo of the subject."}
                     selectedFile={currentState.subjectImage}
                     onFileSelect={(f) => updateCurrentState({ subjectImage: f })}
-                    required
                 />
                 </section>
             )}
@@ -804,12 +849,31 @@ function App() {
                history.map(item => (
                  <button 
                    key={item.id}
-                   onClick={() => handleHistorySelect(item.url)}
-                   className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all relative group ${
-                     !isGenerating && currentState.generatedImage === item.url ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
+                   onClick={() => handleHistorySelect(item)}
+                   className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all relative group flex flex-col items-center justify-center ${
+                     !isGenerating && (
+                       (item.type === 'image' && currentState.generatedImage === item.url) || 
+                       (item.type === 'text' && currentState.generatedText === item.text)
+                     ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100 hover:border-zinc-600'
                    }`}
+                   title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
                  >
-                   <img src={item.url} className="w-full h-full object-cover" alt="History" />
+                   {item.type === 'image' ? (
+                       <img src={item.url} className="w-full h-full object-cover" alt="History" />
+                   ) : (
+                       <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
+                           <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
+                           <div className="w-full space-y-1">
+                                <div className="h-1 w-full bg-zinc-800 rounded-full" />
+                                <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
+                                <div className="h-1 w-1/2 bg-zinc-800 rounded-full" />
+                           </div>
+                       </div>
+                   )}
+                   {/* Type Indicator Icon Overlay */}
+                   <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {item.type === 'text' && <div className="bg-zinc-950/80 p-1 rounded text-yellow-500"><Type size={10} /></div>}
+                   </div>
                  </button>
                ))
              )}
