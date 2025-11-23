@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -50,6 +51,9 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                     </div>
                     <div>
                        <h4 className="text-zinc-200 font-medium mb-1">Getting Started</h4>
+                       <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                          <strong>NanoBanana Pro Studio</strong> is exclusively powered by the <strong>Nano Banana Pro (Gemini 3 Pro)</strong> model. This engine delivers industry-leading adherence to prompts, photorealistic textures, and superior identity consistency at up to 4K resolution.
+                       </p>
                        <p className="text-zinc-400 text-sm leading-relaxed">
                           Before generating, ensure you have set your <strong>Google Gemini API Key</strong> using the key button in the top right. 
                           This application runs entirely in your browser; your key and images are sent directly to the Gemini API and are not stored on any intermediate server.
@@ -66,23 +70,25 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                      <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3">
-                        <div className="text-xs font-bold text-blue-400 uppercase tracking-wider">Identity-Locked Generation</div>
+                        <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles size={12} /> Identity-Locked Generation
+                        </div>
                         <p className="text-sm text-zinc-400">
-                           Upload a <strong>Subject Face</strong> image and provide a text prompt. The system will generate a new image matching your prompt while rigorously preserving the facial features of the subject.
+                           Upload a <strong>Subject Face</strong> image and provide a text prompt. The Pro model will generate a new image matching your prompt while rigorously preserving the facial features, skin texture, and identity of the subject.
                         </p>
                         <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1">
                            <li>Input: Subject Image + Prompt</li>
-                           <li>Best for: Portraits, Character consistency</li>
+                           <li>Best for: Character consistency, Photorealistic portraits</li>
                         </ul>
                      </div>
                      <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3">
                         <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Standard Text-to-Image</div>
                         <p className="text-sm text-zinc-400">
-                           Leave the subject image empty and just provide a text prompt. The model will generate a high-fidelity image based solely on your description.
+                           Leave the subject image empty and just provide a text prompt. The model will generate a high-fidelity image based solely on your description, capable of complex lighting and composition.
                         </p>
                         <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1">
                            <li>Input: Prompt Only</li>
-                           <li>Best for: Scenery, Art, Generic subjects</li>
+                           <li>Best for: Scenery, Conceptual Art, Generic subjects</li>
                         </ul>
                      </div>
                   </div>
@@ -101,8 +107,8 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                      <div className="grid gap-4 md:grid-cols-3">
                         {[
                             { icon: User, title: 'Apply Clothing', desc: 'Takes the face from the Subject image and puts it into the outfit shown in the Reference image.' },
-                            { icon: ImagePlus, title: 'Replace Face', desc: 'Keeps the Reference image scene exactly as is, but swaps the face with the Subject face.' },
-                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes the structure/lighting of the Reference image to create a similar shot featuring the Subject.' },
+                            { icon: ImagePlus, title: 'Replace Face', desc: 'Keeps the Reference image scene exactly as is (lighting, shadows, depth) but swaps the face with the Subject.' },
+                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes the structure/lighting of the Reference image to create a brand new shot featuring the Subject.' },
                         ].map((item, i) => (
                             <div key={i} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
                                 <div className="flex items-center gap-2 mb-2 text-purple-400">
@@ -125,7 +131,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                       </div>
                       <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 h-full">
                          <p className="text-sm text-zinc-400">
-                            Upload an image to reverse-engineer a highly detailed prompt. The AI analyzes lighting, camera settings, and composition.
+                            Upload an image to reverse-engineer a highly detailed prompt. The AI analyzes lighting, camera settings, and composition to give you the "recipe" for that image.
                          </p>
                          <div className="text-xs text-zinc-500 p-3 bg-black/20 rounded border border-zinc-800/50">
                             Useful for learning how to prompt or extracting style metadata from existing images.
@@ -139,7 +145,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                       </div>
                       <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 h-full">
                          <p className="text-sm text-zinc-400">
-                            Enter a short, simple idea (e.g., "Cyberpunk cat"), and the AI will expand it into a professional, paragraph-long prompt optimized for generation.
+                            Enter a short, simple idea (e.g., "Cyberpunk cat"), and the AI will expand it into a professional, paragraph-long prompt optimized for the Nano Banana Pro model.
                          </p>
                       </div>
                    </div>

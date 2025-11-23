@@ -1,3 +1,4 @@
+
 // The mapping for Nano Banana Pro as per instructions
 export const MODEL_NAME = 'gemini-3-pro-image-preview';
 export const ANALYSIS_MODEL = 'gemini-2.5-flash';
