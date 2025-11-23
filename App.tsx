@@ -68,6 +68,7 @@ function App() {
   const [pan, setPan] = useState<{x: number, y: number}>({x: 0, y: 0});
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{x: number, y: number}>({x: 0, y: 0});
+  const [isSpaceHeld, setIsSpaceHeld] = useState(false);
   
   const serviceProgressRef = useRef<number>(0);
 
@@ -88,7 +89,6 @@ function App() {
       let keyFound = false;
 
       // 1. Check for environment variable key safely
-      // Wrap in try/catch to avoid reference errors if process is not defined in browser
       try {
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
             keyFound = true;
@@ -166,6 +166,33 @@ function App() {
     setZoom(1);
     setPan({x: 0, y: 0});
   }, [currentState.generatedImage]);
+
+  // Global Keyboard Listeners (Spacebar for Pan)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in an input/textarea
+      const isTyping = document.activeElement?.tagName === 'INPUT' || 
+                       document.activeElement?.tagName === 'TEXTAREA';
+      
+      if (e.code === 'Space' && !e.repeat && !isTyping) {
+        e.preventDefault(); // Prevent scrolling
+        setIsSpaceHeld(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpaceHeld(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // --- Handlers ---
   const handleKeyClick = async () => {
@@ -348,8 +375,6 @@ function App() {
   const handleHistorySelect = (item: HistoryItem) => {
     if (item.type === 'image') {
       updateCurrentState({ generatedImage: item.url, generatedText: null });
-      // If we are in a prompt gen mode, switch to an image mode to view it properly?
-      // For now, assume user knows what they are doing. The Canvas renders based on state.
     } else if (item.type === 'text') {
       updateCurrentState({ generatedText: item.text, generatedImage: null });
     }
@@ -399,14 +424,15 @@ function App() {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom > 1) {
+    // Allow dragging if zoomed in OR spacebar is held
+    if (zoom > 1 || isSpaceHeld) {
         setIsDragging(true);
         setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && zoom > 1) {
+    if (isDragging) {
         setPan({
             x: e.clientX - dragStart.x,
             y: e.clientY - dragStart.y
@@ -851,7 +877,7 @@ function App() {
                                 onMouseUp={handleMouseUp}
                                 onMouseLeave={handleMouseUp}
                                 onWheel={handleWheel}
-                                style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                                style={{ cursor: isDragging ? 'grabbing' : (isSpaceHeld || zoom > 1 ? 'grab' : 'default') }}
                             >
                                 <div 
                                    className="relative group shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800 animate-in zoom-in-95 duration-500 max-w-full max-h-full p-8"
@@ -877,29 +903,45 @@ function App() {
 
                                 {/* Zoom Controls */}
                                 <div 
-                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 p-1.5 rounded-full backdrop-blur-md z-30 shadow-xl"
+                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 px-4 py-2 rounded-full backdrop-blur-md z-30 shadow-xl"
                                     onMouseDown={(e) => e.stopPropagation()}
                                 >
                                    <button 
                                       onClick={handleZoomOut} 
-                                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                      className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
                                       disabled={zoom <= 0.5}
                                    >
                                       <ZoomOut size={16}/>
                                    </button>
-                                   <span className="text-xs w-10 text-center font-mono text-zinc-300 select-none">{Math.round(zoom * 100)}%</span>
+                                   
+                                   <input 
+                                      type="range" 
+                                      min="0.5" 
+                                      max="5" 
+                                      step="0.1" 
+                                      value={zoom}
+                                      onChange={(e) => setZoom(parseFloat(e.target.value))}
+                                      className="w-24 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500 hover:accent-yellow-400"
+                                   />
+
                                    <button 
                                       onClick={handleZoomIn} 
-                                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                      className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
                                       disabled={zoom >= 5}
                                    >
                                       <ZoomIn size={16}/>
                                    </button>
-                                   <div className="w-px h-4 bg-zinc-700 mx-1"></div>
+                                   
+                                   <div className="w-px h-4 bg-zinc-700"></div>
+                                   
+                                   <span className="text-xs font-mono text-zinc-300 w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+                                   
+                                   <div className="w-px h-4 bg-zinc-700"></div>
+
                                    <button 
                                       onClick={handleResetZoom} 
-                                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                      title="Reset Zoom"
+                                      className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                      title="Reset View"
                                    >
                                       <RotateCcw size={14}/>
                                    </button>
