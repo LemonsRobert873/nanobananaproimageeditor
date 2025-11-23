@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, Sparkles, AlertCircle, Download, CheckCircle, 
@@ -445,7 +444,7 @@ function App() {
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full">
         
         {/* --- Left Column: Controls --- */}
-        <aside className="w-full lg:w-[420px] xl:w-[460px] flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800">
+        <aside className="w-full lg:w-[420px] xl:w-[460px] flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto">
           <div className="p-6 space-y-8">
             
             {/* Subject Image (Hidden for Text-to-Prompt) */}
@@ -749,7 +748,7 @@ function App() {
                   {/* TEXT RESULT VIEW */}
                   {currentState.generatedText && (
                       <div className="w-full max-w-3xl h-full flex flex-col animate-in zoom-in-95 duration-300">
-                          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl overflow-y-auto custom-scrollbar relative group">
+                          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl overflow-y-auto relative group">
                               <button 
                                   onClick={() => updateCurrentState({ generatedText: null })}
                                   className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
