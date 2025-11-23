@@ -3,7 +3,7 @@ import {
   Settings, Sparkles, AlertCircle, Download, CheckCircle, 
   Layers, Type, Key, ImagePlus, User, Maximize2, Copy, X, 
   FileText, Wand2, ToggleLeft, ToggleRight, Trash2, ArrowRight,
-  MessageSquare, ZoomIn, ZoomOut, RotateCcw, BookOpen
+  MessageSquare, ZoomIn, ZoomOut, RotateCcw, BookOpen, Scan
 } from 'lucide-react';
 import Button from './components/Button';
 import FileUpload from './components/FileUpload';
@@ -418,17 +418,14 @@ function App() {
   // Zoom Handlers
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.5, 5));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.5, 0.5));
-  const handleResetZoom = () => {
+  const handleZoomToFit = () => {
     setZoom(1);
     setPan({x: 0, y: 0});
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Allow dragging if zoomed in OR spacebar is held
-    if (zoom > 1 || isSpaceHeld) {
-        setIsDragging(true);
-        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -877,7 +874,7 @@ function App() {
                                 onMouseUp={handleMouseUp}
                                 onMouseLeave={handleMouseUp}
                                 onWheel={handleWheel}
-                                style={{ cursor: isDragging ? 'grabbing' : (isSpaceHeld || zoom > 1 ? 'grab' : 'default') }}
+                                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
                             >
                                 <div 
                                    className="relative group shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800 animate-in zoom-in-95 duration-500 max-w-full max-h-full p-8"
@@ -939,11 +936,11 @@ function App() {
                                    <div className="w-px h-4 bg-zinc-700"></div>
 
                                    <button 
-                                      onClick={handleResetZoom} 
+                                      onClick={handleZoomToFit} 
                                       className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                      title="Reset View"
+                                      title="Zoom to Fit"
                                    >
-                                      <RotateCcw size={14}/>
+                                      <Scan size={14}/>
                                    </button>
                                 </div>
                             </div>
