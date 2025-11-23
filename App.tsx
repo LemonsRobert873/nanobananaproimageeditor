@@ -369,9 +369,9 @@ function App() {
           {/* Logo */}
           <div className="flex items-center gap-3 w-48 shrink-0">
             <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-zinc-950 font-bold text-lg shadow-lg shadow-yellow-900/20">
-              <span className="translate-y-[1px]">R</span>
+              <span className="translate-y-[1px]">N</span>
             </div>
-            <span className="font-semibold text-zinc-100 tracking-tight hidden md:inline">Face Remix Studio</span>
+            <span className="font-semibold text-zinc-100 tracking-tight hidden md:inline">NanoBanana Pro Studio</span>
           </div>
 
           {/* Center Mode Tabs */}

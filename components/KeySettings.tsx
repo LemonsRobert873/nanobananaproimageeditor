@@ -34,7 +34,7 @@ const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, curr
         
         <div className="p-6 space-y-4">
           <p className="text-sm text-zinc-400 leading-relaxed">
-            To use Face Remix Studio, you need a Google Gemini API key. 
+            To use NanoBanana Pro Studio, you need a Google Gemini API key. 
             Your key is stored locally in your browser and is not sent to any backend server.
           </p>
           
