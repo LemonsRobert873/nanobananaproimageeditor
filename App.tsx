@@ -74,23 +74,23 @@ function App() {
   // --- Effects ---
   useEffect(() => {
     const checkKey = async () => {
+      let keyFound = false;
+
       // 1. Check for environment variable key safely
+      // Wrap in try/catch to avoid reference errors if process is not defined in browser
       try {
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-            setHasKey(true);
-            // If env key exists, we don't necessarily return, 
-            // because we still might want to load a user override from local storage.
+            keyFound = true;
         }
       } catch (e) {
-        // process not defined, ignore
+        // process not defined or restricted, ignore
       }
 
       // 2. Check if we are in AI Studio environment
-      if ((window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
+      if (!keyFound && (window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
         const has = await (window as any).aistudio.hasSelectedApiKey();
         if (has) {
-          setHasKey(true);
-          return;
+          keyFound = true;
         }
       }
       
@@ -98,8 +98,10 @@ function App() {
       const storedKey = localStorage.getItem('gemini_api_key');
       if (storedKey) {
         setApiKey(storedKey);
-        setHasKey(true);
+        keyFound = true;
       }
+
+      setHasKey(keyFound);
     };
     checkKey();
   }, []);
@@ -156,8 +158,20 @@ function App() {
 
   const handleSaveKey = (key: string) => {
     setApiKey(key);
-    localStorage.setItem('gemini_api_key', key);
-    setHasKey(!!key);
+    if (key) {
+      localStorage.setItem('gemini_api_key', key);
+      setHasKey(true);
+    } else {
+      localStorage.removeItem('gemini_api_key');
+      // Re-check env to see if we should still show as "Active"
+      let envHasKey = false;
+      try {
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+           envHasKey = true;
+        }
+      } catch(e) {}
+      setHasKey(envHasKey);
+    }
     setShowKeySettings(false);
   };
 

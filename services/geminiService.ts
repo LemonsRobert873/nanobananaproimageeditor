@@ -5,11 +5,13 @@ import { MODEL_NAME, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEM
 // Helper to safely access process.env (prevents crash in environments where process is undefined)
 const getEnvApiKey = (): string | undefined => {
   try {
-    // Check if process is defined (node/build env) and has env
+    // Safe check for process.env which might not exist in pure browser environments
+    // or strictly configured Vercel deployments unless polyfilled.
     if (typeof process !== 'undefined' && process.env) {
       return process.env.API_KEY;
     }
   } catch (e) {
+    // Ignore ReferenceErrors or access errors
     return undefined;
   }
   return undefined;
