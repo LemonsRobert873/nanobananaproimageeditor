@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Settings, Sparkles, AlertCircle, Download, CheckCircle, 
+  Settings, Sparkles, AlertCircle, Download, 
   Layers, Type, Key, ImagePlus, User, Maximize2, Copy, X, 
-  FileText, Wand2, Trash2, ArrowRight,
-  MessageSquare, ZoomIn, ZoomOut, Scan, BookOpen
+  FileText, Wand2, MessageSquare, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import Button from './components/Button';
@@ -63,13 +62,6 @@ function App() {
   const [showFullProgress, setShowFullProgress] = useState<boolean>(false);
   const [progressStep, setProgressStep] = useState<string>('');
   const [visualProgress, setVisualProgress] = useState<number>(0);
-  
-  // --- State: Zoom & Pan ---
-  const [zoom, setZoom] = useState<number>(1);
-  const [pan, setPan] = useState<{x: number, y: number}>({x: 0, y: 0});
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{x: number, y: number}>({x: 0, y: 0});
-  const [isSpaceHeld, setIsSpaceHeld] = useState(false);
   
   const serviceProgressRef = useRef<number>(0);
 
@@ -161,39 +153,6 @@ function App() {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
-
-  // Reset Zoom when image changes
-  useEffect(() => {
-    setZoom(1);
-    setPan({x: 0, y: 0});
-  }, [currentState.generatedImage]);
-
-  // Global Keyboard Listeners (Spacebar for Pan)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if user is typing in an input/textarea
-      const isTyping = document.activeElement?.tagName === 'INPUT' || 
-                       document.activeElement?.tagName === 'TEXTAREA';
-      
-      if (e.code === 'Space' && !e.repeat && !isTyping) {
-        e.preventDefault(); // Prevent scrolling
-        setIsSpaceHeld(true);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        setIsSpaceHeld(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
 
   // --- Handlers ---
   const handleKeyClick = async () => {
@@ -405,39 +364,6 @@ function App() {
     updateCurrentState({ subjectImage: file });
   };
 
-  // Zoom Handlers
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.5, 5));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.5, 0.5));
-  const handleZoomToFit = () => {
-    setZoom(1);
-    setPan({x: 0, y: 0});
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-        setPan({
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-        });
-    }
-  };
-
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleWheel = (e: React.WheelEvent) => {
-    if (!currentState.generatedImage) return;
-    const delta = -e.deltaY;
-    setZoom(prev => {
-        const newZoom = prev + (delta > 0 ? 0.1 : -0.1);
-        return Math.min(Math.max(0.5, newZoom), 5);
-    });
-  };
-
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-200 overflow-hidden font-sans">
       <KeySettings 
@@ -620,7 +546,7 @@ function App() {
                  className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800/50 space-y-4"
               >
                 
-                {/* PROMPT GENERATOR TOGGLE */}
+                {/* PROMPT GENERATOR TOGGLE - FIXED */}
                 {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) && (
                     <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg border border-zinc-800">
                         <div className="space-y-0.5">
@@ -629,16 +555,17 @@ function App() {
                                 {currentState.useFaceFeature ? 'Strictly maintain face identity' : 'General portrait description'}
                             </span>
                         </div>
-                        <motion.button 
-                            layout
+                        <button 
                             onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${currentState.useFaceFeature ? 'bg-yellow-500' : 'bg-zinc-700'}`}
                         >
                             <motion.span 
-                               layout
-                               className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ${currentState.useFaceFeature ? 'translate-x-6' : 'translate-x-1'}`} 
+                               initial={false}
+                               animate={{ x: currentState.useFaceFeature ? 24 : 4 }}
+                               transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                               className="inline-block h-4 w-4 rounded-full bg-white shadow-sm pointer-events-none" 
                             />
-                        </motion.button>
+                        </button>
                     </div>
                 )}
 
@@ -958,9 +885,9 @@ function App() {
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: -20 }}
-                                        className="absolute left-4 bottom-4 md:left-8 md:bottom-8 lg:top-1/2 lg:-translate-y-1/2 w-48 lg:w-64 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl z-20"
+                                        className="absolute left-4 bottom-4 md:left-8 md:bottom-8 lg:top-1/2 lg:-translate-y-1/2 w-48 lg:w-64 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl z-20 pointer-events-none"
                                     >
-                                    <div className="relative group">
+                                    <div className="relative group pointer-events-auto">
                                         <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
                                         <button 
                                             onClick={() => updateCurrentState({ comparisonImage: null })} 
@@ -974,85 +901,24 @@ function App() {
                                 )}
 
                                 {currentState.generatedImage ? (
-                                    <div 
-                                        className="w-full h-full flex items-center justify-center relative touch-none"
-                                        onMouseDown={handleMouseDown}
-                                        onMouseMove={handleMouseMove}
-                                        onMouseUp={handleMouseUp}
-                                        onMouseLeave={handleMouseUp}
-                                        onWheel={handleWheel}
-                                        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-                                    >
+                                    <div className="w-full h-full flex items-center justify-center p-4">
                                         <motion.div 
                                             initial={{ opacity: 0, scale: 0.95 }}
                                             animate={{ opacity: 1, scale: 1 }}
-                                            className="relative group shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800 max-w-full max-h-full p-8"
-                                            style={{ 
-                                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, 
-                                                transition: isDragging ? 'none' : 'transform 0.1s ease-out' 
-                                            }}
+                                            className="relative inline-flex items-center justify-center shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800"
                                         >
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
-                                                className="absolute top-12 right-12 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
+                                                onClick={() => updateCurrentState({ generatedImage: null })}
+                                                className="absolute top-4 right-4 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
                                                 title="Close Image"
                                             >
-                                                <X size={18} />
+                                                <X size={16} />
                                             </button>
                                             <img 
                                                 src={currentState.generatedImage} 
                                                 alt="Generated result" 
-                                                draggable={false}
-                                                className="max-h-[calc(100vh-16rem)] object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-lg select-none" 
+                                                className="max-w-full max-h-[85vh] w-auto h-auto object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-lg shadow-lg" 
                                             />
-                                        </motion.div>
-
-                                        {/* Zoom Controls */}
-                                        <motion.div 
-                                            initial={{ y: 20, opacity: 0 }}
-                                            animate={{ y: 0, opacity: 1 }}
-                                            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 px-4 py-2 rounded-full backdrop-blur-md z-30 shadow-xl"
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                        >
-                                        <button 
-                                            onClick={handleZoomOut} 
-                                            className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                            disabled={zoom <= 0.5}
-                                        >
-                                            <ZoomOut size={16}/>
-                                        </button>
-                                        
-                                        <input 
-                                            type="range" 
-                                            min="0.5" 
-                                            max="5" 
-                                            step="0.1" 
-                                            value={zoom}
-                                            onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                            className="w-24 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500 hover:accent-yellow-400"
-                                        />
-
-                                        <button 
-                                            onClick={handleZoomIn} 
-                                            className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                            disabled={zoom >= 5}
-                                        >
-                                            <ZoomIn size={16}/>
-                                        </button>
-                                        
-                                        <div className="w-px h-4 bg-zinc-700"></div>
-                                        
-                                        <span className="text-xs font-mono text-zinc-300 w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
-                                        
-                                        <div className="w-px h-4 bg-zinc-700"></div>
-
-                                        <button 
-                                            onClick={handleZoomToFit} 
-                                            className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
-                                            title="Zoom to Fit"
-                                        >
-                                            <Scan size={14}/>
-                                        </button>
                                         </motion.div>
                                     </div>
                                 ) : (
