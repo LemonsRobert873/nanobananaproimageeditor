@@ -115,13 +115,20 @@ function App() {
 
       setVisualProgress(current => {
         const target = serviceProgressRef.current;
+        
+        // If we haven't reached the target reported by the service
         if (current < target) {
           const diff = target - current;
+          // Smoothly approach target (ease-out), but ensure a minimum step so it finishes
           return Math.min(target, current + Math.max(0.5, diff * 0.1));
         }
-        if (current >= target && current < 90) {
-          return current + 0.05; 
+        
+        // Fake "thinking" progress: Slowly creep up if waiting for server (e.g., stuck at 50% or 90%)
+        // Cap at 99% so we don't show 100% prematurely
+        if (current >= target && current < 99) {
+          return current + 0.1; // Increased slightly to look more active
         }
+        
         return current;
       });
 
@@ -244,6 +251,12 @@ function App() {
           };
 
           const imageUrl = await generateImage(params);
+          
+          // Force progress to 100% and wait a moment for animation to finish
+          serviceProgressRef.current = 100;
+          setProgressStep("Finishing up...");
+          await new Promise(resolve => setTimeout(resolve, 600));
+
           updateCurrentState({ generatedImage: imageUrl });
           
           const newHistoryItem: GeneratedImage = {
@@ -267,6 +280,12 @@ function App() {
               apiKey: apiKey || undefined
           };
           const promptText = await generatePrompt(params);
+
+          // Force progress to 100% and wait a moment for animation to finish
+          serviceProgressRef.current = 100;
+          setProgressStep("Finalizing...");
+          await new Promise(resolve => setTimeout(resolve, 600));
+
           updateCurrentState({ generatedText: promptText });
       }
 
@@ -669,7 +688,7 @@ function App() {
                       <h3 className="text-xl font-medium text-white text-center">{progressStep}</h3>
                       <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative">
                          <div 
-                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-300 ease-linear rounded-full"
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full transition-none"
                             style={{ width: `${Math.min(100, Math.max(0, visualProgress))}%` }}
                          />
                       </div>
@@ -766,7 +785,7 @@ function App() {
                          </div>
                          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2">
                              <div 
-                               className="h-full bg-yellow-500 transition-all duration-300" 
+                               className="h-full bg-yellow-500 transition-none" 
                                style={{width: `${visualProgress}%`}} 
                              />
                          </div>
