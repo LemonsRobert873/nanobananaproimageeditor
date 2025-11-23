@@ -3,7 +3,7 @@ import {
   Settings, Sparkles, AlertCircle, Download, CheckCircle, 
   Layers, Type, Key, ImagePlus, User, Maximize2, Copy, X, 
   FileText, Wand2, ToggleLeft, ToggleRight, Trash2, ArrowRight,
-  MessageSquare
+  MessageSquare, ZoomIn, ZoomOut, RotateCcw
 } from 'lucide-react';
 import Button from './components/Button';
 import FileUpload from './components/FileUpload';
@@ -60,6 +60,12 @@ function App() {
   const [showFullProgress, setShowFullProgress] = useState<boolean>(false);
   const [progressStep, setProgressStep] = useState<string>('');
   const [visualProgress, setVisualProgress] = useState<number>(0);
+  
+  // --- State: Zoom & Pan ---
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{x: number, y: number}>({x: 0, y: 0});
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{x: number, y: number}>({x: 0, y: 0});
   
   const serviceProgressRef = useRef<number>(0);
 
@@ -152,6 +158,12 @@ function App() {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
+
+  // Reset Zoom when image changes
+  useEffect(() => {
+    setZoom(1);
+    setPan({x: 0, y: 0});
+  }, [currentState.generatedImage]);
 
   // --- Handlers ---
   const handleKeyClick = async () => {
@@ -374,6 +386,41 @@ function App() {
   const handleUseAsSubject = (url: string) => {
     const file = dataURLtoFile(url, 'generated-subject.png');
     updateCurrentState({ subjectImage: file });
+  };
+
+  // Zoom Handlers
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.5, 5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.5, 0.5));
+  const handleResetZoom = () => {
+    setZoom(1);
+    setPan({x: 0, y: 0});
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 1) {
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoom > 1) {
+        setPan({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y
+        });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!currentState.generatedImage) return;
+    const delta = -e.deltaY;
+    setZoom(prev => {
+        const newZoom = prev + (delta > 0 ? 0.1 : -0.1);
+        return Math.min(Math.max(0.5, newZoom), 5);
+    });
   };
 
   return (
@@ -718,7 +765,7 @@ function App() {
           </div>
 
           {/* Canvas Viewport */}
-          <div className="flex-1 overflow-auto p-8 flex items-center justify-center bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] relative">
+          <div className={`flex-1 flex items-center justify-center bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] relative ${currentState.generatedText ? 'overflow-auto p-8' : 'overflow-hidden'}`}>
              
              {/* 1. Full Screen Progress UI (Images Only) */}
              {isGenerating && showFullProgress ? (
@@ -782,19 +829,66 @@ function App() {
                         )}
 
                         {currentState.generatedImage ? (
-                            <div className="relative group shadow-2xl shadow-black rounded-lg overflow-hidden ring-1 ring-zinc-800 max-h-full max-w-full animate-in zoom-in-95 duration-500">
-                            <button 
-                                onClick={() => updateCurrentState({ generatedImage: null })}
-                                className="absolute top-4 right-4 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
-                                title="Close Image"
+                            <div 
+                                className="w-full h-full flex items-center justify-center relative touch-none"
+                                onMouseDown={handleMouseDown}
+                                onMouseMove={handleMouseMove}
+                                onMouseUp={handleMouseUp}
+                                onMouseLeave={handleMouseUp}
+                                onWheel={handleWheel}
+                                style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
                             >
-                                <X size={18} />
-                            </button>
-                            <img 
-                                src={currentState.generatedImage} 
-                                alt="Generated result" 
-                                className="max-h-[calc(100vh-16rem)] object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" 
-                            />
+                                <div 
+                                   className="relative group shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800 animate-in zoom-in-95 duration-500 max-w-full max-h-full p-8"
+                                   style={{ 
+                                       transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, 
+                                       transition: isDragging ? 'none' : 'transform 0.1s ease-out' 
+                                   }}
+                                >
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
+                                        className="absolute top-12 right-12 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
+                                        title="Close Image"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                    <img 
+                                        src={currentState.generatedImage} 
+                                        alt="Generated result" 
+                                        draggable={false}
+                                        className="max-h-[calc(100vh-16rem)] object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-lg select-none" 
+                                    />
+                                </div>
+
+                                {/* Zoom Controls */}
+                                <div 
+                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 p-1.5 rounded-full backdrop-blur-md z-30 shadow-xl"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                   <button 
+                                      onClick={handleZoomOut} 
+                                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                      disabled={zoom <= 0.5}
+                                   >
+                                      <ZoomOut size={16}/>
+                                   </button>
+                                   <span className="text-xs w-10 text-center font-mono text-zinc-300 select-none">{Math.round(zoom * 100)}%</span>
+                                   <button 
+                                      onClick={handleZoomIn} 
+                                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                      disabled={zoom >= 5}
+                                   >
+                                      <ZoomIn size={16}/>
+                                   </button>
+                                   <div className="w-px h-4 bg-zinc-700 mx-1"></div>
+                                   <button 
+                                      onClick={handleResetZoom} 
+                                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"
+                                      title="Reset Zoom"
+                                   >
+                                      <RotateCcw size={14}/>
+                                   </button>
+                                </div>
                             </div>
                         ) : (
                             /* Placeholder only if no text result either */
