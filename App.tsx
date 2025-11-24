@@ -61,6 +61,22 @@ const STORAGE_KEYS = {
   IMAGE_PREFIX: 'img_'
 };
 
+// Keys for Quota
+const QUOTA_KEYS = {
+  COUNT: 'nb_quota_imageCount',
+  DATE: 'nb_quota_lastResetDatePT'
+};
+
+// Helper to get current date in Pacific Time (PT)
+const getCurrentPTDate = () => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+};
+
 function AppContent() {
   const { addToast } = useToast();
 
@@ -76,8 +92,8 @@ function AppContent() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [isStateRestoring, setIsStateRestoring] = useState(true);
   
-  // --- Session Quota ---
-  const [sessionImageCount, setSessionImageCount] = useState<number>(0);
+  // --- Daily Quota (PT) ---
+  const [dailyImageCount, setDailyImageCount] = useState<number>(0);
 
   // --- Sidebar Resize State ---
   const [sidebarWidth, setSidebarWidth] = useState<number>(420);
@@ -175,11 +191,22 @@ function AppContent() {
           setIsHistoryLoading(false);
       }
       
-      // 3. Load Session Quota
-      const savedSessionCount = sessionStorage.getItem('nanobanana_session_count');
-      if (savedSessionCount) {
-        setSessionImageCount(parseInt(savedSessionCount, 10) || 0);
+      // 3. Load Daily Quota (PT based)
+      const ptDate = getCurrentPTDate();
+      const storedDate = localStorage.getItem(QUOTA_KEYS.DATE);
+      let count = 0;
+
+      if (storedDate !== ptDate) {
+          // Reset if new day or no date stored
+          localStorage.setItem(QUOTA_KEYS.DATE, ptDate);
+          localStorage.setItem(QUOTA_KEYS.COUNT, '0');
+      } else {
+          count = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
       }
+      setDailyImageCount(count);
+
+      // Clean up legacy session storage if exists
+      sessionStorage.removeItem('nanobanana_session_count');
     };
 
     initApp();
@@ -412,11 +439,16 @@ function AppContent() {
           localStorage.removeItem(`nanobanana_advanced_${m}`); // Clear Sidebar persistence too
       });
       
+      // Reset Quota explicitly
+      const ptDate = getCurrentPTDate();
+      localStorage.setItem(QUOTA_KEYS.DATE, ptDate);
+      localStorage.setItem(QUOTA_KEYS.COUNT, '0');
+      sessionStorage.removeItem('nanobanana_session_count'); // Clear legacy if exists
+
       if (includeApiKey) {
           localStorage.removeItem('gemini_api_key');
       }
       
-      sessionStorage.removeItem('nanobanana_session_count');
       window.location.reload();
   };
 
@@ -527,11 +559,19 @@ function AppContent() {
             comparisonImage: currentImageRef || currentState.comparisonImage 
           });
           
-          setSessionImageCount(prev => {
-            const newVal = prev + 1;
-            sessionStorage.setItem('nanobanana_session_count', newVal.toString());
-            return newVal;
-          });
+          // Check daily reset before incrementing (PT Timezone)
+          const currentPTDate = getCurrentPTDate();
+          const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
+          let currentBase = dailyImageCount;
+          
+          if (lastResetDate !== currentPTDate) {
+              currentBase = 0;
+              localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
+          }
+
+          const newVal = currentBase + 1;
+          localStorage.setItem(QUOTA_KEYS.COUNT, newVal.toString());
+          setDailyImageCount(newVal);
           
           const newHistoryItem: GeneratedImage = {
             type: 'image',
@@ -600,7 +640,7 @@ function AppContent() {
       setShowFullProgress(false);
       serviceProgressRef.current = 100;
     }
-  }, [mode, currentState, apiKey]);
+  }, [mode, currentState, apiKey, dailyImageCount]); // Added dailyImageCount to deps
 
   const handleRetry = () => handleGenerate(true);
 
@@ -781,7 +821,7 @@ function AppContent() {
           handleUseAsSubject={handleUseAsSubject}
           handleSendToImageEdit={handleSendToImageEdit}
           handleCopyText={handleCopyText}
-          sessionImageCount={sessionImageCount}
+          dailyImageCount={dailyImageCount}
           onOpenGallery={() => setShowGallery(true)}
           isHistoryLoading={isHistoryLoading}
           isGalleryOpen={showGallery}

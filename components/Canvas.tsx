@@ -21,7 +21,7 @@ interface CanvasProps {
   handleUseAsSubject: (url: string) => void;
   handleSendToImageEdit: () => void;
   handleCopyText: () => void;
-  sessionImageCount?: number;
+  dailyImageCount?: number;
   onOpenGallery?: () => void;
   isHistoryLoading?: boolean;
   isGalleryOpen?: boolean;
@@ -41,7 +41,7 @@ const Canvas: React.FC<CanvasProps> = ({
   handleUseAsSubject,
   handleSendToImageEdit,
   handleCopyText,
-  sessionImageCount = 0,
+  dailyImageCount = 0,
   onOpenGallery,
   isHistoryLoading = false,
   isGalleryOpen = false,
@@ -612,11 +612,14 @@ const Canvas: React.FC<CanvasProps> = ({
             )}
          </div>
 
-         {sessionImageCount > 0 && (
+         {dailyImageCount > 0 && (
             <div className="shrink-0 h-full flex items-center px-6 border-l border-zinc-800/30 bg-zinc-900/10">
-                 <div className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 text-zinc-400 text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2">
+                 <div 
+                    className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 text-zinc-400 text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 cursor-help"
+                    title="Resets daily at 12:00 AM PT (Pacific Time)"
+                 >
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
-                    <span>Images this session: <span className="text-zinc-200 font-semibold">{sessionImageCount}</span></span>
+                    <span>Images today: <span className="text-zinc-200 font-semibold">{dailyImageCount}</span></span>
                  </div>
             </div>
          )}
