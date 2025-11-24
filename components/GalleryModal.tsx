@@ -385,15 +385,15 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
         if (isZoomed && clickTargetRef.current && viewportRef.current) {
             const viewport = viewportRef.current;
             
-            // Use setTimeout to allow layout paint to settle before scrolling
-            setTimeout(() => {
+            // Use requestAnimationFrame to ensure the new layout (expanded image) is painted
+            requestAnimationFrame(() => {
                  const { x, y } = clickTargetRef.current!;
                  const scrollW = viewport.scrollWidth;
                  const scrollH = viewport.scrollHeight;
                  const clientW = viewport.clientWidth;
                  const clientH = viewport.clientHeight;
 
-                 // Calculate target pixel on the full scrolled content
+                 // Calculate the pixel position of the clicked point on the zoomed image
                  const targetX = scrollW * x;
                  const targetY = scrollH * y;
                  
@@ -403,7 +403,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                  
                  viewport.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
                  clickTargetRef.current = null;
-            }, 10);
+            });
 
         } else if (!isZoomed && viewportRef.current) {
              viewportRef.current.scrollTo({ left: 0, top: 0, behavior: 'instant' });
@@ -444,13 +444,17 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                 {item.type === 'image' ? (
                     <div 
                         ref={viewportRef}
-                        className="w-full h-full overflow-auto flex items-center justify-center custom-scrollbar"
+                        // CRITICAL FIX: Use 'flex' without 'items-center/justify-center' to avoid clipping when zoomed.
+                        // Use 'm-auto' on the image to handle centering when unzoomed.
+                        className="w-full h-full overflow-auto flex custom-scrollbar"
                     >
                         <img 
                             src={item.url} 
                             alt="Detail" 
                             onClick={handleZoomClick}
-                            className={`transition-transform duration-200 ease-out block ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+                            // 'm-auto' ensures safe centering (centers if small, start-aligns if overflowing)
+                            // 'block' ensures it behaves as a block element
+                            className={`transition-transform duration-200 ease-out block m-auto ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
                             style={isZoomed ? {
                                 height: '200%',
                                 width: 'auto',
