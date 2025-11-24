@@ -310,17 +310,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       </motion.div>
 
       {/* Footer Action */}
-      <div className="mt-auto p-6 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm">
+      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm">
          <AnimatePresence>
             {error && (
                 <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="mb-4 bg-red-900/20 border border-red-800/50 rounded-lg p-3 flex items-start gap-3"
+                    className="mb-3 bg-red-900/20 border border-red-800/50 rounded-lg p-2.5 flex items-start gap-2"
                 >
-                    <AlertCircle className="text-red-500 shrink-0 w-5 h-5 mt-0.5" />
-                    <p className="text-sm text-red-200 leading-snug">{error}</p>
+                    <AlertCircle className="text-red-500 shrink-0 w-4 h-4 mt-0.5" />
+                    <p className="text-xs text-red-200 leading-snug">{error}</p>
                 </motion.div>
             )}
          </AnimatePresence>
@@ -328,13 +328,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Button 
           onClick={handleGenerate} 
           isLoading={isGenerating} 
-          className="w-full py-4 text-base font-semibold"
+          className="w-full py-2.5 text-sm font-semibold"
           title={`Generate ${shortcutLabel}`}
         >
-          <Sparkles className="w-5 h-5 mr-2" />
+          <Sparkles className="w-4 h-4 mr-2" />
           {mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image'}
         </Button>
-        <p className="text-center text-xs text-zinc-600 mt-3">
+        <p className="text-center text-[10px] text-zinc-600 mt-2">
           {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) 
             ? 'Uses Gemini 2.5 Flash' 
             : `Uses Nano Banana Pro (Gemini 3 Pro)`
