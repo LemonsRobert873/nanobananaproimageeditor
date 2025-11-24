@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({
     }, 2500); // 2.5s inactivity
   }, [stopTimer, isModalOpen, isGalleryOpen, autoHideEnabled]);
 
-  // Handle updates when mode changes or modals open
+  // Handle updates when modals open
   useEffect(() => {
     if (isGalleryOpen) return; // Gate: Pause auto-logic
 
@@ -66,25 +66,29 @@ const Header: React.FC<HeaderProps> = ({
     }
   }, [isModalOpen, isGalleryOpen, show, startTimer]);
 
+  // Effect: Show on load if enabled (or force show if disabled)
   useEffect(() => {
     if (!autoHideEnabled) {
       show();
-    }
-  }, [autoHideEnabled, show]);
-
-  useEffect(() => {
-    if (!isGalleryOpen) {
-        show(); // Show on mode change only if gallery isn't open
-    }
-  }, [mode, show, isGalleryOpen]);
-
-  // Initial load
-  useEffect(() => {
-    if (autoHideEnabled) {
+    } else {
       startTimer();
     }
     return stopTimer;
-  }, [startTimer, stopTimer, autoHideEnabled]);
+  }, [startTimer, stopTimer, autoHideEnabled, show]);
+
+  // Effect: Show header briefly when Mode changes, BUT NOT if gallery is open
+  useEffect(() => {
+    if (!isGalleryOpen) {
+        show();
+    }
+  }, [mode]); // Removed 'isGalleryOpen' from dependency to prevent show() on close
+
+  // Effect: Resume timer when Gallery closes (if auto-hide is enabled)
+  useEffect(() => {
+    if (!isGalleryOpen && autoHideEnabled) {
+      startTimer();
+    }
+  }, [isGalleryOpen, autoHideEnabled, startTimer]);
 
   return (
     <>

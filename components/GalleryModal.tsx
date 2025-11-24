@@ -53,6 +53,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
         if (lightboxZoomed) {
           setLightboxZoomed(false);
           e.stopPropagation();
+          e.preventDefault();
           return;
         }
         
@@ -60,12 +61,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
         if (activeItem) {
           setActiveItem(null);
           e.stopPropagation();
+          e.preventDefault();
           return;
         }
         
         // Priority 3: Close Gallery
+        // (Gallery closing triggers Header state change logic in App/Header)
         onClose();
         e.stopPropagation();
+        e.preventDefault();
       }
     };
 
@@ -380,28 +384,27 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
     useEffect(() => {
         if (isZoomed && clickTargetRef.current && viewportRef.current) {
             const viewport = viewportRef.current;
-            const img = viewport.querySelector('img');
             
-            if (img) {
-                 const { x, y } = clickTargetRef.current;
-                 requestAnimationFrame(() => {
-                     const viewportW = viewport.clientWidth;
-                     const viewportH = viewport.clientHeight;
-                     const imgW = img.offsetWidth;
-                     const imgLeft = img.offsetLeft;
-                     const imgTop = img.offsetTop;
-                     const imgH = img.offsetHeight;
+            // Use setTimeout to allow layout paint to settle before scrolling
+            setTimeout(() => {
+                 const { x, y } = clickTargetRef.current!;
+                 const scrollW = viewport.scrollWidth;
+                 const scrollH = viewport.scrollHeight;
+                 const clientW = viewport.clientWidth;
+                 const clientH = viewport.clientHeight;
 
-                     const targetX = imgLeft + (imgW * x);
-                     const targetY = imgTop + (imgH * y);
+                 // Calculate target pixel on the full scrolled content
+                 const targetX = scrollW * x;
+                 const targetY = scrollH * y;
+                 
+                 // Center the viewport on that pixel
+                 const scrollLeft = targetX - (clientW / 2);
+                 const scrollTop = targetY - (clientH / 2);
+                 
+                 viewport.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
+                 clickTargetRef.current = null;
+            }, 10);
 
-                     const scrollLeft = targetX - (viewportW / 2);
-                     const scrollTop = targetY - (viewportH / 2);
-                     
-                     viewport.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
-                     clickTargetRef.current = null;
-                 });
-            }
         } else if (!isZoomed && viewportRef.current) {
              viewportRef.current.scrollTo({ left: 0, top: 0, behavior: 'instant' });
         }
@@ -412,6 +415,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
             setZoomed(false);
         } else {
             const rect = e.currentTarget.getBoundingClientRect();
+            // Calculate relative position (0 to 1) within the image
             const x = (e.clientX - rect.left) / rect.width;
             const y = (e.clientY - rect.top) / rect.height;
             clickTargetRef.current = { x, y };
