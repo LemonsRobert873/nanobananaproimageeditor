@@ -344,6 +344,7 @@ function App() {
         setShowGuide={setShowGuide}
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
+        isModalOpen={showGuide || showKeySettings}
       />
 
       {/* --- Main Workspace --- */}
