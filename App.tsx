@@ -56,7 +56,6 @@ const DEFAULT_MODE_STATE: ModeState = {
 // Keys for persistence
 const STORAGE_KEYS = {
   ACTIVE_MODE: 'nanobanana_active_mode',
-  FIRST_GEN: 'nanobanana_first_gen_complete',
   SIDEBAR_WIDTH: 'nanobanana_sidebar_width',
   MODE_STATE_PREFIX: 'nanobanana_state_',
   IMAGE_PREFIX: 'img_'
@@ -76,7 +75,6 @@ function AppContent() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [isStateRestoring, setIsStateRestoring] = useState(true);
-  const [hasCompletedFirstGeneration, setHasCompletedFirstGeneration] = useState<boolean>(false);
   
   // --- Session Quota ---
   const [sessionImageCount, setSessionImageCount] = useState<number>(0);
@@ -193,9 +191,6 @@ function AppContent() {
         setIsStateRestoring(true);
         try {
             // Restore Global Settings
-            const firstGen = localStorage.getItem(STORAGE_KEYS.FIRST_GEN);
-            if (firstGen === 'true') setHasCompletedFirstGeneration(true);
-
             const savedWidth = localStorage.getItem(STORAGE_KEYS.SIDEBAR_WIDTH);
             if (savedWidth) {
                 const w = parseInt(savedWidth, 10);
@@ -260,11 +255,8 @@ function AppContent() {
       // Remove large objects/blobs before saving to localStorage
       delete (stateToSave as any).subjectImage;
       delete (stateToSave as any).referenceImage;
-      delete (stateToSave as any).generatedImage; // Don't persist generated results automatically? Or usually generated image URL is base64, too big for LS.
+      delete (stateToSave as any).generatedImage; // Don't persist generated results automatically
       delete (stateToSave as any).comparisonImage; 
-      // Note: We don't persist generatedImage URL in LS because it's huge. 
-      // If we wanted to persist results across reload, we'd need to store them in IDB too. 
-      // For now, "Resume where left off" usually implies inputs/settings. Result loss on reload is standard unless using history.
       
       // Clean up transitory fields
       delete (stateToSave as any).lastParams;
@@ -530,11 +522,6 @@ function AppContent() {
           setProgressStep("Done!");
           await new Promise(resolve => setTimeout(resolve, 300)); // Short delay to see 100%
 
-          if (!hasCompletedFirstGeneration) {
-            setHasCompletedFirstGeneration(true);
-            localStorage.setItem(STORAGE_KEYS.FIRST_GEN, 'true');
-          }
-
           updateCurrentState({ 
             generatedImage: imageUrl,
             comparisonImage: currentImageRef || currentState.comparisonImage 
@@ -613,7 +600,7 @@ function AppContent() {
       setShowFullProgress(false);
       serviceProgressRef.current = 100;
     }
-  }, [mode, currentState, apiKey, hasCompletedFirstGeneration]);
+  }, [mode, currentState, apiKey]);
 
   const handleRetry = () => handleGenerate(true);
 
@@ -760,9 +747,6 @@ function AppContent() {
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
         onResetClick={() => setShowResetModal(true)}
-        isModalOpen={showGuide || showKeySettings || showResetModal} 
-        isGalleryOpen={showGallery} 
-        autoHideEnabled={hasCompletedFirstGeneration}
       />
 
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">
