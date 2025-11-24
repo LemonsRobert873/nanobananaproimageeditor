@@ -109,11 +109,16 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
       ? `\n\nNEGATIVE PROMPT (Strictly Avoid): ${negativePrompt}\nAvoid these elements strictly.` 
       : "";
 
+    let startPct = 0;
+
     // 1. Preparation Phase
 
     // --- MODE 1: Image Edit ---
     if (mode === GenerationMode.IMAGE_EDIT) {
       if (subjectImage) {
+        // CASE: Subject Image IS Present
+        // We use the user's text prompt directly combined with the image.
+        // We do NOT use the PROMPT_TEMPLATE_NO_FACE here.
         const subjectB64 = await fileToBase64(subjectImage);
         
         parts.push({ inlineData: { mimeType: subjectImage.type, data: subjectB64 } });
@@ -121,7 +126,35 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
           text: `The first image provided is the REFERENCE IDENTITY (face/character). Generate a new image of this person. ${textPrompt}${negativePromptStr}` 
         });
       } else {
-        parts.push({ text: `${textPrompt}${negativePromptStr}` });
+        // CASE: Subject Image IS NOT Present
+        // We MUST use the template to expand the prompt first.
+        const stopAnalysisSim = simulateProgress(
+            0, 30, 2500, updateProgress,
+            ["Expanding concept...", "Applying template...", "Enhancing details..."]
+        );
+
+        const promptResponse = await ai.models.generateContent({
+            model: ANALYSIS_MODEL,
+            contents: {
+                parts: [{
+                    text: `Create a detailed image generation prompt based on the user's concept.
+                    
+                    Concept: "${textPrompt}"
+                    ${negativePrompt ? `Negative Constraints: ${negativePrompt}` : ""}
+
+                    You MUST use the following structure/template for the prompt:
+                    ${PROMPT_TEMPLATE_NO_FACE}`
+                }]
+            }
+        });
+
+        stopAnalysisSim();
+        const enhancedPrompt = promptResponse.text;
+        
+        updateProgress("Prompt enhanced.", 32);
+        startPct = 35;
+
+        parts.push({ text: `${enhancedPrompt}${negativePromptStr}` });
       }
     } 
     // --- MODE 2: Image to Image ---
@@ -145,8 +178,6 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
             ["Analyzing scene structure...", "Detecting lighting...", "Extracting composition...", "Building prompt blueprint..."]
         );
 
-        const analysisPrompt = `Analyze the uploaded reference image and generate a detailed image generation prompt...`; // (Truncated for brevity, logic remains same as original)
-        
         // Actual Analysis Call
         const analysisResponse = await ai.models.generateContent({
             model: ANALYSIS_MODEL,
@@ -163,6 +194,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         const generatedPrompt = analysisResponse.text;
         
         updateProgress("Blueprint created.", 42);
+        startPct = 45;
 
         parts.push({ inlineData: { mimeType: subjectImage.type, data: subjectB64 } });
         parts.push({
@@ -192,7 +224,6 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     // 2. Generation Phase
     // Start Generation Simulation (Current% -> 85%)
     // Estimated time 10-15s
-    const startPct = mode === GenerationMode.IMAGE_TO_IMAGE && referenceOperation === ReferenceOperation.REPLICATE_REFERENCE ? 45 : 0;
     
     const stopGenSim = simulateProgress(
         startPct, 88, 12000, updateProgress,
