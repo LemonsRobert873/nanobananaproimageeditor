@@ -1,9 +1,10 @@
 
-import React from 'react';
+
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
-  Maximize2, Settings 
+  Maximize2, Settings, ChevronDown, ChevronUp, Sliders
 } from 'lucide-react';
 import { 
   GenerationMode, 
@@ -35,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   error,
   width
 }) => {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   const handleReferenceSelect = (file: File | null) => {
     let isLowRes = false;
@@ -185,6 +187,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </motion.div>
                     )}
                     </div>
+
+                    {/* REFERENCE STRENGTH SLIDER */}
+                    <div className="space-y-2 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-medium text-zinc-300">Reference Strength</label>
+                            <span className="text-xs text-yellow-500 font-bold">{currentState.refStrength}%</span>
+                        </div>
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            value={currentState.refStrength} 
+                            onChange={(e) => updateCurrentState({ refStrength: parseInt(e.target.value) })}
+                            className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500 focus:outline-none focus:ring-0"
+                        />
+                        <div className="flex justify-between text-[10px] text-zinc-500">
+                            <span>Creative</span>
+                            <span>Balanced</span>
+                            <span>Strict</span>
+                        </div>
+                    </div>
                     
                     <div className="space-y-2">
                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Operation</label>
@@ -255,6 +278,43 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </AnimatePresence>
                </div>
             </div>
+
+            {/* ADVANCED SETTINGS (Negative Prompt) */}
+            <div className="pt-2">
+                <button 
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-yellow-500 transition-colors w-full"
+                >
+                    <Sliders size={14} />
+                    <span>Advanced Settings</span>
+                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                
+                <AnimatePresence>
+                    {showAdvanced && (
+                        <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="pt-3 pb-1 space-y-2">
+                                <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Negative Prompt</label>
+                                <textarea
+                                    value={currentState.negativePrompt}
+                                    onChange={(e) => updateCurrentState({ negativePrompt: e.target.value })}
+                                    placeholder="e.g. blurry, distorted, bad hands, cartoon, text, watermark..."
+                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none min-h-[80px]"
+                                />
+                                <p className="text-[10px] text-zinc-600">
+                                    Elements to avoid in the generation.
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+
           </motion.div>
         </section>
 

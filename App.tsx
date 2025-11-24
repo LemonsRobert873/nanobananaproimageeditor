@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -33,7 +34,9 @@ const DEFAULT_MODE_STATE: ModeState = {
   refOperation: ReferenceOperation.APPLY_CLOTHING,
   aspectRatio: AspectRatio.PORTRAIT_9_16,
   resolution: Resolution.RES_1K,
-  isRefLowRes: false
+  isRefLowRes: false,
+  refStrength: 70,
+  negativePrompt: ''
 };
 
 function App() {
@@ -286,6 +289,8 @@ function App() {
               serviceProgressRef.current = val;
             },
             apiKey: apiKey || undefined,
+            refStrength: currentState.refStrength,
+            negativePrompt: currentState.negativePrompt
           };
 
           const imageUrl = await generateImage(params);
@@ -316,7 +321,9 @@ function App() {
               textPrompt: currentState.textPrompt,
               aspectRatio: currentState.aspectRatio,
               resolution: currentState.resolution,
-              referenceOperation: currentState.refOperation
+              referenceOperation: currentState.refOperation,
+              refStrength: currentState.refStrength,
+              negativePrompt: currentState.negativePrompt
             }
           };
           
@@ -334,7 +341,8 @@ function App() {
                   setProgressStep(msg);
                   serviceProgressRef.current = val;
               },
-              apiKey: apiKey || undefined
+              apiKey: apiKey || undefined,
+              negativePrompt: currentState.negativePrompt
           };
           const promptText = await generatePrompt(params);
 
@@ -353,7 +361,8 @@ function App() {
             metadata: {
               mode,
               textPrompt: currentState.textPrompt,
-              useFaceFeature: currentState.useFaceFeature
+              useFaceFeature: currentState.useFaceFeature,
+              negativePrompt: currentState.negativePrompt
             }
           };
           

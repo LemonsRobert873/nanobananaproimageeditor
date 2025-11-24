@@ -34,6 +34,8 @@ export interface HistoryItemMetadata {
   referenceOperation?: ReferenceOperation;
   useFaceFeature?: boolean;
   textPrompt?: string;
+  refStrength?: number;
+  negativePrompt?: string;
 }
 
 export interface GeneratedImage {
@@ -66,6 +68,8 @@ export interface GenerateParams {
   resolution: Resolution;
   onProgress?: (message: string, progress: number) => void;
   apiKey?: string;
+  refStrength?: number;
+  negativePrompt?: string;
 }
 
 export interface PromptGenParams {
@@ -75,6 +79,7 @@ export interface PromptGenParams {
   useFaceFeature: boolean;
   onProgress?: (message: string, progress: number) => void;
   apiKey?: string;
+  negativePrompt?: string;
 }
 
 export interface ModeState {
@@ -89,4 +94,6 @@ export interface ModeState {
   aspectRatio: AspectRatio;
   resolution: Resolution;
   isRefLowRes: boolean;
+  refStrength: number;
+  negativePrompt: string;
 }

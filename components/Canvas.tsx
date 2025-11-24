@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -332,6 +333,19 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             </div>
                             
+                            {/* Ref Strength Display */}
+                            {currentHistoryItem.metadata.refStrength !== undefined && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
+                                    <div className="text-sm text-yellow-500 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 flex items-center justify-between">
+                                        <span>{currentHistoryItem.metadata.refStrength}%</span>
+                                        <span className="text-xs text-zinc-500">
+                                            {currentHistoryItem.metadata.refStrength >= 80 ? 'Strict' : currentHistoryItem.metadata.refStrength <= 40 ? 'Creative' : 'Balanced'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
                             {currentHistoryItem.metadata.aspectRatio && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Settings</label>
@@ -372,6 +386,18 @@ const Canvas: React.FC<CanvasProps> = ({
                                     </div>
                                     <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap">
                                         {currentHistoryItem.metadata.textPrompt}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Negative Prompt Display */}
+                            {currentHistoryItem.metadata.negativePrompt && (
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
+                                    </div>
+                                    <div className="text-xs text-red-200/80 bg-red-950/20 p-3 rounded border border-red-900/30 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
+                                        {currentHistoryItem.metadata.negativePrompt}
                                     </div>
                                 </div>
                             )}

@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation } from '../types';
 import { MODEL_NAME, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
@@ -43,7 +44,9 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     aspectRatio,
     resolution,
     onProgress,
-    apiKey
+    apiKey,
+    refStrength,
+    negativePrompt
   } = params;
 
   const updateProgress = (msg: string, val: number) => {
@@ -61,6 +64,11 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
   try {
     const parts: any[] = [];
     
+    // Construct Negative Prompt String
+    const negativePromptStr = negativePrompt 
+      ? `\n\nNEGATIVE PROMPT (Strictly Avoid): ${negativePrompt}\nAvoid these elements strictly.` 
+      : "";
+
     // --- MODE 1: Image Edit (Formerly Text Prompt) ---
     if (mode === GenerationMode.IMAGE_EDIT) {
       if (subjectImage) {
@@ -74,13 +82,13 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         });
         
         parts.push({ 
-          text: `The first image provided is the REFERENCE IDENTITY (face/character). Generate a new image of this person. ${textPrompt}` 
+          text: `The first image provided is the REFERENCE IDENTITY (face/character). Generate a new image of this person. ${textPrompt}${negativePromptStr}` 
         });
       } else {
         // Workflow 2: Prompt Only -> Standard Text to Image
         updateProgress("Constructing generation prompt...", 10);
         parts.push({
-          text: textPrompt
+          text: `${textPrompt}${negativePromptStr}`
         });
       }
 
@@ -95,6 +103,19 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
       const subjectB64 = await fileToBase64(subjectImage);
       const refB64 = await fileToBase64(referenceImage);
       
+      // Calculate Reference Strength Prompt Text
+      let strengthGuidance = "";
+      if (refStrength !== undefined) {
+        if (refStrength >= 80) {
+            strengthGuidance = "Follow the reference image structure, style, and composition EXTREMELY STRICTLY.";
+        } else if (refStrength <= 40) {
+            strengthGuidance = "Use the reference image loosely as inspiration; prioritize the text prompt and creativity over strict adherence.";
+        } else {
+            strengthGuidance = "Balance the reference image structure with the text prompt description.";
+        }
+        strengthGuidance += ` (Reference Adherence Level: ${refStrength}%)`;
+      }
+
       if (referenceOperation === ReferenceOperation.APPLY_CLOTHING) {
         updateProgress("Analyzing clothing reference...", 30);
         
@@ -107,7 +128,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         });
         
         parts.push({
-          text: `Image 1 is the REFERENCE PERSON. Image 2 is the CLOTHING REFERENCE. Generate a completely NEW image of the person from Image 1 wearing the outfit shown in Image 2. Do NOT simply paste the face onto Image 2. Create a new composition, pose, or background as described in the prompt. Focus on the person's identity from Image 1. ${textPrompt}`
+          text: `Image 1 is the REFERENCE PERSON. Image 2 is the CLOTHING REFERENCE. Generate a completely NEW image of the person from Image 1 wearing the outfit shown in Image 2. Do NOT simply paste the face onto Image 2. Create a new composition, pose, or background as described in the prompt. Focus on the person's identity from Image 1. ${strengthGuidance} ${textPrompt}${negativePromptStr}`
         });
         
         updateProgress("Synthesizing new look...", 50);
@@ -188,11 +209,12 @@ The overall image conveys a blend of [EMOTION/STYLE 1] and [EMOTION/STYLE 2], ca
         });
 
         parts.push({
-          text: `GENERATE A NEW IMAGE based on the following description using the features from the attached 'Subject Face' photo (Image 1).
+          text: `GENERATE A NEW IMAGE based on the following description using the features from the attached 'Subject Face' photo (Image 1). ${strengthGuidance}
 
 ${generatedPrompt}
 
-${textPrompt ? `ADDITIONAL USER NOTES: ${textPrompt}` : ""}`
+${textPrompt ? `ADDITIONAL USER NOTES: ${textPrompt}` : ""}
+${negativePromptStr}`
         });
         
         updateProgress("Synthesizing high-fidelity image...", 60);
@@ -216,7 +238,9 @@ CRITICAL INSTRUCTIONS FOR SEAMLESS BLENDING:
 2. SKIN TONE & TEXTURE: Adapt the skin tone of the source face to match the color grading and film grain of Image 1.
 3. EXPRESSION & ANGLE: Adjust the source face's angle and expression to perfectly align with the body in Image 1.
 4. BLENDING: Ensure edges are invisible. The face should look like it was originally photographed in this scene.
-${textPrompt ? `ADDITIONAL NOTES: ${textPrompt}` : ""}`
+${strengthGuidance}
+${textPrompt ? `ADDITIONAL NOTES: ${textPrompt}` : ""}
+${negativePromptStr}`
         });
         
         updateProgress("Blending face into scene...", 50);
@@ -262,7 +286,7 @@ ${textPrompt ? `ADDITIONAL NOTES: ${textPrompt}` : ""}`
 };
 
 export const generatePrompt = async (params: PromptGenParams): Promise<string> => {
-  const { mode, subjectImage, textPrompt, useFaceFeature, onProgress, apiKey } = params;
+  const { mode, subjectImage, textPrompt, useFaceFeature, onProgress, apiKey, negativePrompt } = params;
   
   const updateProgress = (msg: string, val: number) => {
     if (onProgress) onProgress(msg, val);
@@ -281,6 +305,13 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
     // Select Template based on Toggle
     const baseTemplate = useFaceFeature ? PROMPT_TEMPLATE_WITH_FACE : PROMPT_TEMPLATE_NO_FACE;
     const parts: any[] = [];
+    
+    // Negative Prompt Section for Template
+    const negativeCondition = negativePrompt ? `
+    NEGATIVE CONDITIONS:
+    Do not include or reference the following in the generated description:
+    ${negativePrompt}
+    ` : "";
 
     // --- MODE 3: Image to Text Prompt ---
     if (mode === GenerationMode.IMG_TO_PROMPT && subjectImage) {
@@ -296,6 +327,7 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
         text: `Analyze the uploaded reference image and generate a detailed image generation prompt based exactly on the structure below. Replace all bracketed placeholders (e.g., [SHOT TYPE]) with specific descriptive details from the image.
         
         ${textPrompt ? `IMPORTANT CONTEXT/NOTES FROM USER: ${textPrompt}` : ''}
+        ${negativeCondition}
 
         STRUCTURE TO FILL:
         ${baseTemplate}`
@@ -308,6 +340,7 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
       
       parts.push({
         text: `Create a detailed image generation prompt based exactly on the structure below using this concept: "${textPrompt}". Replace all bracketed placeholders (e.g., [SHOT TYPE]) with imaginative details that fit the concept.
+        ${negativeCondition}
         
         STRUCTURE TO FILL:
         ${baseTemplate}`
