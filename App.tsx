@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -21,7 +22,15 @@ import {
 } from './types';
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
-import { getHistoryItems, saveHistoryItem, deleteHistoryItem, clearAllHistory } from './utils/indexedDB';
+import { 
+  getHistoryItems, 
+  saveHistoryItem, 
+  deleteHistoryItem, 
+  clearAllHistory,
+  saveStateImage,
+  getStateImage,
+  clearAllStateImages
+} from './utils/indexedDB';
 import { dataURLtoFile } from './utils/imageUtils';
 
 // Default state template for a mode
@@ -37,11 +46,20 @@ const DEFAULT_MODE_STATE: ModeState = {
   aspectRatio: AspectRatio.PORTRAIT_9_16,
   resolution: Resolution.RES_1K,
   isRefLowRes: false,
-  refStrength: 70,
+  refStrength: 100,
   negativePrompt: '',
   lastParams: null,
   hasError: false,
   errorMessage: null
+};
+
+// Keys for persistence
+const STORAGE_KEYS = {
+  ACTIVE_MODE: 'nanobanana_active_mode',
+  FIRST_GEN: 'nanobanana_first_gen_complete',
+  SIDEBAR_WIDTH: 'nanobanana_sidebar_width',
+  MODE_STATE_PREFIX: 'nanobanana_state_',
+  IMAGE_PREFIX: 'img_'
 };
 
 function AppContent() {
@@ -57,6 +75,7 @@ function AppContent() {
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.IMAGE_EDIT);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [isStateRestoring, setIsStateRestoring] = useState(true);
   const [hasCompletedFirstGeneration, setHasCompletedFirstGeneration] = useState<boolean>(false);
   
   // --- Session Quota ---
@@ -119,7 +138,9 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showGallery, showKeySettings, showGuide, showResetModal]);
 
-  // --- Effects ---
+  // --- Initialization & Persistence ---
+  
+  // 1. Load History & Session
   useEffect(() => {
     const initApp = async () => {
       // 1. Check API Key
@@ -142,7 +163,7 @@ function AppContent() {
       }
       setHasKey(keyFound);
 
-      // 2. Load History from IndexedDB with Delay for Skeleton
+      // 2. Load History
       setIsHistoryLoading(true);
       try {
           const [loadedHistory] = await Promise.all([
@@ -164,20 +185,114 @@ function AppContent() {
     };
 
     initApp();
-
-    const firstGen = localStorage.getItem('nanobanana_first_gen_complete');
-    if (firstGen === 'true') {
-      setHasCompletedFirstGeneration(true);
-    }
-    
-    const savedWidth = localStorage.getItem('nanobanana_sidebar_width');
-    if (savedWidth) {
-      const w = parseInt(savedWidth, 10);
-      if (!isNaN(w) && w > 240 && w < 1000) {
-        setSidebarWidth(w);
-      }
-    }
   }, []);
+
+  // 2. Load Application State (Modes, Settings, Images)
+  useEffect(() => {
+    const restoreState = async () => {
+        setIsStateRestoring(true);
+        try {
+            // Restore Global Settings
+            const firstGen = localStorage.getItem(STORAGE_KEYS.FIRST_GEN);
+            if (firstGen === 'true') setHasCompletedFirstGeneration(true);
+
+            const savedWidth = localStorage.getItem(STORAGE_KEYS.SIDEBAR_WIDTH);
+            if (savedWidth) {
+                const w = parseInt(savedWidth, 10);
+                if (!isNaN(w) && w > 240 && w < 1000) setSidebarWidth(w);
+            }
+
+            const savedMode = localStorage.getItem(STORAGE_KEYS.ACTIVE_MODE);
+            if (savedMode && Object.values(GenerationMode).includes(savedMode as GenerationMode)) {
+                setMode(savedMode as GenerationMode);
+            }
+
+            // Restore Mode States
+            const restoredModes = { ...modeStates };
+            const modes = Object.values(GenerationMode);
+
+            for (const m of modes) {
+                // Recover simple data from LocalStorage
+                const savedJson = localStorage.getItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${m}`);
+                if (savedJson) {
+                    try {
+                        const parsed = JSON.parse(savedJson);
+                        // Merge parsed data into default state
+                        restoredModes[m] = { ...restoredModes[m], ...parsed };
+                    } catch (e) {
+                        console.error(`Failed to parse state for ${m}`, e);
+                    }
+                }
+
+                // Recover Images from IndexedDB
+                const subjectKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_subject`;
+                const referenceKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_reference`;
+                
+                const [subjectFile, referenceFile] = await Promise.all([
+                    getStateImage(subjectKey),
+                    getStateImage(referenceKey)
+                ]);
+
+                if (subjectFile) restoredModes[m].subjectImage = subjectFile;
+                if (referenceFile) restoredModes[m].referenceImage = referenceFile;
+            }
+
+            setModeStates(restoredModes);
+        } catch (error) {
+            console.error("Failed to restore app state:", error);
+        } finally {
+            setIsStateRestoring(false);
+        }
+    };
+
+    restoreState();
+  }, []); // Run once on mount
+
+  // 3. Persist State Watchers
+  useEffect(() => {
+      if (isStateRestoring) return;
+
+      // Save Active Mode
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_MODE, mode);
+
+      // Save Current Mode State (Metadata)
+      const stateToSave = { ...currentState };
+      // Remove large objects/blobs before saving to localStorage
+      delete (stateToSave as any).subjectImage;
+      delete (stateToSave as any).referenceImage;
+      delete (stateToSave as any).generatedImage; // Don't persist generated results automatically? Or usually generated image URL is base64, too big for LS.
+      delete (stateToSave as any).comparisonImage; 
+      // Note: We don't persist generatedImage URL in LS because it's huge. 
+      // If we wanted to persist results across reload, we'd need to store them in IDB too. 
+      // For now, "Resume where left off" usually implies inputs/settings. Result loss on reload is standard unless using history.
+      
+      // Clean up transitory fields
+      delete (stateToSave as any).lastParams;
+      delete (stateToSave as any).hasError;
+      delete (stateToSave as any).errorMessage;
+
+      localStorage.setItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${mode}`, JSON.stringify(stateToSave));
+
+  }, [mode, currentState, isStateRestoring]);
+
+  // 4. Persist Images Watchers
+  // We attach a specific effect to watch file changes across all modes
+  useEffect(() => {
+    if (isStateRestoring) return;
+
+    // Helper to save specific image for a mode
+    const syncImage = (m: GenerationMode, type: 'subject' | 'reference') => {
+        const file = modeStates[m][type === 'subject' ? 'subjectImage' : 'referenceImage'];
+        const key = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_${type}`;
+        saveStateImage(key, file);
+    };
+
+    Object.values(GenerationMode).forEach(m => {
+        syncImage(m, 'subject');
+        syncImage(m, 'reference');
+    });
+
+  }, [modeStates, isStateRestoring]);
 
   // Smooth Progress Interpolation
   useEffect(() => {
@@ -193,11 +308,9 @@ function AppContent() {
         // Immediate finish snap
         if (target >= 100) return 100;
         
-        // Smooth interpolation (faster than before to match realtime updates)
-        // If close enough, snap to target to avoid jitter
+        // Smooth interpolation
         if (Math.abs(diff) < 0.1) return target;
         
-        // Move 15% of the way to target per frame for responsive feel
         return current + diff * 0.15;
       });
 
@@ -256,7 +369,7 @@ function AppContent() {
 
   useEffect(() => {
     if (!isResizing) {
-        localStorage.setItem('nanobanana_sidebar_width', sidebarWidth.toString());
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_WIDTH, sidebarWidth.toString());
     }
   }, [isResizing, sidebarWidth]);
 
@@ -295,9 +408,17 @@ function AppContent() {
 
   const handleResetApp = async (includeApiKey: boolean) => {
       await clearAllHistory();
+      await clearAllStateImages();
       
-      localStorage.removeItem('nanobanana_first_gen_complete');
-      localStorage.removeItem('nanobanana_sidebar_width');
+      // Clear persistence keys
+      Object.values(STORAGE_KEYS).forEach(key => {
+          localStorage.removeItem(key);
+      });
+      // Clear dynamic mode keys
+      Object.values(GenerationMode).forEach(m => {
+          localStorage.removeItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${m}`);
+          localStorage.removeItem(`nanobanana_advanced_${m}`); // Clear Sidebar persistence too
+      });
       
       if (includeApiKey) {
           localStorage.removeItem('gemini_api_key');
@@ -411,7 +532,7 @@ function AppContent() {
 
           if (!hasCompletedFirstGeneration) {
             setHasCompletedFirstGeneration(true);
-            localStorage.setItem('nanobanana_first_gen_complete', 'true');
+            localStorage.setItem(STORAGE_KEYS.FIRST_GEN, 'true');
           }
 
           updateCurrentState({ 

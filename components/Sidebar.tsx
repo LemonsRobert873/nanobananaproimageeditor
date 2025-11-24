@@ -36,8 +36,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   error,
   width
 }) => {
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  // Initialize from storage or default to false
+  const [showAdvanced, setShowAdvanced] = useState(() => {
+     if (typeof window !== 'undefined') {
+         return localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
+     }
+     return false;
+  });
+  
   const [activeTarget, setActiveTarget] = useState<'subject' | 'reference' | null>(null);
+
+  // Sync state when mode changes
+  useEffect(() => {
+      const saved = localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
+      setShowAdvanced(saved);
+  }, [mode]);
+
+  // Persist state when it changes
+  useEffect(() => {
+      localStorage.setItem(`nanobanana_advanced_${mode}`, showAdvanced.toString());
+  }, [showAdvanced, mode]);
   
   const handleReferenceSelect = (file: File | null) => {
     let isLowRes = false;

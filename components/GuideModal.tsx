@@ -89,10 +89,10 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                         </div>
                         <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Text-to-Image</div>
                         <p className="text-sm text-zinc-400 relative z-10">
-                           Leave the subject image empty. The model generates high-quality visuals based purely on your text description.
+                           Leave the subject image empty. The system automatically <strong>expands your prompt</strong> using professional photography templates to generate high-quality visuals.
                         </p>
                         <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1 relative z-10">
-                           <li><strong>Input:</strong> Text Prompt Only</li>
+                           <li><strong>Input:</strong> Text Prompt (Auto-Enhanced)</li>
                            <li><strong>Best for:</strong> Landscapes, Concept Art, Generic Subjects.</li>
                         </ul>
                      </div>
