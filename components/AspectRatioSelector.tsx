@@ -43,6 +43,7 @@ const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({ value, onChan
   return (
     <div className="relative" ref={containerRef}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full bg-zinc-900 border ${isOpen ? 'border-yellow-500' : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
       >
@@ -56,10 +57,10 @@ const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({ value, onChan
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 5, scale: 0.98 }}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 5, scale: 0.98 }}
-            className="absolute z-50 w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar"
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            className="absolute z-50 w-full bottom-full mb-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar"
           >
             {Object.entries(groups).map(([groupName, options]) => (
                 options.length > 0 && (
@@ -71,6 +72,7 @@ const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({ value, onChan
                             const isSelected = opt.value === value;
                             return (
                                 <button
+                                    type="button"
                                     key={opt.value}
                                     onClick={() => {
                                         onChange(opt.value as AspectRatio);

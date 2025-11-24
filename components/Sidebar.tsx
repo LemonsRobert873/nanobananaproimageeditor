@@ -3,19 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
-  Settings, ChevronDown, ChevronUp, Sliders, RotateCw
+  ChevronDown, ChevronUp, Sliders, RotateCw
 } from 'lucide-react';
 import { 
   GenerationMode, 
   ReferenceOperation, 
-  AspectRatio, 
-  Resolution, 
   ModeState 
 } from '../types';
-import { RESOLUTIONS } from '../constants';
 import Button from './Button';
 import FileUpload from './FileUpload';
 import AspectRatioSelector from './AspectRatioSelector';
+import ResolutionSelector from './ResolutionSelector';
 
 interface SidebarProps {
   mode: GenerationMode;
@@ -369,10 +367,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         <AnimatePresence>
             {(mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE) && (
                 <motion.section 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-4 overflow-hidden"
+                    initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                    animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
+                    exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                    className="space-y-4"
                 >
                 <div className="flex items-center gap-2 text-zinc-100 font-medium">
                     <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">3</div>
@@ -388,18 +386,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     <div className="space-y-1.5">
                     <label className="text-xs text-zinc-500 font-medium ml-1">Resolution</label>
-                    <div className="relative">
-                        <select 
+                    <ResolutionSelector 
                         value={currentState.resolution}
-                        onChange={(e) => updateCurrentState({ resolution: e.target.value as Resolution })}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm appearance-none focus:border-yellow-500 outline-none text-zinc-300 transition-colors cursor-pointer hover:bg-zinc-800/50"
-                        >
-                        {RESOLUTIONS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                        </select>
-                        <Settings className="absolute right-3 top-3 text-zinc-600 pointer-events-none w-4 h-4" />
-                    </div>
+                        onChange={(val) => updateCurrentState({ resolution: val })}
+                    />
                     </div>
                 </div>
                 </motion.section>
@@ -409,7 +399,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </motion.div>
 
       {/* Footer Action */}
-      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm space-y-3">
+      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm space-y-3 z-[25]">
          <AnimatePresence>
             {displayError && (
                 <motion.div 
