@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -153,6 +153,12 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                                    <span className="bg-zinc-800 p-1 rounded text-red-400 h-fit mt-0.5"><X size={12} /></span>
                                    <span>
                                        <strong className="text-zinc-300">Negative Prompt:</strong> Expand "Advanced Settings" to list elements you want to avoid (e.g., "blurry", "text").
+                                   </span>
+                               </li>
+                               <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-zinc-400 h-fit mt-0.5"><RotateCcw size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Reset App:</strong> Use the "Reset" button in the header to clear all history and settings for a fresh start.
                                    </span>
                                </li>
                            </ul>
