@@ -23,6 +23,7 @@ interface SidebarProps {
   isGenerating: boolean;
   handleGenerate: () => void;
   error: string | null;
+  width: number;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -31,7 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   updateCurrentState, 
   isGenerating, 
   handleGenerate, 
-  error
+  error,
+  width
 }) => {
   
   const handleReferenceSelect = (file: File | null) => {
@@ -57,7 +59,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
 
   return (
-    <aside className="w-full lg:w-[420px] xl:w-[460px] flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto">
+    <aside 
+      style={{ width }}
+      className="flex-none flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto"
+    >
       <motion.div 
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}

@@ -46,6 +46,10 @@ function App() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [hasCompletedFirstGeneration, setHasCompletedFirstGeneration] = useState<boolean>(false);
   
+  // --- Sidebar Resize State ---
+  const [sidebarWidth, setSidebarWidth] = useState<number>(420);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+
   // --- State: Per Mode ---
   const [modeStates, setModeStates] = useState<Record<GenerationMode, ModeState>>({
     [GenerationMode.IMAGE_EDIT]: { ...DEFAULT_MODE_STATE },
@@ -109,6 +113,15 @@ function App() {
     if (firstGen === 'true') {
       setHasCompletedFirstGeneration(true);
     }
+    
+    // Load saved sidebar width
+    const savedWidth = localStorage.getItem('nanobanana_sidebar_width');
+    if (savedWidth) {
+      const w = parseInt(savedWidth, 10);
+      if (!isNaN(w) && w > 240 && w < 1000) {
+        setSidebarWidth(w);
+      }
+    }
   }, []);
 
   // Smooth Progress Interpolation
@@ -157,6 +170,44 @@ function App() {
       setShowFullProgress(true);
     }
   }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
+
+  // --- Resize Logic ---
+  const startResizing = useCallback(() => setIsResizing(true), []);
+  const stopResizing = useCallback(() => setIsResizing(false), []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      // Calculate width based on mouse position
+      const main = document.querySelector('main');
+      const offset = main ? main.getBoundingClientRect().left : 0;
+      let newWidth = e.clientX - offset;
+      
+      // Constraints
+      if (newWidth < 300) newWidth = 300;
+      if (newWidth > 800) newWidth = 800;
+      if (newWidth > window.innerWidth * 0.7) newWidth = window.innerWidth * 0.7;
+      
+      setSidebarWidth(newWidth);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', stopResizing);
+    
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, stopResizing]);
+
+  // Save width when resizing stops
+  useEffect(() => {
+    if (!isResizing) {
+        localStorage.setItem('nanobanana_sidebar_width', sidebarWidth.toString());
+    }
+  }, [isResizing, sidebarWidth]);
+
 
   // --- Handlers ---
   const handleKeyClick = async () => {
@@ -448,7 +499,7 @@ function App() {
       />
 
       {/* --- Main Workspace --- */}
-      <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full">
+      <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">
         
         <Sidebar 
           mode={mode}
@@ -457,6 +508,15 @@ function App() {
           isGenerating={isGenerating}
           handleGenerate={handleGenerate}
           error={error}
+          width={sidebarWidth}
+        />
+        
+        {/* Vertical Resizer */}
+        <div 
+          className={`w-1.5 -ml-[3px] z-50 cursor-col-resize flex-none transition-colors hover:bg-yellow-500 active:bg-yellow-500 ${isResizing ? 'bg-yellow-500' : 'bg-transparent'}`}
+          onMouseDown={startResizing}
+          onDoubleClick={() => setSidebarWidth(420)}
+          title="Drag to resize"
         />
 
         <Canvas 
@@ -474,6 +534,11 @@ function App() {
           handleSendToImageEdit={handleSendToImageEdit}
           handleCopyText={handleCopyText}
         />
+        
+        {/* Global overlay during resize to catch events smoothly */}
+        {isResizing && (
+           <div className="fixed inset-0 z-[100] cursor-col-resize bg-transparent select-none" />
+        )}
         
       </main>
     </div>
