@@ -1,11 +1,12 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
+import GalleryModal from './components/GalleryModal';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { 
   GenerationMode, 
   ReferenceOperation, 
@@ -43,14 +44,18 @@ const DEFAULT_MODE_STATE: ModeState = {
   errorMessage: null
 };
 
-function App() {
+function AppContent() {
+  const { addToast } = useToast();
+
   // --- State: Global ---
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [showKeySettings, setShowKeySettings] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.IMAGE_EDIT);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [hasCompletedFirstGeneration, setHasCompletedFirstGeneration] = useState<boolean>(false);
   
   // --- Session Quota ---
@@ -110,9 +115,20 @@ function App() {
       }
       setHasKey(keyFound);
 
-      // 2. Load History from IndexedDB
-      const loadedHistory = await getHistoryItems();
-      setHistory(loadedHistory);
+      // 2. Load History from IndexedDB with Delay for Skeleton
+      setIsHistoryLoading(true);
+      try {
+          // Minimal delay to prevent flicker if it loads instantly
+          const [loadedHistory] = await Promise.all([
+             getHistoryItems(),
+             new Promise(resolve => setTimeout(resolve, 800)) 
+          ]);
+          setHistory(loadedHistory);
+      } catch (error) {
+          console.error("Failed to load history", error);
+      } finally {
+          setIsHistoryLoading(false);
+      }
       
       // 3. Load Session Quota
       const savedSessionCount = sessionStorage.getItem('nanobanana_session_count');
@@ -230,6 +246,7 @@ function App() {
       await (window as any).aistudio.openSelectKey();
       const has = await (window as any).aistudio.hasSelectedApiKey();
       setHasKey(has);
+      if(has) addToast('API Key connected successfully', 'success');
     } else {
       setShowKeySettings(true);
     }
@@ -240,6 +257,7 @@ function App() {
     if (key) {
       localStorage.setItem('gemini_api_key', key);
       setHasKey(true);
+      addToast('API Key saved locally', 'success');
     } else {
       localStorage.removeItem('gemini_api_key');
       let envHasKey = false;
@@ -249,46 +267,44 @@ function App() {
         }
       } catch(e) {}
       setHasKey(envHasKey);
+      addToast('API Key removed', 'info');
     }
     setShowKeySettings(false);
   };
 
-  // Wrap handleGenerate in useCallback for stable reference in useEffect
-  // Accepts a boolean or event to trigger retry mode
   const handleGenerate = useCallback(async (isRetryArg: boolean | React.MouseEvent = false) => {
     const isRetry = isRetryArg === true;
-
-    // Reset error state immediately to give feedback
     updateCurrentState({ errorMessage: null, hasError: false });
     
-    // Store the current image state to potentially move it to 'comparison' (previous) 
     const currentImageRef = currentState.generatedImage;
-
-    // Determine Params
     let paramsToUse: GenerateParams | PromptGenParams;
 
-    // Validation (Only if not retrying - assuming retry uses previously valid params)
     if (!isRetry) {
         if (mode === GenerationMode.IMAGE_EDIT && !currentState.textPrompt.trim()) {
              updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
+             addToast(ERRORS.MISSING_PROMPT, 'error');
              return; 
         }
         if (mode === GenerationMode.IMAGE_TO_IMAGE) {
             if (!currentState.subjectImage) {
                  updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
+                 addToast(ERRORS.MISSING_SUBJECT, 'error');
                  return;
             }
             if (!currentState.referenceImage) {
                  updateCurrentState({ errorMessage: ERRORS.MISSING_REF });
+                 addToast(ERRORS.MISSING_REF, 'error');
                  return;
             }
         }
         if (mode === GenerationMode.IMG_TO_PROMPT && !currentState.subjectImage) {
              updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
+             addToast(ERRORS.MISSING_SUBJECT, 'error');
              return;
         }
         if (mode === GenerationMode.TEXT_TO_PROMPT && !currentState.textPrompt.trim()) {
              updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
+             addToast(ERRORS.MISSING_PROMPT, 'error');
              return;
         }
     }
@@ -296,7 +312,6 @@ function App() {
     setIsGenerating(true);
     const isImageGen = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
     
-    // Only show full progress overlay if there is NO image currently visible.
     if (isImageGen) {
         setShowFullProgress(!currentState.generatedImage);
     } else {
@@ -310,7 +325,6 @@ function App() {
 
     try {
       if (isRetry && currentState.lastParams) {
-          // Use stored parameters from last attempt
           paramsToUse = { 
               ...currentState.lastParams,
               onProgress: (msg, val) => {
@@ -320,7 +334,6 @@ function App() {
               apiKey: apiKey || undefined 
           } as GenerateParams | PromptGenParams;
       } else {
-          // Construct new parameters from current UI state
           if (isImageGen) {
               paramsToUse = {
                 subjectImage: currentState.subjectImage || undefined,
@@ -354,7 +367,6 @@ function App() {
           }
       }
 
-      // Store params for potential retry (exclude onProgress)
       const paramsForStorage = { ...paramsToUse };
       delete (paramsForStorage as any).onProgress;
       updateCurrentState({ lastParams: paramsForStorage });
@@ -401,6 +413,7 @@ function App() {
           
           await saveHistoryItem(newHistoryItem);
           setHistory(prev => [newHistoryItem, ...prev]);
+          addToast("Image generated successfully", 'success');
 
       } else {
           const promptText = await generatePrompt(paramsToUse as PromptGenParams);
@@ -427,9 +440,9 @@ function App() {
           
           await saveHistoryItem(newHistoryItem);
           setHistory(prev => [newHistoryItem, ...prev]);
+          addToast("Prompt generated successfully", 'success');
       }
       
-      // Success - clear error state
       updateCurrentState({ hasError: false, errorMessage: null });
 
     } catch (err: any) {
@@ -440,8 +453,8 @@ function App() {
             setShowKeySettings(true);
         }
       }
-      // Set Mode Specific Error State
       updateCurrentState({ hasError: true, errorMessage: msg });
+      addToast(msg, 'error');
 
     } finally {
       setIsGenerating(false);
@@ -450,15 +463,12 @@ function App() {
     }
   }, [mode, currentState, apiKey, hasCompletedFirstGeneration]);
 
-  // Handle Retry
   const handleRetry = () => handleGenerate(true);
 
-  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Enter to Generate
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        if (!isGenerating && !showKeySettings && !showGuide) {
+        if (!isGenerating && !showKeySettings && !showGuide && !showGallery) {
           e.preventDefault();
           handleGenerate();
         }
@@ -466,7 +476,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleGenerate, isGenerating, showKeySettings, showGuide]);
+  }, [handleGenerate, isGenerating, showKeySettings, showGuide, showGallery]);
 
   const handleHistorySelect = (item: HistoryItem) => {
     if (item.type === 'image') {
@@ -474,44 +484,57 @@ function App() {
     } else if (item.type === 'text') {
       updateCurrentState({ generatedText: item.text, generatedImage: null });
     }
-    // If we're generating, switch to mini progress so user can see what they selected
     if (isGenerating) setShowFullProgress(false);
   };
 
   const handleDeleteHistoryItem = async (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation();
-
     const itemToDelete = history.find(item => item.id === itemId);
     if (!itemToDelete) return;
 
-    // Check if the item is currently displayed in the active mode
     const isDisplayed = 
       (itemToDelete.type === 'image' && itemToDelete.url === currentState.generatedImage) ||
       (itemToDelete.type === 'text' && itemToDelete.text === currentState.generatedText);
 
     try {
       await deleteHistoryItem(itemId);
-      
       const updatedHistory = history.filter(item => item.id !== itemId);
       setHistory(updatedHistory);
 
-      // If we deleted the currently viewed item, switch to the next available one or clear
       if (isDisplayed) {
         if (updatedHistory.length > 0) {
-          const nextItem = updatedHistory[0]; // Newest first
+          const nextItem = updatedHistory[0];
           if (nextItem.type === 'image') {
             updateCurrentState({ generatedImage: nextItem.url, generatedText: null });
           } else {
             updateCurrentState({ generatedText: nextItem.text, generatedImage: null });
           }
         } else {
-          // History is empty
           updateCurrentState({ generatedImage: null, generatedText: null });
         }
       }
+      addToast('Item deleted', 'success');
     } catch (err) {
-      console.error("Failed to delete history item:", err);
+      addToast('Failed to delete item', 'error');
     }
+  };
+
+  const handleDeleteHistoryItems = async (ids: string[]) => {
+      for (const id of ids) {
+          await deleteHistoryItem(id);
+      }
+      const updatedHistory = history.filter(item => !ids.includes(item.id));
+      setHistory(updatedHistory);
+      
+      // If current item was deleted, clear view
+      const currentId = history.find(item => 
+          (item.type === 'image' && item.url === currentState.generatedImage) ||
+          (item.type === 'text' && item.text === currentState.generatedText)
+      )?.id;
+
+      if (currentId && ids.includes(currentId)) {
+           updateCurrentState({ generatedImage: null, generatedText: null });
+      }
   };
 
   const handleDownload = (url: string) => {
@@ -539,12 +562,14 @@ function App() {
         }
       }));
       setMode(GenerationMode.IMAGE_EDIT);
+      addToast('Prompt sent to Image Edit', 'success');
     }
   };
 
   const handleUseAsSubject = (url: string) => {
     const file = dataURLtoFile(url, 'generated-subject.png');
     updateCurrentState({ subjectImage: file });
+    addToast('Image set as Subject', 'success');
   };
 
   return (
@@ -560,6 +585,14 @@ function App() {
         isOpen={showGuide}
         onClose={() => setShowGuide(false)}
       />
+
+      <GalleryModal
+        isOpen={showGallery}
+        onClose={() => setShowGallery(false)}
+        history={history}
+        onDeleteItems={handleDeleteHistoryItems}
+        onDownloadImage={(url) => handleDownload(url)}
+      />
       
       <Header 
         mode={mode}
@@ -568,13 +601,11 @@ function App() {
         setShowGuide={setShowGuide}
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
-        isModalOpen={showGuide || showKeySettings}
+        isModalOpen={showGuide || showKeySettings || showGallery}
         autoHideEnabled={hasCompletedFirstGeneration}
       />
 
-      {/* --- Main Workspace --- */}
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">
-        
         <Sidebar 
           mode={mode}
           currentState={currentState}
@@ -586,7 +617,6 @@ function App() {
           width={sidebarWidth}
         />
         
-        {/* Vertical Resizer */}
         <div 
           className={`w-1.5 -ml-[3px] z-50 cursor-col-resize flex-none transition-colors hover:bg-yellow-500 active:bg-yellow-500 ${isResizing ? 'bg-yellow-500' : 'bg-transparent'}`}
           onMouseDown={startResizing}
@@ -609,16 +639,24 @@ function App() {
           handleSendToImageEdit={handleSendToImageEdit}
           handleCopyText={handleCopyText}
           sessionImageCount={sessionImageCount}
+          onOpenGallery={() => setShowGallery(true)}
+          isHistoryLoading={isHistoryLoading}
         />
         
-        {/* Global overlay during resize to catch events smoothly */}
         {isResizing && (
            <div className="fixed inset-0 z-[100] cursor-col-resize bg-transparent select-none" />
         )}
-        
       </main>
     </div>
   );
+}
+
+function App() {
+    return (
+        <ToastProvider>
+            <AppContent />
+        </ToastProvider>
+    );
 }
 
 export default App;

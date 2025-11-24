@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Trash2
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Trash2, Grid3X3
 } from 'lucide-react';
 import { ModeState, HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
+import { useToast } from '../context/ToastContext';
 
 interface CanvasProps {
   currentState: ModeState;
@@ -22,6 +23,8 @@ interface CanvasProps {
   handleSendToImageEdit: () => void;
   handleCopyText: () => void;
   sessionImageCount?: number;
+  onOpenGallery?: () => void;
+  isHistoryLoading?: boolean;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -38,8 +41,11 @@ const Canvas: React.FC<CanvasProps> = ({
   handleUseAsSubject,
   handleSendToImageEdit,
   handleCopyText,
-  sessionImageCount = 0
+  sessionImageCount = 0,
+  onOpenGallery,
+  isHistoryLoading = false
 }) => {
+  const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -105,6 +111,16 @@ const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
+  const onCopyText = () => {
+    handleCopyText();
+    addToast('Prompt copied to clipboard', 'success');
+  };
+
+  const onDownload = (url: string) => {
+    handleDownload(url);
+    addToast('Download started', 'info');
+  };
+
   return (
     <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
       
@@ -148,7 +164,7 @@ const Canvas: React.FC<CanvasProps> = ({
                <div className="w-px h-4 bg-zinc-800 mx-1" />
                <Button 
                   variant="ghost"
-                  onClick={handleCopyText}
+                  onClick={onCopyText}
                   className="h-8 px-3 text-xs gap-2"
                >
                   <Copy size={14} /> Copy Text
@@ -159,7 +175,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 <Button 
                     variant="ghost" 
                     disabled={!currentState.generatedImage} 
-                    onClick={() => currentState.generatedImage && handleDownload(currentState.generatedImage)}
+                    onClick={() => currentState.generatedImage && onDownload(currentState.generatedImage)}
                     className="h-8 px-3 text-xs gap-2"
                 >
                     <Download size={14} /> Download
@@ -379,7 +395,10 @@ const Canvas: React.FC<CanvasProps> = ({
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
                                         <button 
-                                            onClick={() => navigator.clipboard.writeText(currentHistoryItem.metadata.textPrompt!)}
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(currentHistoryItem.metadata.textPrompt!);
+                                                addToast('Copied to clipboard', 'info');
+                                            }}
                                             className="text-[10px] flex items-center gap-1.5 text-zinc-500 hover:text-yellow-500 transition-colors px-2 py-0.5 rounded bg-zinc-800/50 hover:bg-zinc-800"
                                         >
                                             <Copy size={10} /> Copy
@@ -500,63 +519,86 @@ const Canvas: React.FC<CanvasProps> = ({
          transition={{ delay: 0.3 }}
          className="flex-none h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center z-20 relative"
       >
-         <div className="flex-1 overflow-x-auto h-full flex items-center px-6 gap-4 custom-scrollbar">
-            {history.length === 0 ? (
-            <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
-            ) : (
-            history.map(item => (
-                <motion.button 
-                layout
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
-                key={item.id}
-                onClick={() => handleHistorySelect(item)}
-                className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
-                    !isGenerating && (
-                    (item.type === 'image' && currentState.generatedImage === item.url) || 
-                    (item.type === 'text' && currentState.generatedText === item.text)
-                    ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
-                }`}
-                title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
-                draggable={item.type === 'image'}
-                onDragStart={(e) => {
-                    if (item.type === 'image') {
-                    // We must use React.DragEvent to avoid TS errors or cast it
-                    const dragEvent = e as unknown as React.DragEvent;
-                    dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
-                    dragEvent.dataTransfer.effectAllowed = 'copy';
-                    }
-                }}
-                >
-                {item.type === 'image' ? (
-                    <img src={item.url} className="w-full h-full object-cover pointer-events-none" alt="History" />
-                ) : (
-                    <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
-                        <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
-                        <div className="w-full space-y-1">
-                            <div className="h-1 w-full bg-zinc-800 rounded-full" />
-                            <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
-                        </div>
+         {/* View All Button */}
+         <div className="shrink-0 h-full flex items-center pl-4 pr-2 border-r border-zinc-800/30">
+            <button 
+                onClick={onOpenGallery}
+                className="flex flex-col items-center justify-center gap-1.5 w-16 h-16 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-white text-zinc-500 transition-colors group"
+                title="View Full Gallery"
+            >
+                <Grid3X3 size={18} className="group-hover:text-yellow-500 transition-colors" />
+                <span className="text-[10px] font-medium">View All</span>
+            </button>
+         </div>
+
+         <div className="flex-1 overflow-x-auto h-full flex items-center px-4 gap-4 custom-scrollbar">
+            {isHistoryLoading ? (
+                // Skeletons
+                Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="shrink-0 w-20 h-20 rounded-lg bg-zinc-900 border border-zinc-800 relative overflow-hidden">
+                        <motion.div 
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-800/30 to-transparent"
+                            animate={{ x: ['-100%', '100%'] }}
+                            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                        />
                     </div>
-                )}
-                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    {item.type === 'text' && (
-                        <div className="bg-zinc-950/80 p-1 rounded text-yellow-500 shadow-sm flex items-center justify-center">
-                            <Type size={10} />
+                ))
+            ) : history.length === 0 ? (
+                <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
+            ) : (
+                history.map(item => (
+                    <motion.button 
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
+                    key={item.id}
+                    onClick={() => handleHistorySelect(item)}
+                    className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
+                        !isGenerating && (
+                        (item.type === 'image' && currentState.generatedImage === item.url) || 
+                        (item.type === 'text' && currentState.generatedText === item.text)
+                        ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
+                    }`}
+                    title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
+                    draggable={item.type === 'image'}
+                    onDragStart={(e) => {
+                        if (item.type === 'image') {
+                        // We must use React.DragEvent to avoid TS errors or cast it
+                        const dragEvent = e as unknown as React.DragEvent;
+                        dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
+                        dragEvent.dataTransfer.effectAllowed = 'copy';
+                        }
+                    }}
+                    >
+                    {item.type === 'image' ? (
+                        <img src={item.url} className="w-full h-full object-cover pointer-events-none" alt="History" />
+                    ) : (
+                        <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
+                            <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
+                            <div className="w-full space-y-1">
+                                <div className="h-1 w-full bg-zinc-800 rounded-full" />
+                                <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
+                            </div>
                         </div>
                     )}
-                    <div 
-                        role="button"
-                        onClick={(e) => handleDeleteHistoryItem(e, item.id)}
-                        className="bg-black/60 hover:bg-red-500 text-zinc-300 hover:text-white p-1.5 rounded-md backdrop-blur-sm transition-all hover:scale-110 shadow-sm flex items-center justify-center"
-                        title="Delete"
-                    >
-                        <Trash2 size={12} />
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        {item.type === 'text' && (
+                            <div className="bg-zinc-950/80 p-1 rounded text-yellow-500 shadow-sm flex items-center justify-center">
+                                <Type size={10} />
+                            </div>
+                        )}
+                        <div 
+                            role="button"
+                            onClick={(e) => handleDeleteHistoryItem(e, item.id)}
+                            className="bg-black/60 hover:bg-red-500 text-zinc-300 hover:text-white p-1.5 rounded-md backdrop-blur-sm transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                            title="Delete"
+                        >
+                            <Trash2 size={12} />
+                        </div>
                     </div>
-                </div>
-                </motion.button>
-            ))
+                    </motion.button>
+                ))
             )}
          </div>
 

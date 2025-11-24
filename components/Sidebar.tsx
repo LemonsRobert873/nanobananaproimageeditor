@@ -1,10 +1,9 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
-  Maximize2, Settings, ChevronDown, ChevronUp, Sliders, RotateCw
+  Settings, ChevronDown, ChevronUp, Sliders, RotateCw
 } from 'lucide-react';
 import { 
   GenerationMode, 
@@ -13,9 +12,10 @@ import {
   Resolution, 
   ModeState 
 } from '../types';
-import { ASPECT_RATIOS, RESOLUTIONS } from '../constants';
+import { RESOLUTIONS } from '../constants';
 import Button from './Button';
 import FileUpload from './FileUpload';
+import AspectRatioSelector from './AspectRatioSelector';
 
 interface SidebarProps {
   mode: GenerationMode;
@@ -381,18 +381,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                     <label className="text-xs text-zinc-500 font-medium ml-1">Aspect Ratio</label>
-                    <div className="relative">
-                        <select 
+                    <AspectRatioSelector 
                         value={currentState.aspectRatio}
-                        onChange={(e) => updateCurrentState({ aspectRatio: e.target.value as AspectRatio })}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm appearance-none focus:border-yellow-500 outline-none text-zinc-300 transition-colors cursor-pointer hover:bg-zinc-800/50"
-                        >
-                        {ASPECT_RATIOS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                        </select>
-                        <Maximize2 className="absolute right-3 top-3 text-zinc-600 pointer-events-none w-4 h-4" />
-                    </div>
+                        onChange={(val) => updateCurrentState({ aspectRatio: val })}
+                    />
                     </div>
                     <div className="space-y-1.5">
                     <label className="text-xs text-zinc-500 font-medium ml-1">Resolution</label>
