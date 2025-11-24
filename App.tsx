@@ -1,7 +1,9 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
+import ResetModal from './components/ResetModal';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
@@ -21,7 +23,7 @@ import {
 } from './types';
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
-import { getHistoryItems, saveHistoryItem, deleteHistoryItem } from './utils/indexedDB';
+import { getHistoryItems, saveHistoryItem, deleteHistoryItem, clearAllHistory } from './utils/indexedDB';
 import { dataURLtoFile } from './utils/imageUtils';
 
 // Default state template for a mode
@@ -52,6 +54,7 @@ function AppContent() {
   const [apiKey, setApiKey] = useState<string>('');
   const [showKeySettings, setShowKeySettings] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.IMAGE_EDIT);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -110,11 +113,16 @@ function AppContent() {
           setShowGuide(false);
           return;
         }
+
+        if (showResetModal) {
+          setShowResetModal(false);
+          return;
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showGallery, showKeySettings, showGuide]);
+  }, [showGallery, showKeySettings, showGuide, showResetModal]);
 
   // --- Effects ---
   useEffect(() => {
@@ -294,6 +302,25 @@ function AppContent() {
       addToast('API Key removed', 'info');
     }
     setShowKeySettings(false);
+  };
+
+  const handleResetApp = async (includeApiKey: boolean) => {
+      // Clear IndexedDB History
+      await clearAllHistory();
+      
+      // Clear Local Storage items (keep key unless specified)
+      localStorage.removeItem('nanobanana_first_gen_complete');
+      localStorage.removeItem('nanobanana_sidebar_width');
+      
+      if (includeApiKey) {
+          localStorage.removeItem('gemini_api_key');
+      }
+      
+      // Clear Session Storage
+      sessionStorage.removeItem('nanobanana_session_count');
+      
+      // Force Reload to clear in-memory state completely
+      window.location.reload();
   };
 
   const handleGenerate = useCallback(async (isRetryArg: boolean | React.MouseEvent = false) => {
@@ -492,7 +519,7 @@ function AppContent() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        if (!isGenerating && !showKeySettings && !showGuide && !showGallery) {
+        if (!isGenerating && !showKeySettings && !showGuide && !showGallery && !showResetModal) {
           e.preventDefault();
           handleGenerate();
         }
@@ -500,7 +527,7 @@ function AppContent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleGenerate, isGenerating, showKeySettings, showGuide, showGallery]);
+  }, [handleGenerate, isGenerating, showKeySettings, showGuide, showGallery, showResetModal]);
 
   const handleHistorySelect = (item: HistoryItem) => {
     if (item.type === 'image') {
@@ -611,6 +638,12 @@ function AppContent() {
         onClose={() => setShowGuide(false)}
       />
 
+      <ResetModal 
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        onConfirm={handleResetApp}
+      />
+
       <GalleryModal
         isOpen={showGallery}
         onClose={() => setShowGallery(false)}
@@ -626,8 +659,9 @@ function AppContent() {
         setShowGuide={setShowGuide}
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
-        isModalOpen={showGuide || showKeySettings} // Gate: Don't treat Gallery as a "Modal" for auto-hide override logic
-        isGalleryOpen={showGallery} // Pass this so Header can freeze its state
+        onResetClick={() => setShowResetModal(true)}
+        isModalOpen={showGuide || showKeySettings || showResetModal} 
+        isGalleryOpen={showGallery} 
         autoHideEnabled={hasCompletedFirstGeneration}
       />
 
@@ -668,7 +702,7 @@ function AppContent() {
           onOpenGallery={() => setShowGallery(true)}
           isHistoryLoading={isHistoryLoading}
           isGalleryOpen={showGallery}
-          isModalOpen={showGuide || showKeySettings}
+          isModalOpen={showGuide || showKeySettings || showResetModal}
         />
         
         {isResizing && (

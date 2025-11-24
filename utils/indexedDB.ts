@@ -1,4 +1,5 @@
 
+
 const DB_NAME = 'NanoBananaDB';
 const STORE_NAME = 'history';
 const DB_VERSION = 1;
@@ -65,5 +66,20 @@ export const deleteHistoryItem = async (id: string) => {
     });
   } catch (error) {
     console.error("Failed to delete from IndexedDB:", error);
+  }
+};
+
+export const clearAllHistory = async () => {
+  try {
+    const db = await initDB();
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("Failed to clear IndexedDB:", error);
   }
 };

@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, LayoutGroup } from 'framer-motion';
-import { BookOpen, Key, Layers, Type, FileText, Wand2 } from 'lucide-react';
+import { BookOpen, Key, Layers, Type, FileText, Wand2, RotateCcw } from 'lucide-react';
 import { GenerationMode } from '../types';
 
 interface HeaderProps {
@@ -11,6 +12,7 @@ interface HeaderProps {
   setShowGuide: (show: boolean) => void;
   hasKey: boolean;
   handleKeyClick: () => void;
+  onResetClick: () => void;
   isModalOpen?: boolean;
   isGalleryOpen?: boolean;
   autoHideEnabled: boolean;
@@ -22,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({
   setShowGuide, 
   hasKey, 
   handleKeyClick,
+  onResetClick,
   isModalOpen = false,
   isGalleryOpen = false,
   autoHideEnabled
@@ -181,6 +184,15 @@ const Header: React.FC<HeaderProps> = ({
              transition={{ delay: 0.1 }}
              className="flex items-center justify-end gap-3 w-auto shrink-0"
           >
+            <button 
+                onClick={onResetClick}
+                className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all hover:scale-105"
+                title="Reset Application"
+            >
+                <RotateCcw size={14} />
+                <span className="hidden sm:inline">Reset</span>
+            </button>
+
             <button 
               onClick={() => setShowGuide(true)}
               className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all hover:scale-105"
