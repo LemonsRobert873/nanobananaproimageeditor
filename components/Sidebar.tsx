@@ -1,6 +1,5 @@
 
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
@@ -37,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   width
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [activeTarget, setActiveTarget] = useState<'subject' | 'reference' | null>(null);
   
   const handleReferenceSelect = (file: File | null) => {
     let isLowRes = false;
@@ -56,6 +56,40 @@ const Sidebar: React.FC<SidebarProps> = ({
       updateCurrentState({ referenceImage: null, isRefLowRes: false });
     }
   };
+
+  // Clipboard Paste Listener
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+        // Ignore if pasting into a text field
+        const target = document.activeElement as HTMLElement;
+        const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+        
+        if (isInput) return;
+  
+        if (!activeTarget) return;
+  
+        const items = e.clipboardData?.items;
+        if (!items) return;
+  
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const blob = items[i].getAsFile();
+            if (blob) {
+               const file = new File([blob], "pasted-image.png", { type: blob.type });
+               if (activeTarget === 'subject') {
+                   updateCurrentState({ subjectImage: file });
+               } else if (activeTarget === 'reference') {
+                   handleReferenceSelect(file);
+               }
+            }
+            break;
+          }
+        }
+      };
+      window.addEventListener('paste', handlePaste);
+      return () => window.removeEventListener('paste', handlePaste);
+  }, [activeTarget, currentState]);
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
@@ -82,6 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.3 }}
                     className="space-y-4 overflow-hidden"
+                    onClick={() => setActiveTarget('subject')}
                 >
                     <div className="flex items-center gap-2 text-zinc-100 font-medium">
                         <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
@@ -118,6 +153,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                         helperText={mode === GenerationMode.IMG_TO_PROMPT ? "Upload image to analyze." : "Clear front-facing photo of the subject."}
                         selectedFile={currentState.subjectImage}
                         onFileSelect={(f) => updateCurrentState({ subjectImage: f })}
+                        isActive={activeTarget === 'subject'}
+                        onActivate={() => setActiveTarget('subject')}
                     />
                 </motion.section>
             )}
@@ -170,6 +207,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-4 overflow-hidden"
+                    onClick={() => setActiveTarget('reference')}
                 >
                     <div>
                     <FileUpload 
@@ -179,6 +217,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onFileSelect={handleReferenceSelect}
                         required
                         className="mb-2"
+                        isActive={activeTarget === 'reference'}
+                        onActivate={() => setActiveTarget('reference')}
                     />
                     {currentState.isRefLowRes && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded border border-yellow-500/20 mb-2">
@@ -222,7 +262,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 key={item.op}
                                 whileHover={{ scale: 1.01 }}
                                 whileTap={{ scale: 0.99 }}
-                                onClick={() => updateCurrentState({ refOperation: item.op })}
+                                onClick={(e) => { e.stopPropagation(); updateCurrentState({ refOperation: item.op }); }}
                                 className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
                                     currentState.refOperation === item.op
                                     ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' 

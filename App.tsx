@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -21,6 +20,7 @@ import {
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
 import { getHistoryItems, saveHistoryItem, deleteHistoryItem } from './utils/indexedDB';
+import { dataURLtoFile } from './utils/imageUtils';
 
 // Default state template for a mode
 const DEFAULT_MODE_STATE: ModeState = {
@@ -49,6 +49,9 @@ function App() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [hasCompletedFirstGeneration, setHasCompletedFirstGeneration] = useState<boolean>(false);
   
+  // --- Session Quota ---
+  const [sessionImageCount, setSessionImageCount] = useState<number>(0);
+
   // --- Sidebar Resize State ---
   const [sidebarWidth, setSidebarWidth] = useState<number>(420);
   const [isResizing, setIsResizing] = useState<boolean>(false);
@@ -107,6 +110,12 @@ function App() {
       // 2. Load History from IndexedDB
       const loadedHistory = await getHistoryItems();
       setHistory(loadedHistory);
+      
+      // 3. Load Session Quota
+      const savedSessionCount = sessionStorage.getItem('nanobanana_session_count');
+      if (savedSessionCount) {
+        setSessionImageCount(parseInt(savedSessionCount, 10) || 0);
+      }
     };
 
     initApp();
@@ -308,6 +317,13 @@ function App() {
           updateCurrentState({ 
             generatedImage: imageUrl,
             comparisonImage: currentImageRef || currentState.comparisonImage 
+          });
+          
+          // Increment Session Quota
+          setSessionImageCount(prev => {
+            const newVal = prev + 1;
+            sessionStorage.setItem('nanobanana_session_count', newVal.toString());
+            return newVal;
           });
           
           const newHistoryItem: GeneratedImage = {
@@ -542,6 +558,7 @@ function App() {
           handleUseAsSubject={handleUseAsSubject}
           handleSendToImageEdit={handleSendToImageEdit}
           handleCopyText={handleCopyText}
+          sessionImageCount={sessionImageCount}
         />
         
         {/* Global overlay during resize to catch events smoothly */}
@@ -552,16 +569,6 @@ function App() {
       </main>
     </div>
   );
-}
-
-// Helper for "Use as Subject"
-function dataURLtoFile(dataurl: string, filename: string) {
-    let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)?.[1];
-    let bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-    while(n--){
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new File([u8arr], filename, {type:mime});
 }
 
 export default App;

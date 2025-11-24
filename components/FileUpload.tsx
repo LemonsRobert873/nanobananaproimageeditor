@@ -1,6 +1,8 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Upload, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { dataURLtoFile } from '../utils/imageUtils';
 
 interface FileUploadProps {
   label: string;
@@ -9,6 +11,8 @@ interface FileUploadProps {
   selectedFile: File | null;
   required?: boolean;
   className?: string;
+  isActive?: boolean;
+  onActivate?: () => void;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
@@ -17,7 +21,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   onFileSelect, 
   selectedFile,
   required,
-  className = ""
+  className = "",
+  isActive,
+  onActivate
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -36,14 +42,30 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+
+    // 1. Check for internal drag (from history)
+    const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
+    if (internalUrl) {
+      const file = dataURLtoFile(internalUrl, 'dragged-history-image.png');
+      onFileSelect(file);
+      if (onActivate) onActivate();
+      return;
+    }
+
+    // 2. Check for external file drop
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFileSelect(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('image/')) {
+        onFileSelect(file);
+        if (onActivate) onActivate();
+      }
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onFileSelect(e.target.files[0]);
+      if (onActivate) onActivate();
     }
   };
 
@@ -51,20 +73,26 @@ const FileUpload: React.FC<FileUploadProps> = ({
     e.stopPropagation();
     onFileSelect(null);
     if (inputRef.current) inputRef.current.value = '';
+    // We don't necessarily clear active state here to allow pasting a new one immediately
+  };
+
+  const handleClick = () => {
+    if (onActivate) onActivate();
+    inputRef.current?.click();
   };
 
   return (
     <div className={`w-full ${className}`}>
       {label && (
         <div className="flex justify-between items-baseline mb-2">
-          <label className="block text-sm font-medium text-zinc-200">
+          <label className={`block text-sm font-medium transition-colors ${isActive ? 'text-yellow-500' : 'text-zinc-200'}`}>
             {label} {required && <span className="text-yellow-500">*</span>}
           </label>
         </div>
       )}
       
       <motion.div 
-        onClick={() => inputRef.current?.click()}
+        onClick={handleClick}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragOver(true);
@@ -75,9 +103,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
         }}
         onDrop={handleDrop}
         animate={{
-          borderColor: isDragOver ? '#EAB308' : (previewUrl ? '#3f3f46' : '#27272a'),
+          borderColor: isDragOver ? '#EAB308' : (isActive ? '#EAB308' : (previewUrl ? '#3f3f46' : '#27272a')),
           backgroundColor: isDragOver ? 'rgba(234, 179, 8, 0.05)' : (previewUrl ? '#18181b' : '#18181b'),
           scale: isDragOver ? 1.01 : 1,
+          boxShadow: isActive ? '0 0 0 2px rgba(234, 179, 8, 0.2)' : 'none'
         }}
         transition={{ duration: 0.2 }}
         className={`
@@ -138,14 +167,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
               <motion.div 
                 className="mx-auto w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center mb-2"
                 animate={{ 
-                  scale: isDragOver ? 1.1 : 1,
-                  backgroundColor: isDragOver ? '#FACC15' : '#27272a',
-                  color: isDragOver ? '#000000' : '#a1a1aa'
+                  scale: isDragOver || isActive ? 1.1 : 1,
+                  backgroundColor: isDragOver || isActive ? '#FACC15' : '#27272a',
+                  color: isDragOver || isActive ? '#000000' : '#a1a1aa'
                 }}
               >
                 <Upload className="w-5 h-5" />
               </motion.div>
-              <p className="text-sm text-zinc-400 group-hover:text-zinc-200 transition-colors">Upload image</p>
+              <p className={`text-sm transition-colors ${isActive ? 'text-yellow-500' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+                 {isActive ? 'Paste or Drop Image' : 'Upload image'}
+              </p>
               {helperText && (
                 <p className="text-xs text-zinc-600 mt-1">{helperText}</p>
               )}

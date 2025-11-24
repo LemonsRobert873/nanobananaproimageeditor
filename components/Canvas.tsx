@@ -1,11 +1,10 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Trash2
 } from 'lucide-react';
-import { ModeState, HistoryItem } from '../types';
+import { ModeState, HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 
 interface CanvasProps {
@@ -22,6 +21,7 @@ interface CanvasProps {
   handleUseAsSubject: (url: string) => void;
   handleSendToImageEdit: () => void;
   handleCopyText: () => void;
+  sessionImageCount?: number;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -37,7 +37,8 @@ const Canvas: React.FC<CanvasProps> = ({
   handleDownload,
   handleUseAsSubject,
   handleSendToImageEdit,
-  handleCopyText
+  handleCopyText,
+  sessionImageCount = 0
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -333,8 +334,8 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             </div>
                             
-                            {/* Ref Strength Display */}
-                            {currentHistoryItem.metadata.refStrength !== undefined && (
+                            {/* Ref Strength Display - Only for Image To Image Mode */}
+                            {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.refStrength !== undefined && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
                                     <div className="text-sm text-yellow-500 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 flex items-center justify-between">
@@ -497,55 +498,75 @@ const Canvas: React.FC<CanvasProps> = ({
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.3 }}
-         className="flex-none h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center px-6 gap-4 overflow-x-auto z-20 relative custom-scrollbar"
+         className="flex-none h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center z-20 relative"
       >
-         {history.length === 0 ? (
-           <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
-         ) : (
-           history.map(item => (
-             <motion.button 
-               layout
-               initial={{ opacity: 0, scale: 0.8 }}
-               animate={{ opacity: 1, scale: 1 }}
-               whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
-               key={item.id}
-               onClick={() => handleHistorySelect(item)}
-               className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
-                 !isGenerating && (
-                   (item.type === 'image' && currentState.generatedImage === item.url) || 
-                   (item.type === 'text' && currentState.generatedText === item.text)
-                 ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
-               }`}
-               title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
-             >
-               {item.type === 'image' ? (
-                   <img src={item.url} className="w-full h-full object-cover" alt="History" />
-               ) : (
-                   <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
-                       <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
-                       <div className="w-full space-y-1">
+         <div className="flex-1 overflow-x-auto h-full flex items-center px-6 gap-4 custom-scrollbar">
+            {history.length === 0 ? (
+            <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
+            ) : (
+            history.map(item => (
+                <motion.button 
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
+                key={item.id}
+                onClick={() => handleHistorySelect(item)}
+                className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
+                    !isGenerating && (
+                    (item.type === 'image' && currentState.generatedImage === item.url) || 
+                    (item.type === 'text' && currentState.generatedText === item.text)
+                    ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
+                }`}
+                title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
+                draggable={item.type === 'image'}
+                onDragStart={(e) => {
+                    if (item.type === 'image') {
+                    // We must use React.DragEvent to avoid TS errors or cast it
+                    const dragEvent = e as unknown as React.DragEvent;
+                    dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
+                    dragEvent.dataTransfer.effectAllowed = 'copy';
+                    }
+                }}
+                >
+                {item.type === 'image' ? (
+                    <img src={item.url} className="w-full h-full object-cover pointer-events-none" alt="History" />
+                ) : (
+                    <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
+                        <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
+                        <div className="w-full space-y-1">
                             <div className="h-1 w-full bg-zinc-800 rounded-full" />
                             <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
-                       </div>
-                   </div>
-               )}
-               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                  {item.type === 'text' && (
-                      <div className="bg-zinc-950/80 p-1 rounded text-yellow-500 shadow-sm flex items-center justify-center">
-                          <Type size={10} />
-                      </div>
-                  )}
-                  <div 
-                      role="button"
-                      onClick={(e) => handleDeleteHistoryItem(e, item.id)}
-                      className="bg-black/60 hover:bg-red-500 text-zinc-300 hover:text-white p-1.5 rounded-md backdrop-blur-sm transition-all hover:scale-110 shadow-sm flex items-center justify-center"
-                      title="Delete"
-                  >
-                      <Trash2 size={12} />
-                  </div>
-               </div>
-             </motion.button>
-           ))
+                        </div>
+                    </div>
+                )}
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    {item.type === 'text' && (
+                        <div className="bg-zinc-950/80 p-1 rounded text-yellow-500 shadow-sm flex items-center justify-center">
+                            <Type size={10} />
+                        </div>
+                    )}
+                    <div 
+                        role="button"
+                        onClick={(e) => handleDeleteHistoryItem(e, item.id)}
+                        className="bg-black/60 hover:bg-red-500 text-zinc-300 hover:text-white p-1.5 rounded-md backdrop-blur-sm transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                        title="Delete"
+                    >
+                        <Trash2 size={12} />
+                    </div>
+                </div>
+                </motion.button>
+            ))
+            )}
+         </div>
+
+         {sessionImageCount > 0 && (
+            <div className="shrink-0 h-full flex items-center px-6 border-l border-zinc-800/30 bg-zinc-900/10">
+                 <div className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 text-zinc-400 text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                    <span>Images this session: <span className="text-zinc-200 font-semibold">{sessionImageCount}</span></span>
+                 </div>
+            </div>
          )}
       </motion.div>
 
