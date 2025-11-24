@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Trash2, Grid3X3
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3
 } from 'lucide-react';
 import { ModeState, HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
@@ -17,7 +17,6 @@ interface CanvasProps {
   visualProgress: number;
   history: HistoryItem[];
   handleHistorySelect: (item: HistoryItem) => void;
-  handleDeleteHistoryItem: (e: React.MouseEvent, id: string) => void;
   handleDownload: (url: string) => void;
   handleUseAsSubject: (url: string) => void;
   handleSendToImageEdit: () => void;
@@ -38,7 +37,6 @@ const Canvas: React.FC<CanvasProps> = ({
   visualProgress,
   history,
   handleHistorySelect,
-  handleDeleteHistoryItem,
   handleDownload,
   handleUseAsSubject,
   handleSendToImageEdit,
@@ -608,14 +606,6 @@ const Canvas: React.FC<CanvasProps> = ({
                                 <Type size={10} />
                             </div>
                         )}
-                        <div 
-                            role="button"
-                            onClick={(e) => handleDeleteHistoryItem(e, item.id)}
-                            className="bg-black/60 hover:bg-red-500 text-zinc-300 hover:text-white p-1.5 rounded-md backdrop-blur-sm transition-all hover:scale-110 shadow-sm flex items-center justify-center"
-                            title="Delete"
-                        >
-                            <Trash2 size={12} />
-                        </div>
                     </div>
                     </motion.button>
                 ))

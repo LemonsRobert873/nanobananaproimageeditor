@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -693,7 +692,6 @@ function AppContent() {
           visualProgress={visualProgress}
           history={history}
           handleHistorySelect={handleHistorySelect}
-          handleDeleteHistoryItem={handleDeleteHistoryItem}
           handleDownload={handleDownload}
           handleUseAsSubject={handleUseAsSubject}
           handleSendToImageEdit={handleSendToImageEdit}
