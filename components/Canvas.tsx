@@ -535,7 +535,7 @@ const Canvas: React.FC<CanvasProps> = ({
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.3 }}
-         className="flex-none h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center z-20 relative"
+         className="flex-none h-24 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center z-20 relative"
       >
          {/* View All Button */}
          <div className="shrink-0 h-full flex items-center pl-4 pr-2 border-r border-zinc-800/30">
@@ -553,7 +553,7 @@ const Canvas: React.FC<CanvasProps> = ({
             {isHistoryLoading ? (
                 // Skeletons
                 Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="shrink-0 w-20 h-20 rounded-lg bg-zinc-900 border border-zinc-800 relative overflow-hidden">
+                    <div key={i} className="shrink-0 w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 relative overflow-hidden">
                         <motion.div 
                             className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-800/30 to-transparent"
                             animate={{ x: ['-100%', '100%'] }}
@@ -572,7 +572,7 @@ const Canvas: React.FC<CanvasProps> = ({
                     whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
                     key={item.id}
                     onClick={() => handleHistorySelect(item)}
-                    className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
+                    className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
                         !isGenerating && (
                         (item.type === 'image' && currentState.generatedImage === item.url) || 
                         (item.type === 'text' && currentState.generatedText === item.text)

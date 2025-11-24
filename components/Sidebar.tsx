@@ -417,7 +417,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </motion.div>
 
       {/* Footer Action */}
-      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm space-y-3 z-[25]">
+      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm space-y-2 z-[25]">
          <AnimatePresence>
             {displayError && (
                 <motion.div 
@@ -460,7 +460,7 @@ const Sidebar: React.FC<SidebarProps> = ({
              </motion.div>
         )}
 
-        <p className="text-center text-[10px] text-zinc-600">
+        <p className="text-center text-[10px] text-zinc-600 mt-1">
           {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) 
             ? 'Uses Gemini 2.5 Flash' 
             : `Uses Nano Banana Pro (Gemini 3 Pro)`
