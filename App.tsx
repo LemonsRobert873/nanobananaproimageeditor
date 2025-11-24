@@ -92,6 +92,30 @@ function AppContent() {
     }));
   };
 
+  // --- Global Escape Key Handling ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Gallery handles its own Close via its internal listener.
+        // Canvas handles its own Unzoom via its internal listener.
+        // We only handle other modals here.
+        if (showGallery) return;
+
+        if (showKeySettings) {
+          setShowKeySettings(false);
+          return;
+        }
+
+        if (showGuide) {
+          setShowGuide(false);
+          return;
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showGallery, showKeySettings, showGuide]);
+
   // --- Effects ---
   useEffect(() => {
     const initApp = async () => {
@@ -643,6 +667,8 @@ function AppContent() {
           sessionImageCount={sessionImageCount}
           onOpenGallery={() => setShowGallery(true)}
           isHistoryLoading={isHistoryLoading}
+          isGalleryOpen={showGallery}
+          isModalOpen={showGuide || showKeySettings}
         />
         
         {isResizing && (

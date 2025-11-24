@@ -25,6 +25,8 @@ interface CanvasProps {
   sessionImageCount?: number;
   onOpenGallery?: () => void;
   isHistoryLoading?: boolean;
+  isGalleryOpen?: boolean;
+  isModalOpen?: boolean;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -43,7 +45,9 @@ const Canvas: React.FC<CanvasProps> = ({
   handleCopyText,
   sessionImageCount = 0,
   onOpenGallery,
-  isHistoryLoading = false
+  isHistoryLoading = false,
+  isGalleryOpen = false,
+  isModalOpen = false
 }) => {
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
@@ -62,6 +66,21 @@ const Canvas: React.FC<CanvasProps> = ({
     setIsZoomed(false);
     clickTargetRef.current = null;
   }, [currentState.generatedImage]);
+
+  // Handle Global Escape Key for Zoom Reset
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Priority 1: If Canvas is zoomed and no higher priority modal (Gallery/Guide) is open
+        if (isZoomed && !isGalleryOpen && !isModalOpen) {
+           setIsZoomed(false);
+           e.stopImmediatePropagation(); // Handle locally, don't let App handle
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isZoomed, isGalleryOpen, isModalOpen]);
 
   // Handle scroll positioning after zoom toggles
   useEffect(() => {
@@ -383,7 +402,7 @@ const Canvas: React.FC<CanvasProps> = ({
 
                             {currentHistoryItem.metadata.referenceOperation && (
                                 <div className="space-y-1">
-                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Reference Op</label>
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
                                     <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
                                         {currentHistoryItem.metadata.referenceOperation}
                                     </div>

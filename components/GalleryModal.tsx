@@ -26,15 +26,52 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeItem, setActiveItem] = useState<HistoryItem | null>(null);
+  const [lightboxZoomed, setLightboxZoomed] = useState(false);
 
-  // Reset selection when modal opens/closes
+  // Reset selection and zoom when modal opens/closes or active item changes
   useEffect(() => {
     if (!isOpen) {
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
         setActiveItem(null);
+        setLightboxZoomed(false);
     }
   }, [isOpen]);
+
+  // Reset zoom when active item changes
+  useEffect(() => {
+    setLightboxZoomed(false);
+  }, [activeItem]);
+
+  // Global Escape Key Handler for Gallery Context
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Priority 1: Reset Zoom
+        if (lightboxZoomed) {
+          setLightboxZoomed(false);
+          e.stopPropagation();
+          return;
+        }
+        
+        // Priority 2: Close Lightbox
+        if (activeItem) {
+          setActiveItem(null);
+          e.stopPropagation();
+          return;
+        }
+        
+        // Priority 3: Close Gallery
+        onClose();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, lightboxZoomed, activeItem, onClose]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -80,7 +117,6 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
 
     for (const item of itemsToDownload) {
       if (item.type === 'image') {
-         // Create a temporary link for image download
          const link = document.createElement('a');
          link.href = item.url;
          link.download = `nanobanana-${item.id}.png`;
@@ -88,10 +124,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
          link.click();
          document.body.removeChild(link);
          downloadedCount++;
-         // Small delay to prevent browser blocking
          await new Promise(r => setTimeout(r, 200));
       } else if (item.type === 'text') {
-         // Create a text file download
          const blob = new Blob([item.text], { type: 'text/plain' });
          const url = URL.createObjectURL(blob);
          const link = document.createElement('a');
@@ -246,7 +280,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
 
                                         {/* Main Content (Click to Open Lightbox) */}
                                         <div 
-                                            className="cursor-zoom-in"
+                                            className="cursor-pointer" 
                                             onClick={() => setActiveItem(item)}
                                         >
                                             {item.type === 'image' ? (
@@ -311,6 +345,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                 {activeItem && (
                     <LightboxView 
                         item={activeItem} 
+                        isZoomed={lightboxZoomed}
+                        setZoomed={setLightboxZoomed}
                         onClose={() => setActiveItem(null)} 
                         onDelete={() => handleSingleDelete(activeItem.id)}
                         onDownload={() => handleSingleDownload(activeItem)}
@@ -328,18 +364,19 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
 // --- Sub-component: Lightbox View ---
 interface LightboxViewProps {
     item: HistoryItem;
+    isZoomed: boolean;
+    setZoomed: (val: boolean) => void;
     onClose: () => void;
     onDelete: () => void;
     onDownload: () => void;
 }
 
-const LightboxView: React.FC<LightboxViewProps> = ({ item, onClose, onDelete, onDownload }) => {
+const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, onClose, onDelete, onDownload }) => {
     const { addToast } = useToast();
-    const [isZoomed, setIsZoomed] = useState(false);
     const viewportRef = useRef<HTMLDivElement>(null);
     const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
 
-    // Zoom Logic (Same as Canvas)
+    // Zoom Logic
     useEffect(() => {
         if (isZoomed && clickTargetRef.current && viewportRef.current) {
             const viewport = viewportRef.current;
@@ -351,9 +388,9 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, onClose, onDelete, on
                      const viewportW = viewport.clientWidth;
                      const viewportH = viewport.clientHeight;
                      const imgW = img.offsetWidth;
-                     const imgH = img.offsetHeight;
                      const imgLeft = img.offsetLeft;
                      const imgTop = img.offsetTop;
+                     const imgH = img.offsetHeight;
 
                      const targetX = imgLeft + (imgW * x);
                      const targetY = imgTop + (imgH * y);
@@ -372,13 +409,13 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, onClose, onDelete, on
 
     const handleZoomClick = (e: React.MouseEvent<HTMLImageElement>) => {
         if (isZoomed) {
-            setIsZoomed(false);
+            setZoomed(false);
         } else {
             const rect = e.currentTarget.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width;
             const y = (e.clientY - rect.top) / rect.height;
             clickTargetRef.current = { x, y };
-            setIsZoomed(true);
+            setZoomed(true);
         }
     };
 
