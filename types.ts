@@ -1,4 +1,5 @@
 
+
 export enum GenerationMode {
   IMAGE_EDIT = 'IMAGE_EDIT',            // Formerly Text Prompt
   IMAGE_TO_IMAGE = 'IMAGE_TO_IMAGE',    // Formerly Image Reference
@@ -26,12 +27,22 @@ export enum Resolution {
   RES_4K = '4K'
 }
 
+export interface HistoryItemMetadata {
+  mode: GenerationMode;
+  aspectRatio?: AspectRatio;
+  resolution?: Resolution;
+  referenceOperation?: ReferenceOperation;
+  useFaceFeature?: boolean;
+  textPrompt?: string;
+}
+
 export interface GeneratedImage {
   type: 'image';
   id: string;
   url: string;
   timestamp: number;
   prompt: string;
+  metadata?: HistoryItemMetadata;
 }
 
 export interface GeneratedText {
@@ -40,6 +51,7 @@ export interface GeneratedText {
   text: string;
   timestamp: number;
   sourcePrompt: string;
+  metadata?: HistoryItemMetadata;
 }
 
 export type HistoryItem = GeneratedImage | GeneratedText;

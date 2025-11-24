@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare 
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info
 } from 'lucide-react';
 import { ModeState, HistoryItem } from '../types';
 import Button from './Button';
@@ -37,8 +37,15 @@ const Canvas: React.FC<CanvasProps> = ({
   handleCopyText
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
+
+  // Find the history item that matches the current view to show its metadata
+  const currentHistoryItem = history.find(item => 
+    (item.type === 'image' && item.url === currentState.generatedImage) ||
+    (item.type === 'text' && item.text === currentState.generatedText)
+  );
 
   // Reset zoom state when the generated image changes
   useEffect(() => {
@@ -55,33 +62,26 @@ const Canvas: React.FC<CanvasProps> = ({
         if (img) {
              const { x, y } = clickTargetRef.current;
              
-             // Use requestAnimationFrame to ensure we calculate after layout update
              requestAnimationFrame(() => {
                  const viewportW = viewport.clientWidth;
                  const viewportH = viewport.clientHeight;
                  
-                 // Get dimensions and position of the now-zoomed image
                  const imgW = img.offsetWidth;
                  const imgH = img.offsetHeight;
                  const imgLeft = img.offsetLeft;
                  const imgTop = img.offsetTop;
 
-                 // Calculate the pixel position of the click target on the zoomed image
                  const targetX = imgLeft + (imgW * x);
                  const targetY = imgTop + (imgH * y);
 
-                 // Center that point in the viewport
                  const scrollLeft = targetX - (viewportW / 2);
                  const scrollTop = targetY - (viewportH / 2);
                  
                  viewport.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
-                 
-                 // Clear target
                  clickTargetRef.current = null;
              });
         }
     } else if (!isZoomed && viewportRef.current) {
-         // Reset scroll when zooming out
          viewportRef.current.scrollTo({ left: 0, top: 0, behavior: 'instant' });
     }
   }, [isZoomed]);
@@ -92,7 +92,6 @@ const Canvas: React.FC<CanvasProps> = ({
     if (isZoomed) {
         setIsZoomed(false);
     } else {
-        // Calculate click position relative to the image (0 to 1)
         const rect = e.currentTarget.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width;
         const y = (e.clientY - rect.top) / rect.height;
@@ -105,16 +104,33 @@ const Canvas: React.FC<CanvasProps> = ({
   return (
     <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
       
-      {/* 1. Canvas Toolbar (Header) - Fixed Height */}
+      {/* 1. Canvas Toolbar (Header) */}
       <motion.div 
          initial={{ y: -20, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.2 }}
          className="flex-none h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950 z-20 relative"
       >
-        <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
-            {currentState.generatedText ? 'Generated Prompt' : 'Result Canvas'}
-        </h2>
+        <div className="flex items-center gap-4">
+            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
+                {currentState.generatedText ? 'Generated Prompt' : 'Result Canvas'}
+            </h2>
+            {(currentState.generatedImage || currentState.generatedText) && (
+                <button 
+                  onClick={() => setShowInfo(!showInfo)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border ${
+                    showInfo 
+                      ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                  }`}
+                  title="Toggle Metadata Inspector"
+                >
+                    <Info size={14} />
+                    <span>{currentState.generatedText ? 'Text Info' : 'Image Info'}</span>
+                </button>
+            )}
+        </div>
+        
         <div className="flex items-center gap-2">
           {currentState.generatedText ? (
              <>
@@ -162,8 +178,8 @@ const Canvas: React.FC<CanvasProps> = ({
          {/* Background Pattern */}
          <div className="absolute inset-0 bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
 
-         {/* Content Container - Handles Scroll & Layout */}
-         <div className="relative w-full h-full overflow-hidden">
+         {/* Content Container */}
+         <div className="relative w-full h-full overflow-hidden flex">
             
             {/* Loading Overlay */}
             <AnimatePresence mode="wait">
@@ -212,87 +228,168 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
             </AnimatePresence>
 
-            {/* Text Result View */}
-            {currentState.generatedText && (
-                <div className="w-full h-full overflow-auto p-8 flex justify-center relative z-10">
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="w-full max-w-3xl bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl h-fit relative group"
-                    >
-                        <button 
-                            onClick={() => updateCurrentState({ generatedText: null })}
-                            className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
-                            title="Clear Result"
-                        >
-                            <X size={16} />
-                        </button>
-                        <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
-                            {currentState.generatedText}
-                        </pre>
-                    </motion.div>
-                </div>
-            )}
-
-            {/* Image Result View with Zoom */}
-            {!currentState.generatedText && (
-                <div 
-                    ref={viewportRef}
-                    className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
-                >
-                    {/* Placeholder */}
-                    {!currentState.generatedImage && !isGenerating && (
+            {/* Main Display Area */}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
+                {/* Text Result View */}
+                {currentState.generatedText && (
+                    <div className="w-full h-full overflow-auto p-8 flex justify-center relative z-10 custom-scrollbar">
                         <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="m-auto text-center space-y-6 max-w-md w-full opacity-60 p-4"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="w-full max-w-3xl bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl h-fit relative group"
                         >
-                            <div className="space-y-4">
-                                <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
-                                    <ImagePlus className="w-10 h-10 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                            <button 
+                                onClick={() => updateCurrentState({ generatedText: null })}
+                                className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
+                                title="Clear Result"
+                            >
+                                <X size={16} />
+                            </button>
+                            <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
+                                {currentState.generatedText}
+                            </pre>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Image Result View with Zoom */}
+                {!currentState.generatedText && (
+                    <div 
+                        ref={viewportRef}
+                        className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
+                    >
+                        {/* Placeholder */}
+                        {!currentState.generatedImage && !isGenerating && (
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="m-auto text-center space-y-6 max-w-md w-full opacity-60 p-4"
+                            >
+                                <div className="space-y-4">
+                                    <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
+                                        <ImagePlus className="w-10 h-10 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
+                                        <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
+                                            Select a mode above to start generating images or prompts.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
-                                    <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
-                                        Select a mode above to start generating images or prompts.
-                                    </p>
+                            </motion.div>
+                        )}
+
+                        {/* Generated Image */}
+                        {currentState.generatedImage && (
+                            <img 
+                                onClick={handleZoomClick}
+                                src={currentState.generatedImage} 
+                                alt="Generated result" 
+                                className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
+                                    isGenerating ? 'cursor-wait' : (isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
+                                }`}
+                                style={isZoomed ? {
+                                    height: '200%',
+                                    width: 'auto',
+                                    maxWidth: 'none',
+                                    maxHeight: 'none',
+                                    flexShrink: 0
+                                } : {
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                    width: 'auto',
+                                    height: 'auto',
+                                    objectFit: 'contain'
+                                }}
+                            />
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Metadata Inspector Panel */}
+            <AnimatePresence>
+                {showInfo && currentHistoryItem?.metadata && (
+                    <motion.div 
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 320, opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        className="h-full border-l border-zinc-800 bg-zinc-900/80 backdrop-blur-md overflow-hidden flex flex-col relative z-20 shrink-0"
+                    >
+                         <div className="p-4 border-b border-zinc-800 flex justify-between items-center w-[320px]">
+                            <h3 className="font-medium text-sm text-zinc-200">Metadata Inspector</h3>
+                            <button onClick={() => setShowInfo(false)} className="text-zinc-500 hover:text-white">
+                                <X size={14} />
+                            </button>
+                         </div>
+                         <div className="flex-1 overflow-y-auto p-4 space-y-6 w-[320px] custom-scrollbar">
+                            <div className="space-y-1">
+                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Mode</label>
+                                <div className="text-sm text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                    {currentHistoryItem.metadata.mode}
                                 </div>
                             </div>
-                        </motion.div>
-                    )}
+                            
+                            {currentHistoryItem.metadata.aspectRatio && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Settings</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                            <div className="text-xs text-zinc-500">Ratio</div>
+                                            <div className="text-sm text-zinc-300">{currentHistoryItem.metadata.aspectRatio}</div>
+                                        </div>
+                                        {currentHistoryItem.metadata.resolution && (
+                                            <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                                <div className="text-xs text-zinc-500">Resolution</div>
+                                                <div className="text-sm text-zinc-300">{currentHistoryItem.metadata.resolution}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
-                    {/* Generated Image */}
-                    {currentState.generatedImage && (
-                        <img 
-                            onClick={handleZoomClick}
-                            src={currentState.generatedImage} 
-                            alt="Generated result" 
-                            className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
-                                isGenerating ? 'cursor-wait' : (isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
-                            }`}
-                            style={isZoomed ? {
-                                height: '200%',
-                                width: 'auto',
-                                maxWidth: 'none',
-                                maxHeight: 'none',
-                                flexShrink: 0
-                            } : {
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                width: 'auto',
-                                height: 'auto',
-                                objectFit: 'contain'
-                            }}
-                        />
-                    )}
-                </div>
-            )}
+                            {currentHistoryItem.metadata.referenceOperation && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Reference Op</label>
+                                    <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
+                                        {currentHistoryItem.metadata.referenceOperation}
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentHistoryItem.metadata.textPrompt && (
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
+                                        <button 
+                                            onClick={() => navigator.clipboard.writeText(currentHistoryItem.metadata.textPrompt!)}
+                                            className="text-[10px] flex items-center gap-1.5 text-zinc-500 hover:text-yellow-500 transition-colors px-2 py-0.5 rounded bg-zinc-800/50 hover:bg-zinc-800"
+                                        >
+                                            <Copy size={10} /> Copy
+                                        </button>
+                                    </div>
+                                    <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap">
+                                        {currentHistoryItem.metadata.textPrompt}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="space-y-1 pt-4 border-t border-zinc-800/50">
+                                <label className="text-xs uppercase tracking-wider text-zinc-600 font-semibold">Generated On</label>
+                                <div className="text-xs text-zinc-500">
+                                    {new Date(currentHistoryItem.timestamp).toLocaleString()}
+                                </div>
+                            </div>
+                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Viewport Overlays (Comparison, Close, Mini Progress) */}
             <div className="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-6">
-                 {/* Top Row: Close Button */}
-                 <div className="flex justify-end">
-                    {currentState.generatedImage && !currentState.generatedText && (
+                 {/* Top Row: Close Button (Disabled when Info panel is open to prevent duplicate buttons) */}
+                 <div className="flex justify-end mr-8">
+                    {currentState.generatedImage && !currentState.generatedText && !showInfo && (
                         <motion.button 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                             onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
@@ -314,7 +411,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                                 className="w-32 sm:w-48 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl relative group"
-                                onClick={(e) => e.stopPropagation()} // Prevent zoom on click
+                                onClick={(e) => e.stopPropagation()}
                             >
                                 <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
                                 <button 
@@ -367,7 +464,7 @@ const Canvas: React.FC<CanvasProps> = ({
          </div>
       </div>
 
-      {/* 3. History Strip (Footer) - Fixed Height */}
+      {/* 3. History Strip (Footer) */}
       <motion.div 
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}

@@ -53,6 +53,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
+
   return (
     <aside className="w-full lg:w-[420px] xl:w-[460px] flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto">
       <motion.div 
@@ -321,6 +324,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={handleGenerate} 
           isLoading={isGenerating} 
           className="w-full py-4 text-base font-semibold"
+          title={`Generate ${shortcutLabel}`}
         >
           <Sparkles className="w-5 h-5 mr-2" />
           {mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image'}

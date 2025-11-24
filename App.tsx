@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
 import Header from './components/Header';
@@ -19,6 +19,7 @@ import {
 } from './types';
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
+import { getHistoryItems, saveHistoryItem } from './utils/indexedDB';
 
 // Default state template for a mode
 const DEFAULT_MODE_STATE: ModeState = {
@@ -75,9 +76,9 @@ function App() {
 
   // --- Effects ---
   useEffect(() => {
-    const checkKey = async () => {
+    const initApp = async () => {
+      // 1. Check API Key
       let keyFound = false;
-
       try {
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
             keyFound = true;
@@ -86,9 +87,7 @@ function App() {
 
       if (!keyFound && (window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
         const has = await (window as any).aistudio.hasSelectedApiKey();
-        if (has) {
-          keyFound = true;
-        }
+        if (has) keyFound = true;
       }
       
       const storedKey = localStorage.getItem('gemini_api_key');
@@ -96,10 +95,14 @@ function App() {
         setApiKey(storedKey);
         keyFound = true;
       }
-
       setHasKey(keyFound);
+
+      // 2. Load History from IndexedDB
+      const loadedHistory = await getHistoryItems();
+      setHistory(loadedHistory);
     };
-    checkKey();
+
+    initApp();
 
     // Check if user has previously generated an image
     const firstGen = localStorage.getItem('nanobanana_first_gen_complete');
@@ -148,6 +151,13 @@ function App() {
     };
   }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
 
+  // Restore full progress overlay if content is closed during generation
+  useEffect(() => {
+    if (isGenerating && !currentState.generatedImage && !currentState.generatedText) {
+      setShowFullProgress(true);
+    }
+  }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
+
   // --- Handlers ---
   const handleKeyClick = async () => {
     if ((window as any).aistudio && (window as any).aistudio.openSelectKey) {
@@ -177,15 +187,14 @@ function App() {
     setShowKeySettings(false);
   };
 
-  const handleGenerate = async () => {
+  // Wrap handleGenerate in useCallback for stable reference in useEffect
+  const handleGenerate = useCallback(async () => {
     setError(null);
     updateCurrentState({ generatedText: null });
 
-    if (mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE) {
-        if (currentState.generatedImage) {
-            updateCurrentState({ comparisonImage: currentState.generatedImage, generatedImage: null });
-        }
-    }
+    // Store the current image state to potentially move it to 'comparison' (previous) 
+    // ONLY after the new one is successfully generated. This keeps the canvas populated.
+    const currentImageRef = currentState.generatedImage;
 
     // Validation
     if (mode === GenerationMode.IMAGE_EDIT && !currentState.textPrompt.trim()) return setError(ERRORS.MISSING_PROMPT);
@@ -198,7 +207,14 @@ function App() {
 
     setIsGenerating(true);
     const isImageGen = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
-    if (isImageGen) setShowFullProgress(true);
+    
+    // Only show full progress overlay if there is NO image currently visible.
+    // This allows the user to browse history or view the current image while the next one generates.
+    if (isImageGen) {
+        setShowFullProgress(!currentState.generatedImage);
+    } else {
+        setShowFullProgress(!currentState.generatedText);
+    }
     
     setVisualProgress(0);
     serviceProgressRef.current = 0;
@@ -232,16 +248,30 @@ function App() {
             localStorage.setItem('nanobanana_first_gen_complete', 'true');
           }
 
-          updateCurrentState({ generatedImage: imageUrl });
+          // Move the previously displayed image to 'comparison' (previous) slot and set the new one
+          updateCurrentState({ 
+            generatedImage: imageUrl,
+            comparisonImage: currentImageRef || currentState.comparisonImage 
+          });
           
           const newHistoryItem: GeneratedImage = {
             type: 'image',
             id: Date.now().toString(),
             url: imageUrl,
             timestamp: Date.now(),
-            prompt: currentState.textPrompt || "Reference based generation"
+            prompt: currentState.textPrompt || "Reference based generation",
+            metadata: {
+              mode,
+              textPrompt: currentState.textPrompt,
+              aspectRatio: currentState.aspectRatio,
+              resolution: currentState.resolution,
+              referenceOperation: currentState.refOperation
+            }
           };
+          
+          await saveHistoryItem(newHistoryItem);
           setHistory(prev => [newHistoryItem, ...prev]);
+
       } else {
           // Text modes
           const params: PromptGenParams = {
@@ -268,8 +298,15 @@ function App() {
             id: Date.now().toString(),
             text: promptText,
             timestamp: Date.now(),
-            sourcePrompt: currentState.textPrompt || "Image analysis"
+            sourcePrompt: currentState.textPrompt || "Image analysis",
+            metadata: {
+              mode,
+              textPrompt: currentState.textPrompt,
+              useFaceFeature: currentState.useFaceFeature
+            }
           };
+          
+          await saveHistoryItem(newHistoryItem);
           setHistory(prev => [newHistoryItem, ...prev]);
       }
 
@@ -283,15 +320,28 @@ function App() {
       }
       setError(msg);
 
-      if (currentState.comparisonImage && !currentState.generatedImage) {
-          updateCurrentState({ generatedImage: currentState.comparisonImage, comparisonImage: null });
-      }
+      // Note: We don't need to restore image states here because we didn't clear them at start.
     } finally {
       setIsGenerating(false);
       setShowFullProgress(false);
       serviceProgressRef.current = 100;
     }
-  };
+  }, [mode, currentState, apiKey, hasCompletedFirstGeneration]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Enter to Generate
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (!isGenerating && !showKeySettings && !showGuide) {
+          e.preventDefault();
+          handleGenerate();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleGenerate, isGenerating, showKeySettings, showGuide]);
 
   const handleHistorySelect = (item: HistoryItem) => {
     if (item.type === 'image') {
@@ -299,6 +349,7 @@ function App() {
     } else if (item.type === 'text') {
       updateCurrentState({ generatedText: item.text, generatedImage: null });
     }
+    // If we're generating, switch to mini progress so user can see what they selected
     if (isGenerating) setShowFullProgress(false);
   };
 
