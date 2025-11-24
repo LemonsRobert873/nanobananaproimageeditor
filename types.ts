@@ -96,4 +96,8 @@ export interface ModeState {
   isRefLowRes: boolean;
   refStrength: number;
   negativePrompt: string;
+  // Retry State
+  lastParams: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'> | null;
+  hasError: boolean;
+  errorMessage: string | null;
 }

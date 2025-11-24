@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -36,7 +37,10 @@ const DEFAULT_MODE_STATE: ModeState = {
   resolution: Resolution.RES_1K,
   isRefLowRes: false,
   refStrength: 70,
-  negativePrompt: ''
+  negativePrompt: '',
+  lastParams: null,
+  hasError: false,
+  errorMessage: null
 };
 
 function App() {
@@ -66,7 +70,6 @@ function App() {
 
   // --- State: Processing & View ---
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
   const [showFullProgress, setShowFullProgress] = useState<boolean>(false);
   const [progressStep, setProgressStep] = useState<string>('');
   const [visualProgress, setVisualProgress] = useState<number>(0);
@@ -251,28 +254,49 @@ function App() {
   };
 
   // Wrap handleGenerate in useCallback for stable reference in useEffect
-  const handleGenerate = useCallback(async () => {
-    setError(null);
-    updateCurrentState({ generatedText: null });
+  // Accepts a boolean or event to trigger retry mode
+  const handleGenerate = useCallback(async (isRetryArg: boolean | React.MouseEvent = false) => {
+    const isRetry = isRetryArg === true;
 
+    // Reset error state immediately to give feedback
+    updateCurrentState({ errorMessage: null, hasError: false });
+    
     // Store the current image state to potentially move it to 'comparison' (previous) 
-    // ONLY after the new one is successfully generated. This keeps the canvas populated.
     const currentImageRef = currentState.generatedImage;
 
-    // Validation
-    if (mode === GenerationMode.IMAGE_EDIT && !currentState.textPrompt.trim()) return setError(ERRORS.MISSING_PROMPT);
-    if (mode === GenerationMode.IMAGE_TO_IMAGE) {
-       if (!currentState.subjectImage) return setError(ERRORS.MISSING_SUBJECT);
-       if (!currentState.referenceImage) return setError(ERRORS.MISSING_REF);
+    // Determine Params
+    let paramsToUse: GenerateParams | PromptGenParams;
+
+    // Validation (Only if not retrying - assuming retry uses previously valid params)
+    if (!isRetry) {
+        if (mode === GenerationMode.IMAGE_EDIT && !currentState.textPrompt.trim()) {
+             updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
+             return; 
+        }
+        if (mode === GenerationMode.IMAGE_TO_IMAGE) {
+            if (!currentState.subjectImage) {
+                 updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
+                 return;
+            }
+            if (!currentState.referenceImage) {
+                 updateCurrentState({ errorMessage: ERRORS.MISSING_REF });
+                 return;
+            }
+        }
+        if (mode === GenerationMode.IMG_TO_PROMPT && !currentState.subjectImage) {
+             updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
+             return;
+        }
+        if (mode === GenerationMode.TEXT_TO_PROMPT && !currentState.textPrompt.trim()) {
+             updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
+             return;
+        }
     }
-    if (mode === GenerationMode.IMG_TO_PROMPT && !currentState.subjectImage) return setError(ERRORS.MISSING_SUBJECT);
-    if (mode === GenerationMode.TEXT_TO_PROMPT && !currentState.textPrompt.trim()) return setError(ERRORS.MISSING_PROMPT);
 
     setIsGenerating(true);
     const isImageGen = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
     
     // Only show full progress overlay if there is NO image currently visible.
-    // This allows the user to browse history or view the current image while the next one generates.
     if (isImageGen) {
         setShowFullProgress(!currentState.generatedImage);
     } else {
@@ -282,27 +306,61 @@ function App() {
     setVisualProgress(0);
     serviceProgressRef.current = 0;
     setProgressStep("Initializing...");
+    updateCurrentState({ generatedText: null });
 
     try {
-      if (isImageGen) {
-          const params: GenerateParams = {
-            subjectImage: currentState.subjectImage || undefined,
-            mode,
-            textPrompt: currentState.textPrompt,
-            referenceImage: currentState.referenceImage || undefined,
-            referenceOperation: currentState.refOperation,
-            aspectRatio: currentState.aspectRatio,
-            resolution: currentState.resolution,
-            onProgress: (msg, val) => {
-              setProgressStep(msg);
-              serviceProgressRef.current = val;
-            },
-            apiKey: apiKey || undefined,
-            refStrength: currentState.refStrength,
-            negativePrompt: currentState.negativePrompt
-          };
+      if (isRetry && currentState.lastParams) {
+          // Use stored parameters from last attempt
+          paramsToUse = { 
+              ...currentState.lastParams,
+              onProgress: (msg, val) => {
+                setProgressStep(msg);
+                serviceProgressRef.current = val;
+              },
+              apiKey: apiKey || undefined 
+          } as GenerateParams | PromptGenParams;
+      } else {
+          // Construct new parameters from current UI state
+          if (isImageGen) {
+              paramsToUse = {
+                subjectImage: currentState.subjectImage || undefined,
+                mode,
+                textPrompt: currentState.textPrompt,
+                referenceImage: currentState.referenceImage || undefined,
+                referenceOperation: currentState.refOperation,
+                aspectRatio: currentState.aspectRatio,
+                resolution: currentState.resolution,
+                onProgress: (msg, val) => {
+                  setProgressStep(msg);
+                  serviceProgressRef.current = val;
+                },
+                apiKey: apiKey || undefined,
+                refStrength: currentState.refStrength,
+                negativePrompt: currentState.negativePrompt
+              } as GenerateParams;
+          } else {
+              paramsToUse = {
+                  mode,
+                  subjectImage: currentState.subjectImage || undefined,
+                  textPrompt: currentState.textPrompt,
+                  useFaceFeature: currentState.useFaceFeature,
+                  onProgress: (msg, val) => {
+                      setProgressStep(msg);
+                      serviceProgressRef.current = val;
+                  },
+                  apiKey: apiKey || undefined,
+                  negativePrompt: currentState.negativePrompt
+              } as PromptGenParams;
+          }
+      }
 
-          const imageUrl = await generateImage(params);
+      // Store params for potential retry (exclude onProgress)
+      const paramsForStorage = { ...paramsToUse };
+      delete (paramsForStorage as any).onProgress;
+      updateCurrentState({ lastParams: paramsForStorage });
+
+      if (isImageGen) {
+          const imageUrl = await generateImage(paramsToUse as GenerateParams);
           
           serviceProgressRef.current = 100;
           setProgressStep("Finishing up...");
@@ -313,13 +371,11 @@ function App() {
             localStorage.setItem('nanobanana_first_gen_complete', 'true');
           }
 
-          // Move the previously displayed image to 'comparison' (previous) slot and set the new one
           updateCurrentState({ 
             generatedImage: imageUrl,
             comparisonImage: currentImageRef || currentState.comparisonImage 
           });
           
-          // Increment Session Quota
           setSessionImageCount(prev => {
             const newVal = prev + 1;
             sessionStorage.setItem('nanobanana_session_count', newVal.toString());
@@ -347,20 +403,7 @@ function App() {
           setHistory(prev => [newHistoryItem, ...prev]);
 
       } else {
-          // Text modes
-          const params: PromptGenParams = {
-              mode,
-              subjectImage: currentState.subjectImage || undefined,
-              textPrompt: currentState.textPrompt,
-              useFaceFeature: currentState.useFaceFeature,
-              onProgress: (msg, val) => {
-                  setProgressStep(msg);
-                  serviceProgressRef.current = val;
-              },
-              apiKey: apiKey || undefined,
-              negativePrompt: currentState.negativePrompt
-          };
-          const promptText = await generatePrompt(params);
+          const promptText = await generatePrompt(paramsToUse as PromptGenParams);
 
           serviceProgressRef.current = 100;
           setProgressStep("Finalizing...");
@@ -385,6 +428,9 @@ function App() {
           await saveHistoryItem(newHistoryItem);
           setHistory(prev => [newHistoryItem, ...prev]);
       }
+      
+      // Success - clear error state
+      updateCurrentState({ hasError: false, errorMessage: null });
 
     } catch (err: any) {
       const msg = err.message || ERRORS.GENERIC;
@@ -394,15 +440,18 @@ function App() {
             setShowKeySettings(true);
         }
       }
-      setError(msg);
+      // Set Mode Specific Error State
+      updateCurrentState({ hasError: true, errorMessage: msg });
 
-      // Note: We don't need to restore image states here because we didn't clear them at start.
     } finally {
       setIsGenerating(false);
       setShowFullProgress(false);
       serviceProgressRef.current = 100;
     }
   }, [mode, currentState, apiKey, hasCompletedFirstGeneration]);
+
+  // Handle Retry
+  const handleRetry = () => handleGenerate(true);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -532,7 +581,8 @@ function App() {
           updateCurrentState={updateCurrentState}
           isGenerating={isGenerating}
           handleGenerate={handleGenerate}
-          error={error}
+          handleRetry={handleRetry}
+          error={currentState.errorMessage}
           width={sidebarWidth}
         />
         

@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
-  Maximize2, Settings, ChevronDown, ChevronUp, Sliders
+  Maximize2, Settings, ChevronDown, ChevronUp, Sliders, RotateCw
 } from 'lucide-react';
 import { 
   GenerationMode, 
@@ -22,6 +23,7 @@ interface SidebarProps {
   updateCurrentState: (updates: Partial<ModeState>) => void;
   isGenerating: boolean;
   handleGenerate: () => void;
+  handleRetry: () => void;
   error: string | null;
   width: number;
 }
@@ -32,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   updateCurrentState, 
   isGenerating, 
   handleGenerate, 
+  handleRetry,
   error,
   width
 }) => {
@@ -93,6 +96,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
+
+  // Use the error passed from props (which should be currentState.errorMessage from App)
+  // or fall back to local error state if managed there (currently handled by App)
+  const displayError = error || currentState.errorMessage;
 
   return (
     <aside 
@@ -410,17 +417,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       </motion.div>
 
       {/* Footer Action */}
-      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm">
+      <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm space-y-3">
          <AnimatePresence>
-            {error && (
+            {displayError && (
                 <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="mb-3 bg-red-900/20 border border-red-800/50 rounded-lg p-2.5 flex items-start gap-2"
+                    className="bg-red-900/20 border border-red-800/50 rounded-lg p-2.5 flex items-start gap-2"
                 >
                     <AlertCircle className="text-red-500 shrink-0 w-4 h-4 mt-0.5" />
-                    <p className="text-xs text-red-200 leading-snug">{error}</p>
+                    <p className="text-xs text-red-200 leading-snug">{displayError}</p>
                 </motion.div>
             )}
          </AnimatePresence>
@@ -434,7 +441,26 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Sparkles className="w-4 h-4 mr-2" />
           {mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image'}
         </Button>
-        <p className="text-center text-[10px] text-zinc-600 mt-2">
+        
+        {/* RETRY BUTTON - Only visible on error */}
+        {currentState.hasError && currentState.lastParams && !isGenerating && (
+             <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+             >
+                <Button 
+                    variant="outline"
+                    onClick={handleRetry}
+                    className="w-full py-2 text-sm border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500"
+                >
+                    <RotateCw className="w-4 h-4 mr-2" />
+                    Retry Generation
+                </Button>
+             </motion.div>
+        )}
+
+        <p className="text-center text-[10px] text-zinc-600">
           {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) 
             ? 'Uses Gemini 2.5 Flash' 
             : `Uses Nano Banana Pro (Gemini 3 Pro)`

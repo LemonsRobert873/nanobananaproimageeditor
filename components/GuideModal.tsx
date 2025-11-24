@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -52,11 +52,10 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                     <div>
                        <h4 className="text-zinc-200 font-medium mb-1">Getting Started</h4>
                        <p className="text-zinc-400 text-sm leading-relaxed mb-2">
-                          <strong>NanoBanana Pro Studio</strong> is exclusively powered by the <strong>Nano Banana Pro (Gemini 3 Pro)</strong> model. This engine delivers industry-leading adherence to prompts, photorealistic textures, and superior identity consistency at up to 4K resolution.
+                          <strong>NanoBanana Pro Studio</strong> harnesses the power of the <strong>Gemini 3 Pro</strong> model (via Google GenAI SDK) for high-fidelity image editing and generation. 
                        </p>
                        <p className="text-zinc-400 text-sm leading-relaxed">
-                          Before generating, ensure you have set your <strong>Google Gemini API Key</strong> using the key button in the top right. 
-                          This application runs entirely in your browser; your key and images are sent directly to the Gemini API and are not stored on any intermediate server.
+                          <strong>Privacy Note:</strong> This application runs entirely in your browser. Your API key and images are transmitted directly to the Google Gemini API. No data is stored on our servers.
                        </p>
                     </div>
                   </div>
@@ -66,29 +65,35 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                <section>
                   <div className="flex items-center gap-2 mb-4 text-zinc-100">
                      <Type className="text-blue-400" size={20} />
-                     <h4 className="text-lg font-semibold">Mode 1: Image Edit</h4>
+                     <h4 className="text-lg font-semibold">Mode 1: Image Edit & Generation</h4>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                     <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3">
-                        <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                            <Sparkles size={12} /> Identity-Locked Generation
+                     <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <User size={60} />
                         </div>
-                        <p className="text-sm text-zinc-400">
-                           Upload a <strong>Subject Face</strong> image and provide a text prompt. The Pro model will generate a new image matching your prompt while rigorously preserving the facial features, skin texture, and identity of the subject.
+                        <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles size={12} /> Identity Preservation
+                        </div>
+                        <p className="text-sm text-zinc-400 relative z-10">
+                           Upload a <strong>Subject Face</strong> and provide a prompt. The model generates a new image while rigorously maintaining the subject's facial features and identity.
                         </p>
-                        <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1">
-                           <li>Input: Subject Image + Prompt</li>
-                           <li>Best for: Character consistency, Photorealistic portraits</li>
+                        <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1 relative z-10">
+                           <li><strong>Input:</strong> Subject Image + Text Prompt</li>
+                           <li><strong>Best for:</strong> Placing a specific person in new scenarios.</li>
                         </ul>
                      </div>
-                     <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3">
-                        <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Standard Text-to-Image</div>
-                        <p className="text-sm text-zinc-400">
-                           Leave the subject image empty and just provide a text prompt. The model will generate a high-fidelity image based solely on your description, capable of complex lighting and composition.
+                     <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <ImagePlus size={60} />
+                        </div>
+                        <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Text-to-Image</div>
+                        <p className="text-sm text-zinc-400 relative z-10">
+                           Leave the subject image empty. The model generates high-quality visuals based purely on your text description.
                         </p>
-                        <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1">
-                           <li>Input: Prompt Only</li>
-                           <li>Best for: Scenery, Conceptual Art, Generic subjects</li>
+                        <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1 relative z-10">
+                           <li><strong>Input:</strong> Text Prompt Only</li>
+                           <li><strong>Best for:</strong> Landscapes, Concept Art, Generic Subjects.</li>
                         </ul>
                      </div>
                   </div>
@@ -100,53 +105,103 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                      <Layers className="text-purple-400" size={20} />
                      <h4 className="text-lg font-semibold">Mode 2: Image to Image</h4>
                   </div>
-                  <div className="space-y-4">
-                     <p className="text-sm text-zinc-400">
-                        Advanced editing requiring two inputs: a <strong>Subject Image</strong> (Face) and a <strong>Reference Image</strong> (Style/Scene/Clothing).
+                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5 mb-4">
+                     <p className="text-sm text-zinc-400 mb-2">
+                        Requires two inputs: a <strong>Subject (Face)</strong> and a <strong>Reference (Style/Scene)</strong>.
                      </p>
-                     <div className="grid gap-4 md:grid-cols-3">
-                        {[
-                            { icon: User, title: 'Apply Clothing', desc: 'Takes the face from the Subject image and puts it into the outfit shown in the Reference image.' },
-                            { icon: ImagePlus, title: 'Replace Face', desc: 'Keeps the Reference image scene exactly as is (lighting, shadows, depth) but swaps the face with the Subject.' },
-                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes the structure/lighting of the Reference image to create a brand new shot featuring the Subject.' },
-                        ].map((item, i) => (
-                            <div key={i} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                                <div className="flex items-center gap-2 mb-2 text-purple-400">
-                                    <item.icon size={16} />
-                                    <span className="font-medium text-sm">{item.title}</span>
-                                </div>
-                                <p className="text-xs text-zinc-500 leading-relaxed">{item.desc}</p>
-                            </div>
-                        ))}
+                     <div className="flex items-center gap-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded border border-yellow-500/20 w-fit">
+                        <Sliders size={12} />
+                        <span>Use the <strong>Reference Strength</strong> slider to control how strictly the AI follows the reference image structure vs. the prompt.</span>
                      </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3">
+                     {[
+                        { icon: User, title: 'Apply Clothing', desc: 'Dresses the Subject in the outfit shown in the Reference image. Keeps the subject\'s face.' },
+                        { icon: ImagePlus, title: 'Replace Face', desc: 'Swaps the face in the Reference image with the Subject\'s face. Preserves lighting/scene.' },
+                        { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes the Reference image structure and recreates it featuring the Subject.' },
+                     ].map((item, i) => (
+                        <div key={i} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl hover:border-zinc-700 transition-colors">
+                           <div className="flex items-center gap-2 mb-2 text-purple-400">
+                              <item.icon size={16} />
+                              <span className="font-medium text-sm">{item.title}</span>
+                           </div>
+                           <p className="text-xs text-zinc-500 leading-relaxed">{item.desc}</p>
+                        </div>
+                     ))}
                   </div>
                </section>
 
+               {/* Workflow & Tools */}
+               <section>
+                   <div className="flex items-center gap-2 mb-4 text-zinc-100">
+                       <Sparkles className="text-yellow-500" size={20} />
+                       <h4 className="text-lg font-semibold">Pro Workflow Tips</h4>
+                   </div>
+                   <div className="grid md:grid-cols-2 gap-4">
+                       <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                           <h5 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                               <Sliders size={16} /> Advanced Controls
+                           </h5>
+                           <ul className="space-y-3 text-sm text-zinc-400">
+                               <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-zinc-400 h-fit mt-0.5"><Command size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Shortcuts:</strong> Use <code className="bg-zinc-800 px-1 py-0.5 rounded text-xs">Cmd/Ctrl + Enter</code> to generate instantly.
+                                   </span>
+                               </li>
+                               <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-red-400 h-fit mt-0.5"><X size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Negative Prompt:</strong> Expand "Advanced Settings" to list elements you want to avoid (e.g., "blurry", "text").
+                                   </span>
+                               </li>
+                           </ul>
+                       </div>
+                       
+                       <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-4">
+                           <h5 className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                               <MousePointerClick size={16} /> History & Interaction
+                           </h5>
+                           <ul className="space-y-3 text-sm text-zinc-400">
+                               <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-blue-400 h-fit mt-0.5"><Copy size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Drag & Drop:</strong> Drag images from your history strip directly onto the input upload areas to reuse them.
+                                   </span>
+                               </li>
+                               <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-green-400 h-fit mt-0.5"><FileText size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Prompt Gen:</strong> Use Mode 3 or 4 to create detailed prompts, then click "Use in Image Edit" to instantly switch modes.
+                                   </span>
+                               </li>
+                           </ul>
+                       </div>
+                   </div>
+               </section>
+
                {/* Modes 3 & 4: Utilities */}
-               <section className="grid md:grid-cols-2 gap-8">
-                   <div>
-                      <div className="flex items-center gap-2 mb-4 text-zinc-100">
-                         <FileText className="text-green-400" size={20} />
-                         <h4 className="text-lg font-semibold">Mode 3: Img to Prompt</h4>
+               <section className="grid md:grid-cols-2 gap-4">
+                   <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex gap-4 items-start">
+                      <div className="p-2 bg-green-900/20 rounded-lg text-green-400 shrink-0">
+                          <FileText size={20} />
                       </div>
-                      <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 h-full">
-                         <p className="text-sm text-zinc-400">
-                            Upload an image to reverse-engineer a highly detailed prompt. The AI analyzes lighting, camera settings, and composition to give you the "recipe" for that image.
-                         </p>
-                         <div className="text-xs text-zinc-500 p-3 bg-black/20 rounded border border-zinc-800/50">
-                            Useful for learning how to prompt or extracting style metadata from existing images.
-                         </div>
+                      <div>
+                          <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 3: Img to Prompt</h5>
+                          <p className="text-xs text-zinc-400 leading-relaxed">
+                            Reverse-engineers a prompt from an image. Useful for extracting style, lighting, and camera settings from existing photos.
+                          </p>
                       </div>
                    </div>
-                   <div>
-                      <div className="flex items-center gap-2 mb-4 text-zinc-100">
-                         <Wand2 className="text-pink-400" size={20} />
-                         <h4 className="text-lg font-semibold">Mode 4: Text Prompt Gen</h4>
+                   <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex gap-4 items-start">
+                      <div className="p-2 bg-pink-900/20 rounded-lg text-pink-400 shrink-0">
+                          <Wand2 size={20} />
                       </div>
-                      <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 h-full">
-                         <p className="text-sm text-zinc-400">
-                            Enter a short, simple idea (e.g., "Cyberpunk cat"), and the AI will expand it into a professional, paragraph-long prompt optimized for the Nano Banana Pro model.
-                         </p>
+                      <div>
+                          <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 4: Text Prompt Gen</h5>
+                          <p className="text-xs text-zinc-400 leading-relaxed">
+                            Expands simple ideas (e.g. "Cyberpunk cat") into professional, paragraph-long prompts optimized for the model.
+                          </p>
                       </div>
                    </div>
                </section>
@@ -154,7 +209,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
 
             {/* Footer */}
             <div className="p-5 border-t border-zinc-800 bg-zinc-900/30 shrink-0 flex justify-end">
-               <Button onClick={onClose} className="px-8">Got it</Button>
+               <Button onClick={onClose} className="px-8">Close Guide</Button>
             </div>
           </motion.div>
         </div>
