@@ -12,6 +12,7 @@ interface HeaderProps {
   hasKey: boolean;
   handleKeyClick: () => void;
   isModalOpen?: boolean;
+  autoHideEnabled: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -20,7 +21,8 @@ const Header: React.FC<HeaderProps> = ({
   setShowGuide, 
   hasKey, 
   handleKeyClick,
-  isModalOpen = false
+  isModalOpen = false,
+  autoHideEnabled
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,47 +44,53 @@ const Header: React.FC<HeaderProps> = ({
   // Start timer to hide the header
   const startTimer = useCallback(() => {
     stopTimer();
-    if (isModalOpen) return;
+    if (isModalOpen || !autoHideEnabled) return;
     
     hideTimer.current = setTimeout(() => {
       setIsVisible(false);
     }, 2500); // 2.5s inactivity
-  }, [stopTimer, isModalOpen]);
+  }, [stopTimer, isModalOpen, autoHideEnabled]);
 
   // Handle updates when mode changes or modals open
   useEffect(() => {
     if (isModalOpen) {
       show();
     } else {
-      // Resume timer if no modal and not hovering (handled by mouseLeave/Enter logic generally, 
-      // but re-triggering ensures we don't get stuck)
-      // We assume user is "active" if modal just closed, so we wait.
+      // Resume timer if no modal and not hovering
       startTimer();
     }
   }, [isModalOpen, show, startTimer]);
 
   useEffect(() => {
+    if (!autoHideEnabled) {
+      show();
+    }
+  }, [autoHideEnabled, show]);
+
+  useEffect(() => {
     show(); // Show on mode change
-    // We don't necessarily want to start timer immediately on mode change, 
-    // user might be hovering. mouseLeave will handle it.
   }, [mode, show]);
 
   // Initial load
   useEffect(() => {
-    startTimer();
+    if (autoHideEnabled) {
+      startTimer();
+    }
     return stopTimer;
-  }, [startTimer, stopTimer]);
+  }, [startTimer, stopTimer, autoHideEnabled]);
 
   return (
     <>
       {/* Trigger Zone (Hover/Tap to show) */}
-      <div 
-        className="fixed top-0 left-0 right-0 h-4 z-50 bg-transparent"
-        onMouseEnter={show}
-        onClick={show} // For touch devices
-        role="presentation"
-        aria-hidden="true"
-      />
+      {autoHideEnabled && (
+        <div 
+          className="fixed top-0 left-0 right-0 h-4 z-50 bg-transparent"
+          onMouseEnter={show}
+          onClick={show} // For touch devices
+          role="presentation"
+          aria-hidden="true"
+        />
+      )}
 
       <motion.header 
         // Layout & Animation

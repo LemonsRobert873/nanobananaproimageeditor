@@ -43,6 +43,7 @@ function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.IMAGE_EDIT);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [hasCompletedFirstGeneration, setHasCompletedFirstGeneration] = useState<boolean>(false);
   
   // --- State: Per Mode ---
   const [modeStates, setModeStates] = useState<Record<GenerationMode, ModeState>>({
@@ -99,6 +100,12 @@ function App() {
       setHasKey(keyFound);
     };
     checkKey();
+
+    // Check if user has previously generated an image
+    const firstGen = localStorage.getItem('nanobanana_first_gen_complete');
+    if (firstGen === 'true') {
+      setHasCompletedFirstGeneration(true);
+    }
   }, []);
 
   // Smooth Progress Interpolation
@@ -219,6 +226,11 @@ function App() {
           serviceProgressRef.current = 100;
           setProgressStep("Finishing up...");
           await new Promise(resolve => setTimeout(resolve, 600));
+
+          if (!hasCompletedFirstGeneration) {
+            setHasCompletedFirstGeneration(true);
+            localStorage.setItem('nanobanana_first_gen_complete', 'true');
+          }
 
           updateCurrentState({ generatedImage: imageUrl });
           
@@ -345,6 +357,7 @@ function App() {
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
         isModalOpen={showGuide || showKeySettings}
+        autoHideEnabled={hasCompletedFirstGeneration}
       />
 
       {/* --- Main Workspace --- */}
