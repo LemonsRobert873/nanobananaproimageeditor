@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare 
@@ -36,15 +36,81 @@ const Canvas: React.FC<CanvasProps> = ({
   handleSendToImageEdit,
   handleCopyText
 }) => {
+  const [isZoomed, setIsZoomed] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
+
+  // Reset zoom state when the generated image changes
+  useEffect(() => {
+    setIsZoomed(false);
+    clickTargetRef.current = null;
+  }, [currentState.generatedImage]);
+
+  // Handle scroll positioning after zoom toggles
+  useEffect(() => {
+    if (isZoomed && clickTargetRef.current && viewportRef.current) {
+        const viewport = viewportRef.current;
+        const img = viewport.querySelector('img');
+        
+        if (img) {
+             const { x, y } = clickTargetRef.current;
+             
+             // Use requestAnimationFrame to ensure we calculate after layout update
+             requestAnimationFrame(() => {
+                 const viewportW = viewport.clientWidth;
+                 const viewportH = viewport.clientHeight;
+                 
+                 // Get dimensions and position of the now-zoomed image
+                 const imgW = img.offsetWidth;
+                 const imgH = img.offsetHeight;
+                 const imgLeft = img.offsetLeft;
+                 const imgTop = img.offsetTop;
+
+                 // Calculate the pixel position of the click target on the zoomed image
+                 const targetX = imgLeft + (imgW * x);
+                 const targetY = imgTop + (imgH * y);
+
+                 // Center that point in the viewport
+                 const scrollLeft = targetX - (viewportW / 2);
+                 const scrollTop = targetY - (viewportH / 2);
+                 
+                 viewport.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
+                 
+                 // Clear target
+                 clickTargetRef.current = null;
+             });
+        }
+    } else if (!isZoomed && viewportRef.current) {
+         // Reset scroll when zooming out
+         viewportRef.current.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+    }
+  }, [isZoomed]);
+
+  const handleZoomClick = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (isGenerating) return;
+
+    if (isZoomed) {
+        setIsZoomed(false);
+    } else {
+        // Calculate click position relative to the image (0 to 1)
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+        
+        clickTargetRef.current = { x, y };
+        setIsZoomed(true);
+    }
+  };
+
   return (
-    <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden">
+    <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
       
-      {/* Canvas Toolbar */}
+      {/* 1. Canvas Toolbar (Header) - Fixed Height */}
       <motion.div 
          initial={{ y: -20, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.2 }}
-         className="h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950 z-10"
+         className="flex-none h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950 z-20 relative"
       >
         <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
             {currentState.generatedText ? 'Generated Prompt' : 'Result Canvas'}
@@ -91,193 +157,222 @@ const Canvas: React.FC<CanvasProps> = ({
         </div>
       </motion.div>
 
-      {/* Canvas Viewport */}
-      <div className={`flex-1 flex items-center justify-center bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] relative ${currentState.generatedText ? 'overflow-auto p-8' : 'overflow-hidden'}`}>
-         
-         {/* 1. Full Screen Progress UI (Images Only) */}
-         <AnimatePresence mode="wait">
-            {isGenerating && showFullProgress ? (
-                <motion.div 
-                   key="loading"
-                   initial={{ opacity: 0, scale: 0.95 }}
-                   animate={{ opacity: 1, scale: 1 }}
-                   exit={{ opacity: 0, scale: 1.05 }}
-                   className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-8 backdrop-blur-sm shadow-2xl max-w-md w-full"
-                >
-                    <div className="w-16 h-16 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-6 relative">
-                        <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30 animate-ping"></div>
-                        <motion.div
-                           animate={{ rotate: 360 }}
-                           transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                        >
-                            <Sparkles className="w-8 h-8 text-yellow-500" />
-                        </motion.div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                        <h3 className="text-xl font-medium text-white text-center">{progressStep}</h3>
-                        <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative">
-                            <motion.div 
-                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(100, Math.max(0, visualProgress))}%` }}
-                                transition={{ ease: "linear" }}
-                            >
-                                <motion.div 
-                                    className="absolute inset-0 bg-white/20"
-                                    animate={{ x: ['-100%', '100%'] }}
-                                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                />
-                            </motion.div>
-                        </div>
-                        <div className="flex justify-between text-xs text-zinc-500 font-medium uppercase tracking-wider">
-                            <span>Processing</span>
-                            <span>{Math.floor(visualProgress)}%</span>
-                        </div>
-                    </div>
-                </motion.div>
-            ) : (
-                /* 2. Content (Specific to Current Mode) */
-                <motion.div 
-                    key="content" 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="w-full h-full flex items-center justify-center"
-                >
-                    {/* TEXT RESULT VIEW */}
-                    {currentState.generatedText ? (
-                        <div className="w-full max-w-3xl h-full flex flex-col">
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl overflow-y-auto relative group"
-                            >
-                                <button 
-                                    onClick={() => updateCurrentState({ generatedText: null })}
-                                    className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
-                                    title="Clear Result"
-                                >
-                                    <X size={16} />
-                                </button>
-                                <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
-                                    {currentState.generatedText}
-                                </pre>
-                            </motion.div>
-                        </div>
-                    ) : (
-                        /* IMAGE RESULT VIEW (ZOOM/PAN REMOVED) */
-                        <>
-                            {currentState.comparisonImage && (
-                                <motion.div 
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="absolute left-4 bottom-4 md:left-8 md:bottom-8 lg:top-1/2 lg:-translate-y-1/2 w-48 lg:w-64 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl z-20 pointer-events-none"
-                                >
-                                <div className="relative group pointer-events-auto">
-                                    <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
-                                    <button 
-                                        onClick={() => updateCurrentState({ comparisonImage: null })} 
-                                        className="absolute -top-3 -right-3 bg-zinc-800 text-white rounded-full p-1.5 border border-zinc-600 shadow-lg hover:bg-red-600 transition-colors"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                    <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-[10px] text-white/90 backdrop-blur-md font-medium">Previous</div>
-                                </div>
-                                </motion.div>
-                            )}
+      {/* 2. Canvas Viewport (Flexible Middle Area) */}
+      <div className="flex-1 min-h-0 relative bg-zinc-950 flex flex-col">
+         {/* Background Pattern */}
+         <div className="absolute inset-0 bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
 
-                            {currentState.generatedImage ? (
-                                <div className="w-full h-full flex items-center justify-center p-4">
+         {/* Content Container - Handles Scroll & Layout */}
+         <div className="relative w-full h-full overflow-hidden">
+            
+            {/* Loading Overlay */}
+            <AnimatePresence mode="wait">
+                {isGenerating && showFullProgress && (
+                    <motion.div 
+                       key="loading"
+                       initial={{ opacity: 0 }}
+                       animate={{ opacity: 1 }}
+                       exit={{ opacity: 0 }}
+                       className="absolute inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-8"
+                    >
+                        <motion.div 
+                           className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-8 shadow-2xl max-w-md w-full"
+                           initial={{ scale: 0.95 }}
+                           animate={{ scale: 1 }}
+                        >
+                            <div className="w-16 h-16 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-6 relative">
+                                <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30 animate-ping"></div>
+                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }}>
+                                    <Sparkles className="w-8 h-8 text-yellow-500" />
+                                </motion.div>
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-medium text-white text-center">{progressStep}</h3>
+                                <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative">
                                     <motion.div 
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        className="relative inline-flex items-center justify-center shadow-2xl shadow-black rounded-lg ring-1 ring-zinc-800"
+                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(100, Math.max(0, visualProgress))}%` }}
+                                        transition={{ ease: "linear" }}
                                     >
-                                        <button 
-                                            onClick={() => updateCurrentState({ generatedImage: null })}
-                                            className="absolute top-4 right-4 bg-black/60 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all z-20 opacity-0 group-hover:opacity-100"
-                                            title="Close Image"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                        {/* Simplified Image Display (No Pan/Zoom) */}
-                                        <img 
-                                            src={currentState.generatedImage} 
-                                            alt="Generated result" 
-                                            className="max-w-full max-h-[85vh] w-auto h-auto object-contain bg-[#121212] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-lg shadow-lg" 
+                                        <motion.div 
+                                            className="absolute inset-0 bg-white/20"
+                                            animate={{ x: ['-100%', '100%'] }}
+                                            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
                                         />
                                     </motion.div>
                                 </div>
-                            ) : (
-                                /* Placeholder only if no text result either */
-                                !isGenerating && (
-                                    <motion.div 
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="text-center space-y-6 max-w-md w-full opacity-60"
-                                    >
-                                    <div className="space-y-4">
-                                        <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
-                                        <ImagePlus className="w-10 h-10 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
-                                        </div>
-                                        <div>
-                                        <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
-                                        <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
-                                            Select a mode above to start generating images or prompts.
-                                        </p>
-                                        </div>
-                                    </div>
-                                    </motion.div>
-                                )
-                            )}
-                        </>
-                    )}
-                </motion.div>
-            )}
-         </AnimatePresence>
+                                <div className="flex justify-between text-xs text-zinc-500 font-medium uppercase tracking-wider">
+                                    <span>Processing</span>
+                                    <span>{Math.floor(visualProgress)}%</span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-          {/* Mini Progress Widget */}
-          <AnimatePresence>
-            {isGenerating && !showFullProgress && (
-                 <motion.div 
-                    initial={{ opacity: 0, y: 20, x: 20 }}
-                    animate={{ opacity: 1, y: 0, x: 0 }}
-                    exit={{ opacity: 0, y: 20, x: 20 }}
-                    className="absolute bottom-6 right-6 w-72 bg-zinc-900/90 border border-yellow-500/30 p-4 rounded-xl shadow-2xl backdrop-blur-md z-30"
-                 >
-                     <div className="flex items-center justify-between mb-3">
-                         <div className="flex items-center gap-2 text-yellow-500">
-                             <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
-                             <span className="text-xs font-bold tracking-wide uppercase">Working...</span>
-                         </div>
-                         <span className="text-xs text-zinc-400 font-mono">{Math.floor(visualProgress)}%</span>
-                     </div>
-                     <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
-                         <motion.div 
-                           className="absolute h-full bg-yellow-500" 
-                           style={{width: `${visualProgress}%`}} 
-                         >
+            {/* Text Result View */}
+            {currentState.generatedText && (
+                <div className="w-full h-full overflow-auto p-8 flex justify-center relative z-10">
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="w-full max-w-3xl bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl h-fit relative group"
+                    >
+                        <button 
+                            onClick={() => updateCurrentState({ generatedText: null })}
+                            className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
+                            title="Clear Result"
+                        >
+                            <X size={16} />
+                        </button>
+                        <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
+                            {currentState.generatedText}
+                        </pre>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Image Result View with Zoom */}
+            {!currentState.generatedText && (
+                <div 
+                    ref={viewportRef}
+                    className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
+                >
+                    {/* Placeholder */}
+                    {!currentState.generatedImage && !isGenerating && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="m-auto text-center space-y-6 max-w-md w-full opacity-60 p-4"
+                        >
+                            <div className="space-y-4">
+                                <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
+                                    <ImagePlus className="w-10 h-10 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                                </div>
+                                <div>
+                                    <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
+                                    <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
+                                        Select a mode above to start generating images or prompts.
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Generated Image */}
+                    {currentState.generatedImage && (
+                        <img 
+                            onClick={handleZoomClick}
+                            src={currentState.generatedImage} 
+                            alt="Generated result" 
+                            className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
+                                isGenerating ? 'cursor-wait' : (isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
+                            }`}
+                            style={isZoomed ? {
+                                height: '200%',
+                                width: 'auto',
+                                maxWidth: 'none',
+                                maxHeight: 'none',
+                                flexShrink: 0
+                            } : {
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                width: 'auto',
+                                height: 'auto',
+                                objectFit: 'contain'
+                            }}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Viewport Overlays (Comparison, Close, Mini Progress) */}
+            <div className="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-6">
+                 {/* Top Row: Close Button */}
+                 <div className="flex justify-end">
+                    {currentState.generatedImage && !currentState.generatedText && (
+                        <motion.button 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
+                            className="pointer-events-auto bg-black/50 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all shadow-lg hover:scale-105 active:scale-95"
+                            title="Close Image"
+                        >
+                            <X size={16} />
+                        </motion.button>
+                    )}
+                 </div>
+
+                 {/* Bottom Row: Comparison & Mini-Progress */}
+                 <div className="flex items-end justify-between w-full">
+                     {/* Comparison Image */}
+                     <div className="pointer-events-auto">
+                        {currentState.comparisonImage && !currentState.generatedText && (
                             <motion.div 
-                                className="absolute inset-0 bg-white/30"
-                                animate={{ x: ['-100%', '100%'] }}
-                                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                            />
-                         </motion.div>
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="w-32 sm:w-48 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl relative group"
+                                onClick={(e) => e.stopPropagation()} // Prevent zoom on click
+                            >
+                                <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); updateCurrentState({ comparisonImage: null }); }} 
+                                    className="absolute -top-2 -right-2 bg-zinc-800 text-white rounded-full p-1.5 border border-zinc-600 shadow-lg hover:bg-red-600 transition-colors"
+                                >
+                                    <X size={12} />
+                                </button>
+                                <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[10px] text-white/90 backdrop-blur-md font-medium">Previous</div>
+                            </motion.div>
+                        )}
                      </div>
-                     <p className="text-[10px] text-zinc-500 truncate font-medium">{progressStep}</p>
-                 </motion.div>
-              )}
-          </AnimatePresence>
+
+                     {/* Mini Progress Widget */}
+                     <div className="pointer-events-auto">
+                         <AnimatePresence>
+                            {isGenerating && !showFullProgress && (
+                                 <motion.div 
+                                    initial={{ opacity: 0, y: 20, x: 20 }}
+                                    animate={{ opacity: 1, y: 0, x: 0 }}
+                                    exit={{ opacity: 0, y: 20, x: 20 }}
+                                    className="w-64 bg-zinc-900/90 border border-yellow-500/30 p-3 rounded-xl shadow-2xl backdrop-blur-md"
+                                 >
+                                     <div className="flex items-center justify-between mb-2">
+                                         <div className="flex items-center gap-2 text-yellow-500">
+                                             <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={12}/></motion.span>
+                                             <span className="text-[10px] font-bold tracking-wide uppercase">Processing...</span>
+                                         </div>
+                                         <span className="text-[10px] text-zinc-400 font-mono">{Math.floor(visualProgress)}%</span>
+                                     </div>
+                                     <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden mb-1 relative">
+                                         <motion.div 
+                                           className="absolute h-full bg-yellow-500" 
+                                           style={{width: `${visualProgress}%`}} 
+                                         >
+                                            <motion.div 
+                                                className="absolute inset-0 bg-white/30"
+                                                animate={{ x: ['-100%', '100%'] }}
+                                                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                            />
+                                         </motion.div>
+                                     </div>
+                                     <p className="text-[10px] text-zinc-500 truncate font-medium">{progressStep}</p>
+                                 </motion.div>
+                              )}
+                          </AnimatePresence>
+                     </div>
+                 </div>
+            </div>
+         </div>
       </div>
 
-      {/* History Strip */}
+      {/* 3. History Strip (Footer) - Fixed Height */}
       <motion.div 
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.3 }}
-         className="h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center px-6 gap-4 overflow-x-auto"
+         className="flex-none h-28 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center px-6 gap-4 overflow-x-auto z-20 relative custom-scrollbar"
       >
          {history.length === 0 ? (
            <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
@@ -306,7 +401,6 @@ const Canvas: React.FC<CanvasProps> = ({
                        <div className="w-full space-y-1">
                             <div className="h-1 w-full bg-zinc-800 rounded-full" />
                             <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
-                            <div className="h-1 w-1/2 bg-zinc-800 rounded-full" />
                        </div>
                    </div>
                )}
