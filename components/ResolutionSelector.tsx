@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Check, Monitor, Image as ImageIcon, Sparkles } from 'lucide-react';
@@ -39,11 +38,11 @@ const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full bg-zinc-900 border ${isOpen ? 'border-yellow-500' : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
       >
-        <div className="flex items-center gap-2">
-            {selectedOption && getIcon(selectedOption.value)}
-            <span className="truncate">{selectedOption?.label || 'Select Resolution'}</span>
+        <div className="flex items-center gap-2 min-w-0">
+            {selectedOption && <div className="shrink-0">{getIcon(selectedOption.value)}</div>}
+            <span className="truncate text-left">{selectedOption?.label || 'Select Resolution'}</span>
         </div>
-        <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''} shrink-0 ml-2`} />
       </button>
 
       <AnimatePresence>

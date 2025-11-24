@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Check, Square, RectangleVertical, RectangleHorizontal } from 'lucide-react';
@@ -47,11 +46,11 @@ const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({ value, onChan
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full bg-zinc-900 border ${isOpen ? 'border-yellow-500' : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
       >
-        <div className="flex items-center gap-2">
-            {selectedOption && getIcon(selectedOption.value)}
-            <span>{selectedOption?.label || 'Select Ratio'}</span>
+        <div className="flex items-center gap-2 min-w-0">
+            {selectedOption && <div className="shrink-0">{getIcon(selectedOption.value)}</div>}
+            <span className="truncate text-left">{selectedOption?.label || 'Select Ratio'}</span>
         </div>
-        <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''} shrink-0 ml-2`} />
       </button>
 
       <AnimatePresence>
@@ -60,6 +59,7 @@ const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({ value, onChan
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            style={{ transformOrigin: 'bottom center' }}
             className="absolute z-50 w-full bottom-full mb-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar"
           >
             {Object.entries(groups).map(([groupName, options]) => (
