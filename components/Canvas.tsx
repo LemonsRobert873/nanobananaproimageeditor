@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Trash2
 } from 'lucide-react';
 import { ModeState, HistoryItem } from '../types';
 import Button from './Button';
@@ -16,6 +16,7 @@ interface CanvasProps {
   visualProgress: number;
   history: HistoryItem[];
   handleHistorySelect: (item: HistoryItem) => void;
+  handleDeleteHistoryItem: (e: React.MouseEvent, id: string) => void;
   handleDownload: (url: string) => void;
   handleUseAsSubject: (url: string) => void;
   handleSendToImageEdit: () => void;
@@ -31,6 +32,7 @@ const Canvas: React.FC<CanvasProps> = ({
   visualProgress,
   history,
   handleHistorySelect,
+  handleDeleteHistoryItem,
   handleDownload,
   handleUseAsSubject,
   handleSendToImageEdit,
@@ -501,8 +503,20 @@ const Canvas: React.FC<CanvasProps> = ({
                        </div>
                    </div>
                )}
-               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {item.type === 'text' && <div className="bg-zinc-950/80 p-1 rounded text-yellow-500"><Type size={10} /></div>}
+               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                  {item.type === 'text' && (
+                      <div className="bg-zinc-950/80 p-1 rounded text-yellow-500 shadow-sm flex items-center justify-center">
+                          <Type size={10} />
+                      </div>
+                  )}
+                  <div 
+                      role="button"
+                      onClick={(e) => handleDeleteHistoryItem(e, item.id)}
+                      className="bg-black/60 hover:bg-red-500 text-zinc-300 hover:text-white p-1.5 rounded-md backdrop-blur-sm transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                      title="Delete"
+                  >
+                      <Trash2 size={12} />
+                  </div>
                </div>
              </motion.button>
            ))

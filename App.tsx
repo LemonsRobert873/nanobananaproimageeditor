@@ -19,7 +19,7 @@ import {
 } from './types';
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
-import { getHistoryItems, saveHistoryItem } from './utils/indexedDB';
+import { getHistoryItems, saveHistoryItem, deleteHistoryItem } from './utils/indexedDB';
 
 // Default state template for a mode
 const DEFAULT_MODE_STATE: ModeState = {
@@ -353,6 +353,42 @@ function App() {
     if (isGenerating) setShowFullProgress(false);
   };
 
+  const handleDeleteHistoryItem = async (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+
+    const itemToDelete = history.find(item => item.id === itemId);
+    if (!itemToDelete) return;
+
+    // Check if the item is currently displayed in the active mode
+    const isDisplayed = 
+      (itemToDelete.type === 'image' && itemToDelete.url === currentState.generatedImage) ||
+      (itemToDelete.type === 'text' && itemToDelete.text === currentState.generatedText);
+
+    try {
+      await deleteHistoryItem(itemId);
+      
+      const updatedHistory = history.filter(item => item.id !== itemId);
+      setHistory(updatedHistory);
+
+      // If we deleted the currently viewed item, switch to the next available one or clear
+      if (isDisplayed) {
+        if (updatedHistory.length > 0) {
+          const nextItem = updatedHistory[0]; // Newest first
+          if (nextItem.type === 'image') {
+            updateCurrentState({ generatedImage: nextItem.url, generatedText: null });
+          } else {
+            updateCurrentState({ generatedText: nextItem.text, generatedImage: null });
+          }
+        } else {
+          // History is empty
+          updateCurrentState({ generatedImage: null, generatedText: null });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete history item:", err);
+    }
+  };
+
   const handleDownload = (url: string) => {
     const link = document.createElement('a');
     link.href = url;
@@ -432,6 +468,7 @@ function App() {
           visualProgress={visualProgress}
           history={history}
           handleHistorySelect={handleHistorySelect}
+          handleDeleteHistoryItem={handleDeleteHistoryItem}
           handleDownload={handleDownload}
           handleUseAsSubject={handleUseAsSubject}
           handleSendToImageEdit={handleSendToImageEdit}
