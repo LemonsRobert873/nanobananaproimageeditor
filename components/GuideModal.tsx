@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -147,6 +147,12 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                                    <span className="bg-zinc-800 p-1 rounded text-zinc-400 h-fit mt-0.5"><Command size={12} /></span>
                                    <span>
                                        <strong className="text-zinc-300">Shortcuts:</strong> Use <code className="bg-zinc-800 px-1 py-0.5 rounded text-xs">Cmd/Ctrl + Enter</code> to generate instantly.
+                                   </span>
+                               </li>
+                               <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-yellow-500 h-fit mt-0.5"><Clock size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Daily Quota:</strong> The image generation counter resets automatically at 12:00 AM Pacific Time (PT).
                                    </span>
                                </li>
                                <li className="flex gap-3">

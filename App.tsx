@@ -562,11 +562,14 @@ function AppContent() {
           // Check daily reset before incrementing (PT Timezone)
           const currentPTDate = getCurrentPTDate();
           const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
-          let currentBase = dailyImageCount;
           
+          let currentBase = 0;
           if (lastResetDate !== currentPTDate) {
               currentBase = 0;
               localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
+          } else {
+              // Read directly from storage to prevent race conditions or stale state
+              currentBase = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
           }
 
           const newVal = currentBase + 1;
