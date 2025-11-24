@@ -485,6 +485,7 @@ function AppContent() {
       updateCurrentState({ generatedText: item.text, generatedImage: null });
     }
     if (isGenerating) setShowFullProgress(false);
+    setShowGallery(false);
   };
 
   const handleDeleteHistoryItem = async (e: React.MouseEvent, itemId: string) => {
@@ -601,7 +602,8 @@ function AppContent() {
         setShowGuide={setShowGuide}
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
-        isModalOpen={showGuide || showKeySettings || showGallery}
+        isModalOpen={showGuide || showKeySettings} // Gate: Don't treat Gallery as a "Modal" for auto-hide override logic
+        isGalleryOpen={showGallery} // Pass this so Header can freeze its state
         autoHideEnabled={hasCompletedFirstGeneration}
       />
 

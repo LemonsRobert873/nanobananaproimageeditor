@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3 } from 'lucide-react';
-import { HistoryItem } from '../types';
+import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info } from 'lucide-react';
+import { HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
 
@@ -25,12 +25,14 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [activeItem, setActiveItem] = useState<HistoryItem | null>(null);
 
   // Reset selection when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
+        setActiveItem(null);
     }
   }, [isOpen]);
 
@@ -107,144 +109,187 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
     addToast(`Downloaded ${downloadedCount} items`, 'success');
   };
 
+  const handleSingleDelete = async (id: string) => {
+      try {
+          await onDeleteItems([id]);
+          addToast('Item deleted', 'success');
+          setActiveItem(null);
+      } catch (e) {
+          addToast('Failed to delete item', 'error');
+      }
+  };
+
+  const handleSingleDownload = (item: HistoryItem) => {
+      if (item.type === 'image') {
+          onDownloadImage(item.url, item.id);
+          addToast('Download started', 'info');
+      } else {
+          const blob = new Blob([item.text], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `prompt-${item.id}.txt`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          addToast('Download started', 'info');
+      }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            className="absolute inset-0 bg-black/95 backdrop-blur-md"
             onClick={onClose}
           />
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-zinc-950 border border-zinc-800 rounded-xl w-full max-w-6xl max-h-[90vh] shadow-2xl flex flex-col relative z-10 overflow-hidden"
+            exit={{ opacity: 0, scale: 0.98, y: 10 }}
+            className="w-full h-full flex flex-col relative z-10 overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50 shrink-0">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950/80 shrink-0">
               <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
                 <Grid3X3 size={20} className="text-yellow-500" />
-                Gallery View
+                Gallery
                 <span className="text-zinc-500 text-sm font-normal ml-2">
                     {history.length} items
                 </span>
               </h3>
-              <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Toolbar */}
-            <div className="p-4 border-b border-zinc-800 bg-zinc-900/30 flex flex-wrap gap-4 items-center justify-between shrink-0">
-                <button 
-                  onClick={toggleSelectAll}
-                  className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition-colors"
-                >
-                    {selectedIds.size === history.length && history.length > 0 ? (
-                        <CheckSquare className="text-yellow-500" size={18} />
-                    ) : (
-                        <Square className="text-zinc-600" size={18} />
-                    )}
-                    Select All
-                </button>
-
-                <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <Button 
                         variant="ghost" 
                         disabled={selectedIds.size === 0}
                         onClick={handleBulkDownload}
-                        className="h-9 text-xs"
+                        className="h-8 text-xs"
                     >
                         <Download size={14} className="mr-2" />
-                        Download Selected ({selectedIds.size})
+                        Download ({selectedIds.size})
                     </Button>
                     <Button 
                         variant="danger" 
                         disabled={selectedIds.size === 0}
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="h-9 text-xs"
+                        className="h-8 text-xs bg-red-900/20 hover:bg-red-900/40 border-red-900/30"
                     >
                         <Trash2 size={14} className="mr-2" />
-                        Delete Selected ({selectedIds.size})
+                        Delete ({selectedIds.size})
                     </Button>
-                </div>
+                  </div>
+                  <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors">
+                    <X size={20} />
+                  </button>
+              </div>
             </div>
 
-            {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-6 bg-zinc-950/50 custom-scrollbar">
+            {/* Content Area - Masonry Grid */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-950/30 custom-scrollbar">
                 {history.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
                         <Grid3X3 size={48} className="opacity-20" />
                         <p>No items in history yet.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                        {history.map(item => {
-                            const isSelected = selectedIds.has(item.id);
-                            return (
-                                <motion.div 
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    key={item.id}
-                                    className={`relative group rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-zinc-900 aspect-square flex flex-col ${
-                                        isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-600'
-                                    }`}
-                                    onClick={() => toggleSelection(item.id)}
-                                >
-                                    {/* Selection Overlay */}
-                                    <div className={`absolute inset-0 bg-yellow-500/10 transition-opacity pointer-events-none z-10 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
-
-                                    {/* Checkbox */}
-                                    <div className="absolute top-2 left-2 z-20">
-                                        {isSelected ? (
-                                            <div className="bg-yellow-500 text-black rounded text-xs p-0.5 shadow-sm">
-                                                <CheckSquare size={16} />
-                                            </div>
-                                        ) : (
-                                            <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors">
-                                                <Square size={16} />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Content */}
-                                    {item.type === 'image' ? (
-                                        <img src={item.url} className="w-full h-full object-cover" loading="lazy" alt="Generated" />
-                                    ) : (
-                                        <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center">
-                                            <FileText size={24} className="text-zinc-600 mb-2" />
-                                            <p className="text-[10px] text-zinc-500 line-clamp-4 leading-relaxed">
-                                                {item.text}
-                                            </p>
+                    <>
+                        <div className="flex items-center justify-end mb-4">
+                            <button 
+                                onClick={toggleSelectAll}
+                                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                            >
+                                {selectedIds.size === history.length && history.length > 0 ? (
+                                    <CheckSquare className="text-yellow-500" size={18} />
+                                ) : (
+                                    <Square className="text-zinc-600" size={18} />
+                                )}
+                                Select All
+                            </button>
+                        </div>
+                        
+                        {/* CSS Columns Masonry */}
+                        <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+                            {history.map(item => {
+                                const isSelected = selectedIds.has(item.id);
+                                return (
+                                    <div 
+                                        key={item.id}
+                                        className={`break-inside-avoid relative group rounded-xl overflow-hidden border-2 transition-all bg-zinc-900 mb-4 ${
+                                            isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
+                                        }`}
+                                    >
+                                        {/* Checkbox Overlay (Click to Select) */}
+                                        <div 
+                                            className="absolute top-2 left-2 z-20 cursor-pointer p-1"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleSelection(item.id);
+                                            }}
+                                        >
+                                            {isSelected ? (
+                                                <div className="bg-yellow-500 text-black rounded text-xs p-0.5 shadow-sm">
+                                                    <CheckSquare size={16} />
+                                                </div>
+                                            ) : (
+                                                <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors">
+                                                    <Square size={16} />
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
 
-                                    {/* Metadata Bar */}
-                                    <div className="absolute bottom-0 inset-x-0 bg-black/80 backdrop-blur-md p-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                        <div className="flex items-center gap-1.5 text-zinc-400">
-                                            {item.type === 'image' ? <ImageIcon size={10} /> : <FileText size={10} />}
-                                            <span className="text-[10px] font-medium">{item.metadata?.mode?.replace('_', ' ')}</span>
+                                        {/* Main Content (Click to Open Lightbox) */}
+                                        <div 
+                                            className="cursor-zoom-in"
+                                            onClick={() => setActiveItem(item)}
+                                        >
+                                            {item.type === 'image' ? (
+                                                <img 
+                                                    src={item.url} 
+                                                    className="w-full h-auto block" 
+                                                    loading="lazy" 
+                                                    alt="Generated" 
+                                                />
+                                            ) : (
+                                                <div className="w-full aspect-[3/4] p-4 flex flex-col bg-zinc-900">
+                                                    <div className="flex items-center gap-2 text-zinc-500 mb-2">
+                                                        <FileText size={16} />
+                                                        <span className="text-[10px] uppercase font-bold tracking-wider">Prompt Text</span>
+                                                    </div>
+                                                    <p className="text-xs text-zinc-400 line-clamp-[10] leading-relaxed flex-1">
+                                                        {item.text}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Hover Metadata Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
+                                                <div className="flex items-center gap-1.5 text-zinc-300">
+                                                    {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
+                                                    <span className="text-[10px] font-medium">{item.metadata?.mode?.replace(/_/g, ' ')}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
-            
+
             {/* Delete Confirmation Overlay */}
             <AnimatePresence>
                 {showDeleteConfirm && (
                     <motion.div 
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                        className="absolute inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
                         onClick={() => setShowDeleteConfirm(false)}
                     >
                         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl max-w-sm w-full shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
@@ -261,11 +306,236 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                 )}
             </AnimatePresence>
 
+            {/* Lightbox / Detail View */}
+            <AnimatePresence>
+                {activeItem && (
+                    <LightboxView 
+                        item={activeItem} 
+                        onClose={() => setActiveItem(null)} 
+                        onDelete={() => handleSingleDelete(activeItem.id)}
+                        onDownload={() => handleSingleDownload(activeItem)}
+                    />
+                )}
+            </AnimatePresence>
+
           </motion.div>
         </div>
       )}
     </AnimatePresence>
   );
+};
+
+// --- Sub-component: Lightbox View ---
+interface LightboxViewProps {
+    item: HistoryItem;
+    onClose: () => void;
+    onDelete: () => void;
+    onDownload: () => void;
+}
+
+const LightboxView: React.FC<LightboxViewProps> = ({ item, onClose, onDelete, onDownload }) => {
+    const { addToast } = useToast();
+    const [isZoomed, setIsZoomed] = useState(false);
+    const viewportRef = useRef<HTMLDivElement>(null);
+    const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
+
+    // Zoom Logic (Same as Canvas)
+    useEffect(() => {
+        if (isZoomed && clickTargetRef.current && viewportRef.current) {
+            const viewport = viewportRef.current;
+            const img = viewport.querySelector('img');
+            
+            if (img) {
+                 const { x, y } = clickTargetRef.current;
+                 requestAnimationFrame(() => {
+                     const viewportW = viewport.clientWidth;
+                     const viewportH = viewport.clientHeight;
+                     const imgW = img.offsetWidth;
+                     const imgH = img.offsetHeight;
+                     const imgLeft = img.offsetLeft;
+                     const imgTop = img.offsetTop;
+
+                     const targetX = imgLeft + (imgW * x);
+                     const targetY = imgTop + (imgH * y);
+
+                     const scrollLeft = targetX - (viewportW / 2);
+                     const scrollTop = targetY - (viewportH / 2);
+                     
+                     viewport.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
+                     clickTargetRef.current = null;
+                 });
+            }
+        } else if (!isZoomed && viewportRef.current) {
+             viewportRef.current.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+        }
+    }, [isZoomed]);
+
+    const handleZoomClick = (e: React.MouseEvent<HTMLImageElement>) => {
+        if (isZoomed) {
+            setIsZoomed(false);
+        } else {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            clickTargetRef.current = { x, y };
+            setIsZoomed(true);
+        }
+    };
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 z-[65] bg-zinc-950 flex"
+            onClick={(e) => e.stopPropagation()}
+        >
+            {/* Left: Content Area */}
+            <div className="flex-1 relative flex flex-col bg-black/50 overflow-hidden">
+                <button 
+                    onClick={onClose}
+                    className="absolute top-4 left-4 z-50 bg-black/50 hover:bg-zinc-800 text-white p-2 rounded-full backdrop-blur-md transition-colors"
+                >
+                    <X size={20} />
+                </button>
+
+                {item.type === 'image' ? (
+                    <div 
+                        ref={viewportRef}
+                        className="w-full h-full overflow-auto flex items-center justify-center custom-scrollbar"
+                    >
+                        <img 
+                            src={item.url} 
+                            alt="Detail" 
+                            onClick={handleZoomClick}
+                            className={`transition-transform duration-200 ease-out block ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+                            style={isZoomed ? {
+                                height: '200%',
+                                width: 'auto',
+                                maxWidth: 'none',
+                                maxHeight: 'none',
+                                flexShrink: 0
+                            } : {
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                width: 'auto',
+                                height: 'auto',
+                                objectFit: 'contain'
+                            }}
+                        />
+                    </div>
+                ) : (
+                    <div className="w-full h-full overflow-y-auto p-12 flex justify-center custom-scrollbar">
+                        <div className="w-full max-w-3xl bg-zinc-900 border border-zinc-800 rounded-xl p-8 shadow-2xl h-fit">
+                             <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
+                                {item.text}
+                            </pre>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Right: Info Sidebar */}
+            <div className="w-80 border-l border-zinc-800 bg-zinc-900/90 backdrop-blur-md flex flex-col shrink-0">
+                <div className="p-5 border-b border-zinc-800 flex items-center gap-2">
+                    <Info size={16} className="text-yellow-500" />
+                    <h3 className="font-medium text-zinc-100">Metadata Inspector</h3>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
+                    {/* Common Metadata */}
+                    <div className="space-y-1">
+                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Mode</label>
+                        <div className="text-sm text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
+                            {item.metadata?.mode}
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Created</label>
+                        <div className="text-sm text-zinc-400">
+                            {new Date(item.timestamp).toLocaleString()}
+                        </div>
+                    </div>
+
+                    {/* Image Specific */}
+                    {item.metadata?.aspectRatio && (
+                        <div className="grid grid-cols-2 gap-2">
+                             <div className="space-y-1">
+                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ratio</label>
+                                <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50">{item.metadata.aspectRatio}</div>
+                             </div>
+                             {item.metadata.resolution && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Quality</label>
+                                    <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50">{item.metadata.resolution}</div>
+                                </div>
+                             )}
+                        </div>
+                    )}
+
+                    {item.metadata?.referenceOperation && (
+                        <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
+                            <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
+                                {item.metadata.referenceOperation}
+                            </div>
+                        </div>
+                    )}
+
+                    {item.metadata?.refStrength !== undefined && (
+                        <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
+                            <div className="text-sm text-yellow-500 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                {item.metadata.refStrength}%
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Prompts */}
+                    {item.metadata?.textPrompt && (
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(item.metadata?.textPrompt || "");
+                                        addToast('Copied', 'info');
+                                    }}
+                                    className="text-[10px] flex items-center gap-1 text-zinc-500 hover:text-white"
+                                >
+                                    <Copy size={10} /> Copy
+                                </button>
+                            </div>
+                            <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
+                                {item.metadata.textPrompt}
+                            </div>
+                        </div>
+                    )}
+
+                    {item.metadata?.negativePrompt && (
+                         <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
+                            <div className="text-xs text-red-200/70 bg-red-950/10 p-3 rounded border border-red-900/20 leading-relaxed max-h-32 overflow-y-auto custom-scrollbar">
+                                {item.metadata.negativePrompt}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Actions Footer */}
+                <div className="p-5 border-t border-zinc-800 bg-zinc-900/50 space-y-3">
+                    <Button onClick={onDownload} className="w-full text-sm">
+                        <Download size={16} className="mr-2" /> Download
+                    </Button>
+                    <Button variant="danger" onClick={onDelete} className="w-full text-sm bg-red-900/20 hover:bg-red-900/40 border-red-900/30">
+                        <Trash2 size={16} className="mr-2" /> Delete Item
+                    </Button>
+                </div>
+            </div>
+        </motion.div>
+    );
 };
 
 export default GalleryModal;

@@ -12,6 +12,7 @@ interface HeaderProps {
   hasKey: boolean;
   handleKeyClick: () => void;
   isModalOpen?: boolean;
+  isGalleryOpen?: boolean;
   autoHideEnabled: boolean;
 }
 
@@ -22,6 +23,7 @@ const Header: React.FC<HeaderProps> = ({
   hasKey, 
   handleKeyClick,
   isModalOpen = false,
+  isGalleryOpen = false,
   autoHideEnabled
 }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -37,29 +39,32 @@ const Header: React.FC<HeaderProps> = ({
 
   // Show the header
   const show = useCallback(() => {
+    if (isGalleryOpen) return; // Gate: Do not change state if gallery is open
     setIsVisible(true);
     stopTimer();
-  }, [stopTimer]);
+  }, [stopTimer, isGalleryOpen]);
 
   // Start timer to hide the header
   const startTimer = useCallback(() => {
     stopTimer();
-    if (isModalOpen || !autoHideEnabled) return;
+    if (isModalOpen || isGalleryOpen || !autoHideEnabled) return;
     
     hideTimer.current = setTimeout(() => {
       setIsVisible(false);
     }, 2500); // 2.5s inactivity
-  }, [stopTimer, isModalOpen, autoHideEnabled]);
+  }, [stopTimer, isModalOpen, isGalleryOpen, autoHideEnabled]);
 
   // Handle updates when mode changes or modals open
   useEffect(() => {
+    if (isGalleryOpen) return; // Gate: Pause auto-logic
+
     if (isModalOpen) {
       show();
     } else {
       // Resume timer if no modal and not hovering
       startTimer();
     }
-  }, [isModalOpen, show, startTimer]);
+  }, [isModalOpen, isGalleryOpen, show, startTimer]);
 
   useEffect(() => {
     if (!autoHideEnabled) {
@@ -68,8 +73,10 @@ const Header: React.FC<HeaderProps> = ({
   }, [autoHideEnabled, show]);
 
   useEffect(() => {
-    show(); // Show on mode change
-  }, [mode, show]);
+    if (!isGalleryOpen) {
+        show(); // Show on mode change only if gallery isn't open
+    }
+  }, [mode, show, isGalleryOpen]);
 
   // Initial load
   useEffect(() => {
@@ -82,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <>
       {/* Trigger Zone (Hover/Tap to show) */}
-      {autoHideEnabled && (
+      {autoHideEnabled && !isGalleryOpen && (
         <div 
           className="fixed top-0 left-0 right-0 h-4 z-50 bg-transparent"
           onMouseEnter={show}
