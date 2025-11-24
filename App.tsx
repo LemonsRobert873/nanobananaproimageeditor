@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -98,9 +97,6 @@ function AppContent() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        // Gallery handles its own Close via its internal listener.
-        // Canvas handles its own Unzoom via its internal listener.
-        // We only handle other modals here.
         if (showGallery) return;
 
         if (showKeySettings) {
@@ -149,7 +145,6 @@ function AppContent() {
       // 2. Load History from IndexedDB with Delay for Skeleton
       setIsHistoryLoading(true);
       try {
-          // Minimal delay to prevent flicker if it loads instantly
           const [loadedHistory] = await Promise.all([
              getHistoryItems(),
              new Promise(resolve => setTimeout(resolve, 800)) 
@@ -170,13 +165,11 @@ function AppContent() {
 
     initApp();
 
-    // Check if user has previously generated an image
     const firstGen = localStorage.getItem('nanobanana_first_gen_complete');
     if (firstGen === 'true') {
       setHasCompletedFirstGeneration(true);
     }
     
-    // Load saved sidebar width
     const savedWidth = localStorage.getItem('nanobanana_sidebar_width');
     if (savedWidth) {
       const w = parseInt(savedWidth, 10);
@@ -195,17 +188,17 @@ function AppContent() {
 
       setVisualProgress(current => {
         const target = serviceProgressRef.current;
+        const diff = target - current;
         
-        if (current < target) {
-          const diff = target - current;
-          return Math.min(target, current + Math.max(0.5, diff * 0.1));
-        }
+        // Immediate finish snap
+        if (target >= 100) return 100;
         
-        if (current >= target && current < 99) {
-          return current + 0.1;
-        }
+        // Smooth interpolation (faster than before to match realtime updates)
+        // If close enough, snap to target to avoid jitter
+        if (Math.abs(diff) < 0.1) return target;
         
-        return current;
+        // Move 15% of the way to target per frame for responsive feel
+        return current + diff * 0.15;
       });
 
       animationFrameId = requestAnimationFrame(animate);
@@ -241,12 +234,10 @@ function AppContent() {
     if (!isResizing) return;
 
     const onMouseMove = (e: MouseEvent) => {
-      // Calculate width based on mouse position
       const main = document.querySelector('main');
       const offset = main ? main.getBoundingClientRect().left : 0;
       let newWidth = e.clientX - offset;
       
-      // Constraints
       if (newWidth < 300) newWidth = 300;
       if (newWidth > 800) newWidth = 800;
       if (newWidth > window.innerWidth * 0.7) newWidth = window.innerWidth * 0.7;
@@ -263,7 +254,6 @@ function AppContent() {
     };
   }, [isResizing, stopResizing]);
 
-  // Save width when resizing stops
   useEffect(() => {
     if (!isResizing) {
         localStorage.setItem('nanobanana_sidebar_width', sidebarWidth.toString());
@@ -304,10 +294,8 @@ function AppContent() {
   };
 
   const handleResetApp = async (includeApiKey: boolean) => {
-      // Clear IndexedDB History
       await clearAllHistory();
       
-      // Clear Local Storage items (keep key unless specified)
       localStorage.removeItem('nanobanana_first_gen_complete');
       localStorage.removeItem('nanobanana_sidebar_width');
       
@@ -315,10 +303,7 @@ function AppContent() {
           localStorage.removeItem('gemini_api_key');
       }
       
-      // Clear Session Storage
       sessionStorage.removeItem('nanobanana_session_count');
-      
-      // Force Reload to clear in-memory state completely
       window.location.reload();
   };
 
@@ -374,13 +359,15 @@ function AppContent() {
     updateCurrentState({ generatedText: null });
 
     try {
+      const onProgressCallback = (msg: string, val: number) => {
+        setProgressStep(msg);
+        serviceProgressRef.current = val;
+      };
+
       if (isRetry && currentState.lastParams) {
           paramsToUse = { 
               ...currentState.lastParams,
-              onProgress: (msg, val) => {
-                setProgressStep(msg);
-                serviceProgressRef.current = val;
-              },
+              onProgress: onProgressCallback,
               apiKey: apiKey || undefined 
           } as GenerateParams | PromptGenParams;
       } else {
@@ -393,10 +380,7 @@ function AppContent() {
                 referenceOperation: currentState.refOperation,
                 aspectRatio: currentState.aspectRatio,
                 resolution: currentState.resolution,
-                onProgress: (msg, val) => {
-                  setProgressStep(msg);
-                  serviceProgressRef.current = val;
-                },
+                onProgress: onProgressCallback,
                 apiKey: apiKey || undefined,
                 refStrength: currentState.refStrength,
                 negativePrompt: currentState.negativePrompt
@@ -407,10 +391,7 @@ function AppContent() {
                   subjectImage: currentState.subjectImage || undefined,
                   textPrompt: currentState.textPrompt,
                   useFaceFeature: currentState.useFaceFeature,
-                  onProgress: (msg, val) => {
-                      setProgressStep(msg);
-                      serviceProgressRef.current = val;
-                  },
+                  onProgress: onProgressCallback,
                   apiKey: apiKey || undefined,
                   negativePrompt: currentState.negativePrompt
               } as PromptGenParams;
@@ -425,8 +406,8 @@ function AppContent() {
           const imageUrl = await generateImage(paramsToUse as GenerateParams);
           
           serviceProgressRef.current = 100;
-          setProgressStep("Finishing up...");
-          await new Promise(resolve => setTimeout(resolve, 600));
+          setProgressStep("Done!");
+          await new Promise(resolve => setTimeout(resolve, 300)); // Short delay to see 100%
 
           if (!hasCompletedFirstGeneration) {
             setHasCompletedFirstGeneration(true);
@@ -469,8 +450,8 @@ function AppContent() {
           const promptText = await generatePrompt(paramsToUse as PromptGenParams);
 
           serviceProgressRef.current = 100;
-          setProgressStep("Finalizing...");
-          await new Promise(resolve => setTimeout(resolve, 600));
+          setProgressStep("Done!");
+          await new Promise(resolve => setTimeout(resolve, 300));
 
           updateCurrentState({ generatedText: promptText });
           
@@ -577,7 +558,6 @@ function AppContent() {
       const updatedHistory = history.filter(item => !ids.includes(item.id));
       setHistory(updatedHistory);
       
-      // If current item was deleted, clear view
       const currentId = history.find(item => 
           (item.type === 'image' && item.url === currentState.generatedImage) ||
           (item.type === 'text' && item.text === currentState.generatedText)
