@@ -324,6 +324,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                 onClick={handleZoomClick}
                                 src={currentState.generatedImage} 
                                 alt="Generated result" 
+                                draggable="false"
                                 className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
                                     isGenerating ? 'cursor-wait' : (isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
                                 }`}
@@ -480,7 +481,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                 className="w-32 sm:w-48 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl relative group"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <img src={currentState.comparisonImage} className="w-full rounded-lg" alt="Previous" />
+                                <img src={currentState.comparisonImage} draggable="false" className="w-full rounded-lg" alt="Previous" />
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); updateCurrentState({ comparisonImage: null }); }} 
                                     className="absolute -top-2 -right-2 bg-zinc-800 text-white rounded-full p-1.5 border border-zinc-600 shadow-lg hover:bg-red-600 transition-colors"
@@ -591,7 +592,7 @@ const Canvas: React.FC<CanvasProps> = ({
                     }}
                     >
                     {item.type === 'image' ? (
-                        <img src={item.url} className="w-full h-full object-cover pointer-events-none" alt="History" />
+                        <img src={item.url} draggable="false" className="w-full h-full object-cover" alt="History" />
                     ) : (
                         <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
                             <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />

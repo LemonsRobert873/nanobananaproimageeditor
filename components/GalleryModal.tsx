@@ -290,6 +290,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                             {item.type === 'image' ? (
                                                 <img 
                                                     src={item.url} 
+                                                    draggable="false"
                                                     className="w-full h-auto block" 
                                                     loading="lazy" 
                                                     alt="Generated" 
@@ -451,6 +452,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                         <img 
                             src={item.url} 
                             alt="Detail" 
+                            draggable="false"
                             onClick={handleZoomClick}
                             // 'm-auto' ensures safe centering (centers if small, start-aligns if overflowing)
                             // 'block' ensures it behaves as a block element
