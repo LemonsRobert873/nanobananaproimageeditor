@@ -1,8 +1,5 @@
 
 
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -48,6 +45,7 @@ const Canvas: React.FC<CanvasProps> = ({
   isGalleryOpen = false,
   isModalOpen = false,
   onDeleteCurrent,
+  isGenerating,
 }) => {
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
@@ -242,6 +240,7 @@ const Canvas: React.FC<CanvasProps> = ({
                          const isProModel = gen.model === MODELS.PRO;
                          const isImageGen = !isTextGen && (gen.mode === GenerationMode.IMAGE_EDIT || gen.mode === GenerationMode.IMAGE_TO_IMAGE);
                          const isFlash = isImageGen && !isProModel;
+                         const isQueued = gen.status === 'queued';
 
                          let accentColor, borderColor, barColor;
 
@@ -254,37 +253,54 @@ const Canvas: React.FC<CanvasProps> = ({
                             borderColor = isFlash ? 'border-cyan-500/30' : 'border-yellow-500/30';
                             barColor = isFlash ? 'bg-cyan-500' : 'bg-yellow-500';
                          }
+                         
+                         if (isQueued) {
+                             borderColor = 'border-zinc-700';
+                             accentColor = 'text-zinc-500';
+                         }
 
                          return (
                              <motion.div 
-                                key={gen.mode}
+                                key={gen.id} // Use ID to track specific jobs
                                 layout
                                 initial={{ opacity: 0, x: 20, y: 20 }}
-                                animate={{ opacity: 1, x: 0, y: 0 }}
+                                animate={{ opacity: isQueued ? 0.7 : 1, x: 0, y: 0 }}
                                 exit={{ opacity: 0, x: 20, y: 20 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
                                 className={`bg-zinc-900/95 border ${borderColor} p-4 rounded-xl shadow-2xl backdrop-blur-md w-64 pointer-events-auto`}
                              >
                                   <div className="flex items-center justify-between mb-2">
                                       <div className={`flex items-center gap-2 ${accentColor}`}>
-                                          <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
+                                          {isQueued ? (
+                                             <span className="animate-pulse">⏳</span>
+                                          ) : (
+                                             <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
+                                          )}
                                           <span className="text-xs font-bold tracking-wide uppercase">{getModeLabel(gen.mode)}</span>
                                       </div>
-                                      <span className="text-xs text-zinc-400 font-mono">{Math.round(gen.progress)}%</span>
+                                      <span className="text-xs text-zinc-400 font-mono">
+                                          {isQueued ? 'WAIT' : `${Math.round(gen.progress)}%`}
+                                      </span>
                                   </div>
                                   <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
-                                      <motion.div 
-                                        className={`absolute h-full ${barColor}`} 
-                                        style={{width: `${gen.progress}%`}} 
-                                      >
-                                         <motion.div 
-                                             className="absolute inset-0 bg-white/30"
-                                             animate={{ x: ['-100%', '100%'] }}
-                                             transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                         />
-                                      </motion.div>
+                                      {isQueued ? (
+                                         <div className="w-full h-full bg-zinc-800" />
+                                      ) : (
+                                        <motion.div 
+                                            className={`absolute h-full ${barColor}`} 
+                                            style={{width: `${gen.progress}%`}} 
+                                        >
+                                            <motion.div 
+                                                className="absolute inset-0 bg-white/30"
+                                                animate={{ x: ['-100%', '100%'] }}
+                                                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                            />
+                                        </motion.div>
+                                      )}
                                   </div>
-                                  <p className="text-[10px] text-zinc-500 truncate font-medium">{gen.step}</p>
+                                  <p className="text-[10px] text-zinc-500 truncate font-medium">
+                                      {isQueued ? 'Waiting in queue...' : gen.step}
+                                  </p>
                              </motion.div>
                          );
                     })}
@@ -318,7 +334,7 @@ const Canvas: React.FC<CanvasProps> = ({
                         ref={viewportRef}
                         className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
                     >
-                        {!currentState.generatedImage && !currentState.isGenerating && (
+                        {!currentState.generatedImage && currentState.queue.length === 0 && (
                             <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}

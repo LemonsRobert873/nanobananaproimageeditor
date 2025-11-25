@@ -90,6 +90,16 @@ export interface PromptGenParams {
   negativePrompt?: string;
 }
 
+export interface GenerationJob {
+  id: string;
+  status: 'queued' | 'processing';
+  params: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'>;
+  progress: number;
+  progressStep: string;
+  startedAt?: number;
+  createdAt: number;
+}
+
 export interface ModeState {
   subjects: SubjectItem[];
   textPrompt: string;
@@ -108,15 +118,14 @@ export interface ModeState {
   lastParams: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'> | null;
   hasError: boolean;
   errorMessage: string | null;
-  // Per-Mode Generation State
-  isGenerating: boolean;
-  progress: number;
-  progressStep: string;
-  startedAt?: number;
+  // Queue System
+  queue: GenerationJob[];
 }
 
 export interface ActiveGeneration {
+    id: string;
     mode: GenerationMode;
+    status: 'queued' | 'processing';
     progress: number;
     step: string;
     startedAt: number;

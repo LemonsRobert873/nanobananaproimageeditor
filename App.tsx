@@ -3,6 +3,10 @@
 
 
 
+
+
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -25,7 +29,8 @@ import {
   PromptGenParams,
   ModeState,
   SubjectItem,
-  ActiveGeneration
+  ActiveGeneration,
+  GenerationJob
 } from './types';
 import { ERRORS, MODELS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
@@ -58,10 +63,8 @@ const DEFAULT_MODE_STATE: ModeState = {
   lastParams: null,
   hasError: false,
   errorMessage: null,
-  // Generation State per mode
-  isGenerating: false,
-  progress: 0,
-  progressStep: ''
+  // Queue System
+  queue: []
 };
 
 // Keys for persistence
@@ -118,6 +121,9 @@ function AppContent() {
     [GenerationMode.TEXT_TO_PROMPT]: { ...DEFAULT_MODE_STATE },
   });
 
+  // Track currently processing jobs to prevent double-execution in effect
+  const processingJobIdsRef = useRef<Set<string>>(new Set());
+
   // State for Smooth Visual Progress (mapped by mode)
   const [visualProgressMap, setVisualProgressMap] = useState<Record<GenerationMode, number>>({
       [GenerationMode.IMAGE_EDIT]: 0,
@@ -128,15 +134,19 @@ function AppContent() {
 
   // Derived: Active Generations for Global Progress Display
   const activeGenerations: ActiveGeneration[] = (Object.entries(modeStates) as [GenerationMode, ModeState][])
-    .filter(([_, state]) => state.isGenerating)
-    .map(([m, state]) => ({ 
-        mode: m, 
-        progress: visualProgressMap[m] || state.progress,
-        step: state.progressStep,
-        startedAt: state.startedAt || 0,
-        model: state.selectedModel
-    }))
-    .sort((a, b) => a.startedAt - b.startedAt); // Oldest first, so newest can be stacked at bottom
+    .flatMap(([m, state]) => 
+        state.queue.map(j => ({
+            id: j.id,
+            mode: m,
+            status: j.status,
+            // Use visual progress if processing, otherwise 0
+            progress: j.status === 'processing' ? (visualProgressMap[m] || j.progress) : 0,
+            step: j.status === 'processing' ? j.progressStep : 'Waiting in queue...',
+            startedAt: j.startedAt || j.createdAt, // Fallback to creation time for sorting
+            model: (j.params as any).modelName // Hacky cast, but safe in context
+        }))
+    )
+    .sort((a, b) => a.startedAt - b.startedAt);
 
   // Helper to get current mode data
   const currentState = modeStates[mode];
@@ -272,14 +282,12 @@ function AppContent() {
                 if (savedJson) {
                     try {
                         const parsed = JSON.parse(savedJson);
-                        // Merge parsed data into default state, but reset generation flags
+                        // Merge parsed data into default state, ensure queue is empty (do not resume stuck jobs)
                         restoredModes[m] = { 
                             ...restoredModes[m], 
                             ...parsed,
                             selectedModel: parsed.selectedModel || MODELS.PRO, // Restore model
-                            isGenerating: false,
-                            progress: 0,
-                            progressStep: ''
+                            queue: [] // Reset queue
                         };
                     } catch (e) {
                         console.error(`Failed to parse state for ${m}`, e);
@@ -330,7 +338,7 @@ function AppContent() {
 
       const stateToSave = { ...currentState };
       
-      // Strip files and volatile generation state
+      // Strip files and volatile queue state
       stateToSave.subjects = currentState.subjects.map(s => ({
           id: s.id,
           isActive: s.isActive,
@@ -343,12 +351,7 @@ function AppContent() {
       delete (stateToSave as any).lastParams;
       delete (stateToSave as any).hasError;
       delete (stateToSave as any).errorMessage;
-      delete (stateToSave as any).isGenerating;
-      delete (stateToSave as any).progress;
-      delete (stateToSave as any).progressStep;
-      delete (stateToSave as any).startedAt;
-
-      // Persistence handles selectedModel via spread ...currentState
+      delete (stateToSave as any).queue; // Never persist the queue
 
       localStorage.setItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${mode}`, JSON.stringify(stateToSave));
 
@@ -379,8 +382,11 @@ function AppContent() {
          
          Object.values(GenerationMode).forEach(m => {
              const state = modeStates[m];
-             if (state.isGenerating) {
-                 const target = state.progress;
+             // Find active job progress
+             const activeJob = state.queue.find(j => j.status === 'processing');
+             
+             if (activeJob) {
+                 const target = activeJob.progress;
                  const current = prev[m] || 0;
                  const diff = target - current;
                  
@@ -506,6 +512,185 @@ function AppContent() {
       window.location.reload();
   };
 
+  // --- JOB PROCESSING LOGIC ---
+  const processJob = useCallback(async (mode: GenerationMode, job: GenerationJob) => {
+      if (processingJobIdsRef.current.has(job.id)) return;
+      processingJobIdsRef.current.add(job.id);
+
+      // 1. Update status to processing
+      setModeStates(prev => {
+          const queue = prev[mode].queue.map(j => 
+            j.id === job.id ? { ...j, status: 'processing' as const, startedAt: Date.now() } : j
+          );
+          return { ...prev, [mode]: { ...prev[mode], queue } };
+      });
+
+      const isImageGen = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
+      
+      try {
+          const onProgressCallback = (msg: string, val: number) => {
+             setModeStates(prev => {
+                const queue = prev[mode].queue.map(j => 
+                    j.id === job.id ? { ...j, progress: val, progressStep: msg } : j
+                );
+                return { ...prev, [mode]: { ...prev[mode], queue } };
+             });
+          };
+
+          const paramsToUse = { 
+              ...job.params,
+              onProgress: onProgressCallback,
+              apiKey: apiKey || undefined 
+          } as GenerateParams | PromptGenParams;
+
+          if (isImageGen) {
+              const imageUrl = await generateImage(paramsToUse as GenerateParams);
+              
+              // Complete 100%
+              setModeStates(prev => {
+                  const queue = prev[mode].queue.map(j => 
+                      j.id === job.id ? { ...j, progress: 100, progressStep: "Done!" } : j
+                  );
+                  return { ...prev, [mode]: { ...prev[mode], queue } };
+              });
+              
+              await new Promise(resolve => setTimeout(resolve, 300));
+
+              // Store result
+              setModeStates(prev => ({
+                  ...prev,
+                  [mode]: {
+                      ...prev[mode],
+                      generatedImage: imageUrl,
+                      // Remove job from queue
+                      queue: prev[mode].queue.filter(j => j.id !== job.id)
+                  }
+              }));
+
+              // Quota Update - Only for Pro Model (accessing params directly safely here)
+              if ((job.params as GenerateParams).modelName === MODELS.PRO) {
+                  const currentPTDate = getCurrentPTDate();
+                  const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
+                  
+                  let currentBase = 0;
+                  if (lastResetDate !== currentPTDate) {
+                      currentBase = 0;
+                      localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
+                  } else {
+                      currentBase = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
+                  }
+
+                  const newVal = currentBase + 1;
+                  localStorage.setItem(QUOTA_KEYS.COUNT, newVal.toString());
+                  setDailyImageCount(newVal);
+              }
+              
+              const newHistoryItem: GeneratedImage = {
+                type: 'image',
+                id: Date.now().toString(),
+                url: imageUrl,
+                timestamp: Date.now(),
+                prompt: (job.params as GenerateParams).textPrompt || "Reference based generation",
+                metadata: {
+                  mode: mode,
+                  textPrompt: (job.params as GenerateParams).textPrompt,
+                  aspectRatio: (job.params as GenerateParams).aspectRatio,
+                  resolution: (job.params as GenerateParams).resolution,
+                  referenceOperation: mode === GenerationMode.IMAGE_TO_IMAGE ? (job.params as GenerateParams).referenceOperation : undefined,
+                  refStrength: mode === GenerationMode.IMAGE_TO_IMAGE ? (job.params as GenerateParams).refStrength : undefined,
+                  negativePrompt: (job.params as GenerateParams).negativePrompt,
+                  model: (job.params as GenerateParams).modelName
+                }
+              };
+              
+              await saveHistoryItem(newHistoryItem);
+              setHistory(prev => [newHistoryItem, ...prev]);
+              addToast("Image generated successfully", 'success');
+
+          } else {
+              const promptText = await generatePrompt(paramsToUse as PromptGenParams);
+
+              setModeStates(prev => {
+                  const queue = prev[mode].queue.map(j => 
+                      j.id === job.id ? { ...j, progress: 100, progressStep: "Done!" } : j
+                  );
+                  return { ...prev, [mode]: { ...prev[mode], queue } };
+              });
+
+              await new Promise(resolve => setTimeout(resolve, 300));
+
+              setModeStates(prev => ({
+                  ...prev,
+                  [mode]: {
+                      ...prev[mode],
+                      generatedText: promptText,
+                      queue: prev[mode].queue.filter(j => j.id !== job.id)
+                  }
+              }));
+              
+              const newHistoryItem: GeneratedText = {
+                type: 'text',
+                id: Date.now().toString(),
+                text: promptText,
+                timestamp: Date.now(),
+                sourcePrompt: (job.params as PromptGenParams).textPrompt || "Image analysis",
+                metadata: {
+                  mode: mode,
+                  textPrompt: (job.params as PromptGenParams).textPrompt,
+                  useFaceFeature: (job.params as PromptGenParams).useFaceFeature,
+                  negativePrompt: (job.params as PromptGenParams).negativePrompt
+                }
+              };
+              
+              await saveHistoryItem(newHistoryItem);
+              setHistory(prev => [newHistoryItem, ...prev]);
+              addToast("Prompt generated successfully", 'success');
+          }
+          
+          updateModeState(mode, { hasError: false, errorMessage: null });
+
+      } catch (err: any) {
+          const msg = err.message || ERRORS.GENERIC;
+          if (msg === ERRORS.AUTH_FAILED || msg === ERRORS.MISSING_KEY) {
+            setHasKey(false);
+            if (!apiKey && !(window as any).aistudio) {
+                setShowKeySettings(true);
+            }
+          }
+          // Remove faulty job and set error
+          setModeStates(prev => ({ 
+              ...prev, 
+              [mode]: { 
+                  ...prev[mode], 
+                  queue: prev[mode].queue.filter(j => j.id !== job.id),
+                  hasError: true, 
+                  errorMessage: msg
+              } 
+          }));
+          addToast(msg, 'error');
+      } finally {
+          processingJobIdsRef.current.delete(job.id);
+      }
+  }, [apiKey]);
+
+  // Queue Watcher Effect
+  useEffect(() => {
+     Object.values(GenerationMode).forEach(modeVal => {
+         const m = modeVal as GenerationMode;
+         const state = modeStates[m];
+         
+         if (state.queue.length > 0) {
+             const head = state.queue[0];
+             // If head is queued, start it. If processing, do nothing (wait).
+             // We only allow 1 active per mode for now.
+             if (head.status === 'queued') {
+                 processJob(m, head);
+             }
+         }
+     });
+  }, [modeStates, processJob]);
+
+
   // --- CORE GENERATION HANDLER ---
   const handleGenerate = useCallback(async (isRetryArg: boolean | React.MouseEvent = false) => {
     const isRetry = isRetryArg === true;
@@ -514,10 +699,11 @@ function AppContent() {
     const activeMode = mode; 
     const activeState = modeStates[activeMode];
 
-    // Reset error state for this mode
+    // Reset error state for this mode only if not already processing something else?
+    // Actually better to clear error when user acts
     updateModeState(activeMode, { errorMessage: null, hasError: false });
     
-    let paramsToUse: GenerateParams | PromptGenParams;
+    let paramsToUse: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'>;
 
     // Validation
     const activeSubjectsWithFiles = activeState.subjects.filter(s => s.isActive && s.file !== null);
@@ -559,37 +745,11 @@ function AppContent() {
         }
     }
 
-    // Set Generation State for specific mode
-    updateModeState(activeMode, { 
-        isGenerating: true, 
-        progress: 0, 
-        progressStep: "Initializing...",
-        generatedText: null, // Clear previous text result immediately, image stays for comparison
-        startedAt: Date.now() // Track when it started for ordering
-    });
-
     const isImageGen = activeMode === GenerationMode.IMAGE_EDIT || activeMode === GenerationMode.IMAGE_TO_IMAGE;
     
-    try {
-      const onProgressCallback = (msg: string, val: number) => {
-        // Update ONLY this mode's state
-        setModeStates(prev => ({
-            ...prev,
-            [activeMode]: {
-                ...prev[activeMode],
-                progress: val,
-                progressStep: msg
-            }
-        }));
-      };
-
-      if (isRetry && activeState.lastParams) {
-          paramsToUse = { 
-              ...activeState.lastParams,
-              onProgress: onProgressCallback,
-              apiKey: apiKey || undefined 
-          } as GenerateParams | PromptGenParams;
-      } else {
+    if (isRetry && activeState.lastParams) {
+          paramsToUse = { ...activeState.lastParams };
+    } else {
           if (isImageGen) {
               paramsToUse = {
                 subjects: activeState.subjects,
@@ -599,143 +759,46 @@ function AppContent() {
                 referenceOperation: activeState.refOperation,
                 aspectRatio: activeState.aspectRatio,
                 resolution: activeState.resolution,
-                onProgress: onProgressCallback,
                 apiKey: apiKey || undefined,
                 refStrength: activeState.refStrength,
                 negativePrompt: activeState.negativePrompt,
                 modelName: activeState.selectedModel // Pass active model
-              } as GenerateParams;
+              };
           } else {
               paramsToUse = {
                   mode: activeMode,
                   subjects: activeState.subjects,
                   textPrompt: activeState.textPrompt,
                   useFaceFeature: activeState.useFaceFeature,
-                  onProgress: onProgressCallback,
                   apiKey: apiKey || undefined,
                   negativePrompt: activeState.negativePrompt
-              } as PromptGenParams;
-          }
-      }
-
-      // Save params
-      const paramsForStorage = { ...paramsToUse };
-      delete (paramsForStorage as any).onProgress;
-      updateModeState(activeMode, { lastParams: paramsForStorage });
-
-      if (isImageGen) {
-          const imageUrl = await generateImage(paramsToUse as GenerateParams);
-          
-          // Complete
-          updateModeState(activeMode, { progress: 100, progressStep: "Done!" });
-          await new Promise(resolve => setTimeout(resolve, 300));
-
-          // State update logic:
-          setModeStates(prev => {
-              return {
-                  ...prev,
-                  [activeMode]: {
-                      ...prev[activeMode],
-                      generatedImage: imageUrl,
-                      isGenerating: false
-                  }
               };
-          });
-
-          // Only auto-switch if this was the last interacted mode or we want to force attention
-          setMode(activeMode); 
-          
-          // Quota Update - Only for Pro Model
-          if (activeState.selectedModel === MODELS.PRO) {
-              const currentPTDate = getCurrentPTDate();
-              const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
-              
-              let currentBase = 0;
-              if (lastResetDate !== currentPTDate) {
-                  currentBase = 0;
-                  localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
-              } else {
-                  currentBase = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
-              }
-
-              const newVal = currentBase + 1;
-              localStorage.setItem(QUOTA_KEYS.COUNT, newVal.toString());
-              setDailyImageCount(newVal);
           }
-          
-          const newHistoryItem: GeneratedImage = {
-            type: 'image',
-            id: Date.now().toString(),
-            url: imageUrl,
-            timestamp: Date.now(),
-            prompt: activeState.textPrompt || "Reference based generation",
-            metadata: {
-              mode: activeMode,
-              textPrompt: activeState.textPrompt,
-              aspectRatio: activeState.aspectRatio,
-              resolution: activeState.resolution,
-              referenceOperation: activeMode === GenerationMode.IMAGE_TO_IMAGE ? activeState.refOperation : undefined,
-              refStrength: activeMode === GenerationMode.IMAGE_TO_IMAGE ? activeState.refStrength : undefined,
-              negativePrompt: activeState.negativePrompt,
-              model: activeState.selectedModel
-            }
-          };
-          
-          await saveHistoryItem(newHistoryItem);
-          setHistory(prev => [newHistoryItem, ...prev]);
-          addToast("Image generated successfully", 'success');
-
-      } else {
-          const promptText = await generatePrompt(paramsToUse as PromptGenParams);
-
-          updateModeState(activeMode, { progress: 100, progressStep: "Done!" });
-          await new Promise(resolve => setTimeout(resolve, 300));
-
-          setMode(activeMode);
-
-          updateModeState(activeMode, { 
-              generatedText: promptText, 
-              isGenerating: false
-          });
-          
-          const newHistoryItem: GeneratedText = {
-            type: 'text',
-            id: Date.now().toString(),
-            text: promptText,
-            timestamp: Date.now(),
-            sourcePrompt: activeState.textPrompt || "Image analysis",
-            metadata: {
-              mode: activeMode,
-              textPrompt: activeState.textPrompt,
-              useFaceFeature: activeState.useFaceFeature,
-              negativePrompt: activeState.negativePrompt
-            }
-          };
-          
-          await saveHistoryItem(newHistoryItem);
-          setHistory(prev => [newHistoryItem, ...prev]);
-          addToast("Prompt generated successfully", 'success');
-      }
-      
-      updateModeState(activeMode, { hasError: false, errorMessage: null });
-
-    } catch (err: any) {
-      const msg = err.message || ERRORS.GENERIC;
-      if (msg === ERRORS.AUTH_FAILED || msg === ERRORS.MISSING_KEY) {
-        setHasKey(false);
-        if (!apiKey && !(window as any).aistudio) {
-            setShowKeySettings(true);
-        }
-      }
-      updateModeState(activeMode, { 
-          hasError: true, 
-          errorMessage: msg,
-          isGenerating: false,
-          progress: 0 
-      });
-      addToast(msg, 'error');
     }
-  }, [mode, modeStates, apiKey, dailyImageCount]); 
+
+    // Save params for retry
+    updateModeState(activeMode, { lastParams: paramsToUse });
+    
+    // Create Job
+    const newJob: GenerationJob = {
+        id: Date.now().toString() + Math.random().toString(),
+        status: 'queued',
+        params: paramsToUse,
+        progress: 0,
+        progressStep: "Waiting in queue...",
+        createdAt: Date.now()
+    };
+
+    // Add to Queue
+    setModeStates(prev => ({
+        ...prev,
+        [activeMode]: {
+            ...prev[activeMode],
+            queue: [...prev[activeMode].queue, newJob],
+        }
+    }));
+
+  }, [mode, modeStates, apiKey]); 
 
   const handleRetry = () => handleGenerate(true);
 
@@ -743,7 +806,7 @@ function AppContent() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        if (!currentState.isGenerating && !showKeySettings && !showGuide && !showGallery && !showResetModal) {
+        if (!showKeySettings && !showGuide && !showGallery && !showResetModal) {
           e.preventDefault();
           handleGenerate();
         }
@@ -751,7 +814,7 @@ function AppContent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleGenerate, currentState.isGenerating, showKeySettings, showGuide, showGallery, showResetModal]);
+  }, [handleGenerate, showKeySettings, showGuide, showGallery, showResetModal]);
 
   // --- HISTORY HANDLER ---
   const handleHistorySelect = (item: HistoryItem) => {
@@ -894,7 +957,7 @@ function AppContent() {
           mode={mode}
           currentState={currentState}
           updateCurrentState={updateCurrentState}
-          isGenerating={currentState.isGenerating}
+          queueCount={currentState.queue.length}
           handleGenerate={handleGenerate}
           handleRetry={handleRetry}
           error={currentState.errorMessage}

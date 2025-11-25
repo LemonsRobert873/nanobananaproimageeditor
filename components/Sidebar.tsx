@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -24,7 +26,7 @@ interface SidebarProps {
   mode: GenerationMode;
   currentState: ModeState;
   updateCurrentState: (updates: Partial<ModeState>) => void;
-  isGenerating: boolean;
+  queueCount: number;
   handleGenerate: () => void;
   handleRetry: () => void;
   error: string | null;
@@ -35,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   mode, 
   currentState, 
   updateCurrentState, 
-  isGenerating, 
+  queueCount, 
   handleGenerate, 
   handleRetry,
   error,
@@ -219,10 +221,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isImageMode = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
   const isPro = currentState.selectedModel === MODELS.PRO;
   
+  const btnLabelBase = mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image';
+  const btnLabel = queueCount > 0 ? `${btnLabelBase} (${queueCount})` : btnLabelBase;
+
   return (
     <aside 
       style={{ width }}
-      className="flex-none flex flex-col border-r border-zinc-800 bg-zinc-950 relative z-30 transition-all duration-300"
+      className="flex-none flex flex-col border-r border-zinc-800 bg-zinc-900 relative z-30 transition-all duration-300"
       onClick={() => {
           setFocusedSubjectId(null);
           setActiveTarget(null);
@@ -692,23 +697,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         
         <Button 
           onClick={handleGenerate} 
-          isLoading={isGenerating} 
           className="w-full py-2.5 text-sm font-semibold relative overflow-hidden"
           title={`Generate ${shortcutLabel}`}
         >
-          <motion.div 
-             className="absolute inset-0 bg-white/20"
-             initial={{ x: '-100%' }}
-             animate={{ x: isGenerating ? '100%' : '-100%' }}
-             transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-          />
+          {queueCount > 0 && (
+             <motion.div 
+                className="absolute inset-0 bg-white/10"
+                initial={{ x: '-100%' }}
+                animate={{ x: '100%' }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+             />
+          )}
           <div className="relative flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4" />
-            <span>{mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image'}</span>
+            <span>{btnLabel}</span>
           </div>
         </Button>
         
-        {currentState.hasError && currentState.lastParams && !isGenerating && (
+        {currentState.hasError && currentState.lastParams && queueCount === 0 && (
              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
