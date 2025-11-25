@@ -424,7 +424,11 @@ const Canvas: React.FC<CanvasProps> = ({
                                         {currentHistoryItem.metadata.resolution && (
                                             <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
                                                 <div className="text-xs text-zinc-500">Resolution</div>
-                                                <div className="text-sm text-zinc-300">{currentHistoryItem.metadata.resolution}</div>
+                                                {currentHistoryItem.metadata.model?.includes('flash') ? (
+                                                    <div className="text-sm text-zinc-500 italic">Default</div>
+                                                ) : (
+                                                    <div className="text-sm text-zinc-300">{currentHistoryItem.metadata.resolution}</div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

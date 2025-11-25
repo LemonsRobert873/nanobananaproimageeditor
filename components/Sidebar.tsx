@@ -765,7 +765,7 @@ const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
                     }}
                     animate={{ 
                         top: ['-5vh', '100vh'], // Fall full viewport height
-                        opacity: isPro ? [0, 0.4, 0] : [0, 0.6, 0], 
+                        opacity: isPro ? [0, 0.85, 0] : [0, 0.6, 0], 
                         rotate: 360
                     }}
                     transition={{
