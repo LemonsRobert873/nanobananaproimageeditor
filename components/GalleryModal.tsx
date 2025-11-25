@@ -348,9 +348,9 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                 return (
                                     <div 
                                         key={item.id}
-                                        className={`relative group rounded-xl overflow-hidden border-2 transition-all bg-zinc-900 aspect-video ${
+                                        className={`relative group rounded-xl overflow-hidden border-2 transition-all aspect-video ${
                                             isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
-                                        }`}
+                                        } ${item.type === 'image' ? 'bg-black' : 'bg-zinc-900'}`}
                                     >
                                         {/* Selection Checkbox (Top Left) */}
                                         <div 
@@ -379,7 +379,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                             {item.type === 'image' ? (
                                                 <img 
                                                     src={item.url} 
-                                                    className="w-full h-full object-cover" 
+                                                    className="w-full h-full object-contain" 
                                                     loading="lazy" 
                                                     alt="Generated" 
                                                     draggable="false"
