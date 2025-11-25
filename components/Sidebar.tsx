@@ -1,10 +1,9 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
-  ChevronDown, ChevronUp, Sliders, RotateCw, Plus, Trash2, CheckSquare, Square, Upload
+  ChevronDown, ChevronUp, Sliders, RotateCw, Plus, Trash2, CheckSquare, Square, Upload, Zap
 } from 'lucide-react';
 import { 
   GenerationMode, 
@@ -12,6 +11,7 @@ import {
   ModeState,
   SubjectItem
 } from '../types';
+import { MODELS } from '../constants';
 import Button from './Button';
 import FileUpload from './FileUpload';
 import AspectRatioSelector from './AspectRatioSelector';
@@ -41,7 +41,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   width
 }) => {
   const { addToast } = useToast();
-  // Initialize from storage or default to false
   const [showAdvanced, setShowAdvanced] = useState(() => {
      if (typeof window !== 'undefined') {
          return localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
@@ -49,26 +48,18 @@ const Sidebar: React.FC<SidebarProps> = ({
      return false;
   });
   
-  // Track which drop zone or card is active
   const [activeTarget, setActiveTarget] = useState<'reference' | 'subject' | null>(null);
-  
-  // Track strictly which subject card is focused for paste targeting
   const [focusedSubjectId, setFocusedSubjectId] = useState<string | null>(null);
-
-  // Track if dragging over subject section to create new block
   const [isDragOverSubjectSection, setIsDragOverSubjectSection] = useState(false);
 
-  // Sync state when mode changes
   useEffect(() => {
       const saved = localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
       setShowAdvanced(saved);
-      // Reset focus on mode change
       setFocusedSubjectId(null);
       setActiveTarget(null);
       setIsDragOverSubjectSection(false);
   }, [mode]);
 
-  // Persist state when it changes
   useEffect(() => {
       localStorage.setItem(`nanobanana_advanced_${mode}`, showAdvanced.toString());
   }, [showAdvanced, mode]);
@@ -99,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
       const newSubject: SubjectItem = {
           id: Date.now().toString() + Math.random().toString().slice(2, 5),
-          file: null, // Start empty
+          file: null, 
           isActive: true
       };
       updateCurrentState({ subjects: [...currentState.subjects, newSubject] });
@@ -133,7 +124,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           setIsDragOverSubjectSection(true);
           e.dataTransfer.dropEffect = 'copy';
       } else {
-          // If 5 subjects, don't allow general section drop (still allows drop on specific card if handled there)
           setIsDragOverSubjectSection(false);
       }
   };
@@ -155,12 +145,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
 
       let file: File | null = null;
-      // 1. Check internal drag
       const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
       if (internalUrl) {
            file = dataURLtoFile(internalUrl, `dropped-subject-${Date.now()}.png`);
       } else if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-           // 2. Check external drag
            file = e.dataTransfer.files[0];
       }
 
@@ -175,10 +163,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
   };
 
-  // Clipboard Paste Listener
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-        // Ignore if pasting into a text field
         const target = document.activeElement as HTMLElement;
         const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
         if (isInput) return;
@@ -199,8 +185,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         if (file) {
              e.preventDefault();
-             
-             // Priority 1: Paste into active subject card
              if (focusedSubjectId) {
                  const subjectExists = currentState.subjects.find(s => s.id === focusedSubjectId);
                  if (subjectExists) {
@@ -208,14 +192,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                      return;
                  }
              }
-
-             // Priority 2: Paste into Reference if active
              if (activeTarget === 'reference') {
                  handleReferenceSelect(file);
                  return;
              }
-             
-             // Priority 3: Auto-create subject if possible (no specific target or subject section active)
              if (currentState.subjects.length < 5 && (!activeTarget || activeTarget === 'subject')) {
                   const newSubject: SubjectItem = {
                       id: Date.now().toString() + Math.random().toString().slice(2, 5),
@@ -234,31 +214,61 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
-
   const displayError = error || currentState.errorMessage;
+  const isImageMode = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
+  const isPro = currentState.selectedModel === MODELS.PRO;
   
-  // Show multi-subject only in Image modes
-  const showMultiSubjectUI = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
-
   return (
     <aside 
       style={{ width }}
-      className="flex-none flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto"
+      className="flex-none flex flex-col border-r bg-zinc-950 overflow-y-auto relative transition-all duration-500 z-10"
       onClick={() => {
           setFocusedSubjectId(null);
           setActiveTarget(null);
       }}
     >
+      {/* Dynamic Background / Glow Effect */}
+      <motion.div 
+         className={`absolute inset-0 pointer-events-none z-0 transition-colors duration-700 ${
+             isPro ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
+         }`}
+         animate={{
+             boxShadow: isPro 
+                ? ['inset 10px 0 20px -10px rgba(234,179,8,0.1)', 'inset 15px 0 30px -10px rgba(234,179,8,0.25)', 'inset 10px 0 20px -10px rgba(234,179,8,0.1)'] 
+                : ['inset 10px 0 20px -10px rgba(6,182,212,0.1)', 'inset 15px 0 30px -5px rgba(6,182,212,0.3)', 'inset 10px 0 20px -10px rgba(6,182,212,0.1)']
+         }}
+         transition={{
+             duration: isPro ? 4 : 0.8,
+             repeat: Infinity,
+             ease: "easeInOut"
+         }}
+      />
+      
+      {/* Background Falling Particles */}
+      <BackgroundEffects isPro={isPro} />
+      
+      {/* Border Glow Line */}
+      <motion.div 
+        className={`absolute inset-y-0 left-0 w-[2px] z-20 blur-[1px]`} 
+        animate={{
+            backgroundColor: isPro ? ['rgba(234,179,8,0.2)', 'rgba(234,179,8,0.8)', 'rgba(234,179,8,0.2)'] : ['rgba(6,182,212,0.2)', 'rgba(6,182,212,0.9)', 'rgba(6,182,212,0.2)'],
+            opacity: [0.5, 1, 0.5]
+        }}
+        transition={{
+            duration: isPro ? 4 : 0.2,
+            repeat: Infinity,
+            ease: "easeInOut"
+        }}
+      />
+
       <motion.div 
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-        className="p-6 space-y-8"
+        className="p-6 space-y-8 relative z-10"
       >
-        
-        {/* Subject Image Section - Conditional */}
         <AnimatePresence mode="popLayout">
-            {showMultiSubjectUI && (
+            {isImageMode && (
                 <motion.section 
                     key="subject-input"
                     initial={{ opacity: 0, height: 0 }}
@@ -300,7 +310,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                     </div>
 
-                    {/* Mode Status Indicator */}
                     {mode === GenerationMode.IMAGE_EDIT && (
                         <motion.div 
                           initial={{ opacity: 0, y: -10 }}
@@ -323,7 +332,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </motion.div>
                     )}
 
-                    {/* Subject Grid - Card Layout */}
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 px-1">
                         <AnimatePresence>
                             {currentState.subjects.map((subject) => (
@@ -346,7 +354,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     )}
                     
-                    {/* Visual cue for background drag when cards exist but < 5 */}
                     {currentState.subjects.length > 0 && currentState.subjects.length < 5 && isDragOverSubjectSection && (
                         <div className="absolute inset-0 bg-yellow-500/5 pointer-events-none rounded-xl border-2 border-yellow-500/30 z-10 flex items-center justify-center">
                              <div className="bg-zinc-900/90 text-yellow-500 px-3 py-1.5 rounded-lg shadow-lg text-xs font-bold flex items-center gap-2">
@@ -358,7 +365,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </motion.section>
             )}
             
-            {/* For Prompt Gen modes, provide single File Input if needed (Img To Prompt) */}
             {mode === GenerationMode.IMG_TO_PROMPT && (
                  <motion.section 
                     key="single-subject"
@@ -376,24 +382,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                          helperText="Image to analyze"
                          selectedFile={currentState.subjects[0]?.file || null}
                          onFileSelect={(file) => {
-                             // Use subject slot 0 for ImgToPrompt
                              const newSub = { id: '0', file, isActive: true };
                              updateCurrentState({ subjects: [newSub] });
                          }}
                          required
                          className="mb-2"
-                         isActive={activeTarget === 'subject'} // Reusing 'subject' target logic slightly
+                         isActive={activeTarget === 'subject'}
                          onActivate={() => setActiveTarget('subject')}
                      />
                 </motion.section>
             )}
         </AnimatePresence>
 
-        {/* Mode Specific Inputs */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 text-zinc-100 font-medium">
             <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
-                {showMultiSubjectUI || mode === GenerationMode.IMG_TO_PROMPT ? '2' : '1'}
+                {isImageMode || mode === GenerationMode.IMG_TO_PROMPT ? '2' : '1'}
             </div>
             {mode === GenerationMode.IMAGE_EDIT ? 'Prompt Instructions' : 
              mode === GenerationMode.IMAGE_TO_IMAGE ? 'Reference & Operation' : 
@@ -402,10 +406,41 @@ const Sidebar: React.FC<SidebarProps> = ({
 
           <motion.div 
              layout
-             className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800/50 space-y-4"
+             className={`bg-zinc-900/40 rounded-xl p-4 border transition-colors duration-500 space-y-4 ${
+                 isPro ? 'border-yellow-500/20' : 'border-cyan-500/20'
+             }`}
           >
             
-            {/* PROMPT GENERATOR TOGGLE */}
+            {isImageMode && (
+                <div className="bg-zinc-950/50 rounded-lg p-1 flex relative mb-4">
+                     <div 
+                         className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
+                             isPro 
+                                ? 'left-1/2 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-yellow-900/20' 
+                                : 'left-0 bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-900/20'
+                         }`}
+                     />
+                     <button
+                        onClick={() => updateCurrentState({ selectedModel: MODELS.FLASH })}
+                        className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            !isPro ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                     >
+                        <Zap size={14} className={!isPro ? "fill-white" : ""} />
+                        Flash
+                     </button>
+                     <button
+                        onClick={() => updateCurrentState({ selectedModel: MODELS.PRO })}
+                        className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            isPro ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                     >
+                        <Sparkles size={14} className={isPro ? "fill-black/20" : ""} />
+                        Pro
+                     </button>
+                </div>
+            )}
+
             {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) && (
                 <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg border border-zinc-800">
                     <div className="space-y-0.5">
@@ -428,7 +463,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             )}
 
-            {/* IMAGE REFERENCE UPLOAD */}
             <AnimatePresence>
                 {mode === GenerationMode.IMAGE_TO_IMAGE && (
                 <motion.div 
@@ -464,7 +498,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     )}
                     </div>
 
-                    {/* REFERENCE STRENGTH SLIDER */}
                     <div className="space-y-2 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
                         <div className="flex justify-between items-center">
                             <label className="text-xs font-medium text-zinc-300">Reference Strength</label>
@@ -488,7 +521,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <div className="space-y-2">
                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Operation</label>
                     <div className="grid grid-cols-1 gap-2">
-                        {/* Operations Buttons */}
                         {[
                             { op: ReferenceOperation.APPLY_CLOTHING, label: 'Apply Clothing', desc: 'Put subject(s) in reference outfit', icon: User },
                             { op: ReferenceOperation.REPLACE_FACE, label: 'Replace Face', desc: 'Swap face in reference scene', icon: ImagePlus },
@@ -518,7 +550,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
             </AnimatePresence>
 
-            {/* TEXT INPUT AREA */}
             <div className="space-y-2">
                <div className="flex justify-between items-baseline">
                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -555,7 +586,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                </div>
             </div>
 
-            {/* ADVANCED SETTINGS (Negative Prompt) */}
             <div className="pt-2">
                 <button 
                     onClick={() => setShowAdvanced(!showAdvanced)}
@@ -582,9 +612,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     placeholder="e.g. blurry, distorted, bad hands, cartoon, text, watermark..."
                                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none min-h-[80px]"
                                 />
-                                <p className="text-[10px] text-zinc-600">
-                                    Elements to avoid in the generation.
-                                </p>
                             </div>
                         </motion.div>
                     )}
@@ -594,9 +621,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           </motion.div>
         </section>
 
-        {/* Output Settings (Only for Image Generation Modes) */}
         <AnimatePresence>
-            {(mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE) && (
+            {isImageMode && (
                 <motion.section 
                     initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
                     animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
@@ -605,7 +631,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                 <div className="flex items-center gap-2 text-zinc-100 font-medium">
                     <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
-                        {showMultiSubjectUI ? '3' : '2'}
+                        3
                     </div>
                     Image Settings
                 </div>
@@ -622,6 +648,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <ResolutionSelector 
                         value={currentState.resolution}
                         onChange={(val) => updateCurrentState({ resolution: val })}
+                        disabled={!isPro}
                     />
                     </div>
                 </div>
@@ -631,7 +658,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       </motion.div>
 
-      {/* Footer Action */}
       <div className="mt-auto p-4 border-t border-zinc-800 bg-zinc-900/30 sticky bottom-0 backdrop-blur-sm space-y-2 z-[25]">
          <AnimatePresence>
             {displayError && (
@@ -650,14 +676,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Button 
           onClick={handleGenerate} 
           isLoading={isGenerating} 
-          className="w-full py-2.5 text-sm font-semibold"
+          className="w-full py-2.5 text-sm font-semibold relative overflow-hidden"
           title={`Generate ${shortcutLabel}`}
         >
-          <Sparkles className="w-4 h-4 mr-2" />
-          {mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image'}
+          <motion.div 
+             className="absolute inset-0 bg-white/20"
+             initial={{ x: '-100%' }}
+             animate={{ x: isGenerating ? '100%' : '-100%' }}
+             transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+          />
+          <div className="relative flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            <span>{mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image'}</span>
+          </div>
         </Button>
         
-        {/* RETRY BUTTON - Only visible on error */}
         {currentState.hasError && currentState.lastParams && !isGenerating && (
              <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -675,10 +708,10 @@ const Sidebar: React.FC<SidebarProps> = ({
              </motion.div>
         )}
 
-        <p className="text-center text-[10px] text-zinc-600 mt-1">
-          {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) 
-            ? 'Uses Gemini 2.5 Flash' 
-            : `Uses Nano Banana Pro (Gemini 3 Pro)`
+        <p className={`text-center text-[10px] mt-1 transition-colors ${isPro ? 'text-zinc-600' : 'text-cyan-600/70'}`}>
+          {isImageMode 
+              ? `Uses: ${isPro ? 'NanoBanana Pro' : 'NanoBanana Flash'} (${currentState.selectedModel})`
+              : 'Uses Gemini 2.5 Flash'
           }
         </p>
       </div>
@@ -686,9 +719,59 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-export default Sidebar;
-
-// --- Helper Component: SubjectCard ---
+const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
+    // Static set of particles
+    const particles = [
+        { id: 1, x: 20, delay: 0, size: 10 },
+        { id: 2, x: 50, delay: 5, size: 14 },
+        { id: 3, x: 80, delay: 2, size: 8 },
+        { id: 4, x: 10, delay: 8, size: 12 },
+        { id: 5, x: 70, delay: 12, size: 9 },
+        { id: 6, x: 40, delay: 15, size: 11 },
+        { id: 7, x: 90, delay: 18, size: 13 },
+        { id: 8, x: 30, delay: 20, size: 10 },
+    ];
+    
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+             {particles.map((p) => (
+                 <motion.div
+                    key={p.id}
+                    className="absolute top-0"
+                    style={{ left: `${p.x}%` }}
+                    initial={{ 
+                        y: -50,
+                        opacity: 0,
+                        rotate: 0
+                    }}
+                    animate={{ 
+                        y: ['0vh', '100vh'], 
+                        opacity: [0, 0.8, 0], 
+                        rotate: 360
+                    }}
+                    transition={{
+                        duration: isPro ? 25 : 8, 
+                        repeat: Infinity,
+                        delay: p.delay,
+                        ease: "linear"
+                    }}
+                 >
+                     {isPro ? (
+                         <Sparkles 
+                            size={p.size} 
+                            className="text-yellow-500/40 fill-yellow-500/20" 
+                         />
+                     ) : (
+                         <Zap 
+                            size={p.size} 
+                            className="text-cyan-400/50 fill-cyan-400/20" 
+                         />
+                     )}
+                 </motion.div>
+             ))}
+        </div>
+    );
+};
 
 interface SubjectCardProps {
     subject: SubjectItem;
@@ -715,11 +798,10 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation(); // Handle drop on card specifically
+        e.stopPropagation(); 
         onFocus();
         
         let file: File | null = null;
-        // 1. Check internal drag
         const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
         if (internalUrl) {
              file = dataURLtoFile(internalUrl, `dropped-on-card-${Date.now()}.png`);
@@ -764,7 +846,6 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
                 }}
             />
 
-            {/* Content */}
             {previewUrl ? (
                 <img 
                     src={previewUrl} 
@@ -778,12 +859,10 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
                 </div>
             )}
 
-            {/* Overlays */}
             <div className="absolute top-0 left-0 p-1.5 z-10">
                  <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        // Only toggle if file exists
                         if (subject.file) onToggle();
                     }}
                     disabled={!subject.file}
@@ -809,7 +888,6 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
                 </button>
             </div>
 
-            {/* Filled State Hover Overlay (Replace) */}
             {subject.file && (
                 <div 
                    onClick={(e) => {
@@ -827,3 +905,5 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
         </motion.div>
     );
 };
+
+export default Sidebar;

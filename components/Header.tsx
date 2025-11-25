@@ -1,8 +1,10 @@
 
+
 import React from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import { BookOpen, Key, Layers, Type, FileText, Wand2, RotateCcw, Sparkles } from 'lucide-react';
 import { GenerationMode } from '../types';
+import { MODELS } from '../constants';
 
 interface HeaderProps {
   mode: GenerationMode;
@@ -12,6 +14,7 @@ interface HeaderProps {
   hasKey: boolean;
   handleKeyClick: () => void;
   onResetClick: () => void;
+  activeModel: string;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -21,7 +24,10 @@ const Header: React.FC<HeaderProps> = ({
   hasKey, 
   handleKeyClick,
   onResetClick,
+  activeModel
 }) => {
+  const isPro = activeModel === MODELS.PRO;
+  
   return (
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
@@ -34,11 +40,15 @@ const Header: React.FC<HeaderProps> = ({
         {/* Left: Logo */}
         <div className="flex items-center gap-6 shrink-0">
           <motion.div 
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 group cursor-default"
           >
-            <div className="text-2xl">🍌</div>
-            <span className="font-semibold text-zinc-100 tracking-tight hidden lg:inline whitespace-nowrap">
-              NanoBanana Pro Studio
+            <div className="text-2xl transition-transform group-hover:rotate-12">🍌</div>
+            <span className={`font-semibold tracking-tight hidden lg:inline whitespace-nowrap transition-all duration-300 ${
+                isPro 
+                ? 'text-zinc-100 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]' 
+                : 'text-zinc-100 drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+            }`}>
+              NanoBanana <span className={isPro ? "text-yellow-500" : "text-cyan-400"}>{isPro ? "Pro" : "Flash"}</span> Studio
             </span>
           </motion.div>
         </div>

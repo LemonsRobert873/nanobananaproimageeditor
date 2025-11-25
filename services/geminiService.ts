@@ -1,8 +1,7 @@
 
-
 import { GoogleGenAI } from "@google/genai";
 import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation, SubjectItem } from '../types';
-import { MODEL_NAME, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
+import { MODELS, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
 
 // --- Helpers ---
 
@@ -81,7 +80,7 @@ const simulateProgress = (
 
 export const generateImage = async (params: GenerateParams): Promise<string> => {
   const { 
-    subjects, // Array of SubjectItem
+    subjects, 
     mode, 
     textPrompt, 
     referenceImage, 
@@ -91,7 +90,8 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     onProgress,
     apiKey,
     refStrength,
-    negativePrompt
+    negativePrompt,
+    modelName
   } = params;
 
   const updateProgress = (msg: string, val: number) => {
@@ -102,6 +102,10 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
   if (!effectiveKey) throw new Error(ERRORS.MISSING_KEY);
 
   const ai = new GoogleGenAI({ apiKey: effectiveKey });
+
+  // Use the requested model, fallback to PRO if generic
+  const targetModel = modelName || MODELS.PRO;
+  const isPro = targetModel === MODELS.PRO;
 
   try {
     const parts: any[] = [];
@@ -120,7 +124,6 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     if (mode === GenerationMode.IMAGE_EDIT) {
       if (activeSubjects.length > 0) {
         // CASE: Active Subjects Present
-        // Add all active subjects
         for (let i = 0; i < activeSubjects.length; i++) {
            const s = activeSubjects[i];
            if (s.file) {
@@ -129,7 +132,6 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
            }
         }
 
-        // Construct context string
         const subjectIndices = activeSubjects.map((_, i) => `Image ${i + 1} is Subject ${i + 1}`).join('. ');
         
         parts.push({ 
@@ -141,16 +143,13 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
 
       } else {
         // CASE: No Subject Images (Text to Image)
-        // DIRECT EXECUTION: No analysis/expansion step.
         startPct = 10;
         updateProgress("Preparing generation...", 15);
-        
         parts.push({ text: `${textPrompt}${negativePromptStr}` });
       }
     } 
     // --- MODE 2: Image to Image ---
     else if (mode === GenerationMode.IMAGE_TO_IMAGE && referenceImage) {
-      // Load Reference
       const refB64 = await fileToBase64(referenceImage);
       
       let strengthGuidance = "";
@@ -161,13 +160,11 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
       // -- Complex Operation: Replicate Reference (Requires Analysis Step) --
       if (referenceOperation === ReferenceOperation.REPLICATE_REFERENCE) {
         
-        // Start Analysis Simulation
         const stopAnalysisSim = simulateProgress(
             0, 40, 4000, updateProgress,
             ["Analyzing scene structure...", "Detecting lighting...", "Extracting composition...", "Building prompt blueprint..."]
         );
 
-        // STEP 1: Analyze Reference only
         const analysisResponse = await ai.models.generateContent({
             model: ANALYSIS_MODEL,
             contents: {
@@ -184,11 +181,6 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         updateProgress("Blueprint created.", 42);
         startPct = 45;
 
-        // STEP 2: Build Generation Parts
-        // CRITICAL: For Replicate Reference, we DO NOT send the reference image to the generation model.
-        // We only send subjects + the detailed prompt derived from the reference.
-        
-        // Add Subjects
         for (const s of activeSubjects) {
             if (s.file) {
                 const b64 = await fileToBase64(s.file);
@@ -215,9 +207,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
 
       } else {
         // -- Standard Operations (Apply Clothing, Replace Face) --
-        // These ops generally NEED the reference image pixels to perform well.
         
-        // Add Subjects FIRST
         for (const s of activeSubjects) {
             if (s.file) {
                 const b64 = await fileToBase64(s.file);
@@ -258,15 +248,21 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         ]
     );
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: { parts },
-      config: {
-        imageConfig: {
-          aspectRatio: aspectRatio,
-          imageSize: resolution
-        }
+    const config: any = {
+      imageConfig: {
+        aspectRatio: aspectRatio
       }
+    };
+    
+    // Only add imageSize for Pro model to avoid Flash model issues
+    if (isPro) {
+      config.imageConfig.imageSize = resolution;
+    }
+
+    const response = await ai.models.generateContent({
+      model: targetModel,
+      contents: { parts },
+      config: config
     });
     
     stopGenSim();
@@ -288,10 +284,18 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
             return `data:image/png;base64,${part.inlineData.data}`;
           }
         }
+        
+        // If we reach here, we found parts but no image. Check for text refusal.
+        for (const part of candidate.content.parts) {
+            if (part.text) {
+                // Return the text as the error message so the user knows WHY it failed
+                throw new Error(`Model Refusal: ${part.text.substring(0, 150)}...`);
+            }
+        }
       }
     }
 
-    throw new Error("No image generated.");
+    throw new Error("No image generated. The model did not return an image or a refusal reason.");
 
   } catch (error: any) {
     handleError(error);
@@ -375,5 +379,7 @@ const handleError = (error: any) => {
   if (msg.includes("500") || msg.includes("503") || msg.includes("internal")) {
     throw new Error(ERRORS.SERVER);
   }
+  
+  // Pass through custom errors (like Model Refusal)
   throw error;
 };

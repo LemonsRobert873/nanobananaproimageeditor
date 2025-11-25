@@ -36,6 +36,7 @@ export interface HistoryItemMetadata {
   textPrompt?: string;
   refStrength?: number;
   negativePrompt?: string;
+  model?: string;
 }
 
 export interface GeneratedImage {
@@ -76,6 +77,7 @@ export interface GenerateParams {
   apiKey?: string;
   refStrength?: number;
   negativePrompt?: string;
+  modelName: string;
 }
 
 export interface PromptGenParams {
@@ -102,6 +104,7 @@ export interface ModeState {
   isRefLowRes: boolean;
   refStrength: number;
   negativePrompt: string;
+  selectedModel: string;
   // Retry State
   lastParams: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'> | null;
   hasError: boolean;

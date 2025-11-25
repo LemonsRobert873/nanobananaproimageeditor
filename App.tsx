@@ -24,7 +24,7 @@ import {
   SubjectItem,
   ActiveGeneration
 } from './types';
-import { ERRORS } from './constants';
+import { ERRORS, MODELS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
 import { 
   getHistoryItems, 
@@ -52,6 +52,7 @@ const DEFAULT_MODE_STATE: ModeState = {
   isRefLowRes: false,
   refStrength: 100,
   negativePrompt: '',
+  selectedModel: MODELS.PRO, // Default to Pro
   lastParams: null,
   hasError: false,
   errorMessage: null,
@@ -282,6 +283,7 @@ function AppContent() {
                         restoredModes[m] = { 
                             ...restoredModes[m], 
                             ...parsed,
+                            selectedModel: parsed.selectedModel || MODELS.PRO, // Restore model
                             isGenerating: false,
                             progress: 0,
                             progressStep: '',
@@ -354,6 +356,8 @@ function AppContent() {
       delete (stateToSave as any).progress;
       delete (stateToSave as any).progressStep;
       delete (stateToSave as any).startedAt;
+
+      // Persistence handles selectedModel via spread ...currentState
 
       localStorage.setItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${mode}`, JSON.stringify(stateToSave));
 
@@ -608,7 +612,8 @@ function AppContent() {
                 onProgress: onProgressCallback,
                 apiKey: apiKey || undefined,
                 refStrength: activeState.refStrength,
-                negativePrompt: activeState.negativePrompt
+                negativePrompt: activeState.negativePrompt,
+                modelName: activeState.selectedModel // Pass active model
               } as GenerateParams;
           } else {
               paramsToUse = {
@@ -636,15 +641,7 @@ function AppContent() {
           await new Promise(resolve => setTimeout(resolve, 300));
 
           // State update logic:
-          // If user is currently in the activeMode, show the previous image on the left (comparisonImage).
-          // If user navigated away, do NOT set comparisonImage (clean slate on return).
           setModeStates(prev => {
-              // We check against the `mode` from the latest render via setModeStates updater
-              // But we can't access outer scope `mode` reliably if it changed.
-              // However, since we are updating `activeMode`'s state specifically:
-              // We should just set comparisonImage.
-              // If the user *is* in this mode, it shows. If they aren't, when they click back,
-              // `handleSetMode` will clear it.
               return {
                   ...prev,
                   [activeMode]: {
@@ -688,7 +685,8 @@ function AppContent() {
               resolution: activeState.resolution,
               referenceOperation: activeState.refOperation,
               refStrength: activeState.refStrength,
-              negativePrompt: activeState.negativePrompt
+              negativePrompt: activeState.negativePrompt,
+              model: activeState.selectedModel
             }
           };
           
@@ -899,6 +897,7 @@ function AppContent() {
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
         onResetClick={() => setShowResetModal(true)}
+        activeModel={currentState.selectedModel}
       />
 
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">

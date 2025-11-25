@@ -1,6 +1,14 @@
 
+
 // The mapping for Nano Banana Pro as per instructions
-export const MODEL_NAME = 'gemini-3-pro-image-preview';
+// Default/Fallback
+export const MODEL_NAME = 'gemini-3-pro-image-preview'; 
+
+export const MODELS = {
+  PRO: 'gemini-3-pro-image-preview',
+  FLASH: 'gemini-2.5-flash-image'
+};
+
 export const ANALYSIS_MODEL = 'gemini-2.5-flash';
 
 export const ASPECT_RATIOS = [

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -25,8 +24,7 @@ interface CanvasProps {
   isGalleryOpen?: boolean;
   isModalOpen?: boolean;
   onDeleteCurrent?: (id: string) => void;
-  // Previously used props 'isGenerating', 'progressStep', 'visualProgress' are removed in favor of activeGenerations
-  isGenerating?: boolean; // Kept as optional to prevent breaking if passed, but logic uses list
+  isGenerating?: boolean;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -52,19 +50,16 @@ const Canvas: React.FC<CanvasProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null);
   const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
 
-  // Find the history item that matches the current view to show its metadata or enable delete
   const currentHistoryItem = history.find(item => 
     (item.type === 'image' && item.url === currentState.generatedImage) ||
     (item.type === 'text' && item.text === currentState.generatedText)
   );
 
-  // Reset zoom state when the generated image changes
   useEffect(() => {
     setIsZoomed(false);
     clickTargetRef.current = null;
   }, [currentState.generatedImage]);
 
-  // Handle Global Escape Key for Zoom Reset
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -78,7 +73,6 @@ const Canvas: React.FC<CanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isZoomed, isGalleryOpen, isModalOpen]);
 
-  // Handle scroll positioning after zoom toggles
   useEffect(() => {
     if (isZoomed && clickTargetRef.current && viewportRef.current) {
         const viewport = viewportRef.current;
@@ -111,7 +105,6 @@ const Canvas: React.FC<CanvasProps> = ({
   }, [isZoomed]);
 
   const handleZoomClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    // Zoom allowed even during generation if previous image exists
     if (isZoomed) {
         setIsZoomed(false);
     } else {
@@ -152,8 +145,6 @@ const Canvas: React.FC<CanvasProps> = ({
 
   return (
     <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
-      
-      {/* 1. Canvas Toolbar (Header) */}
       <motion.div 
          initial={{ y: -20, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
@@ -206,7 +197,6 @@ const Canvas: React.FC<CanvasProps> = ({
             </>
           )}
 
-          {/* Info and Delete grouped on the right */}
           {(currentState.generatedImage || currentState.generatedText) && (
              <>
                 <div className="w-px h-4 bg-zinc-800" />
@@ -235,15 +225,11 @@ const Canvas: React.FC<CanvasProps> = ({
         </div>
       </motion.div>
 
-      {/* 2. Canvas Viewport (Flexible Middle Area) */}
       <div className="flex-1 min-h-0 relative bg-zinc-950 flex flex-col">
-         {/* Background Pattern */}
          <div className="absolute inset-0 bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
 
-         {/* Content Container */}
          <div className="relative w-full h-full overflow-hidden flex">
             
-            {/* Non-Blocking Status Overlay (Stacked, Global) */}
             <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none gap-4 max-h-[50%] overflow-visible">
                  <AnimatePresence>
                     {activeGenerations.map((gen) => (
@@ -281,9 +267,7 @@ const Canvas: React.FC<CanvasProps> = ({
                  </AnimatePresence>
             </div>
 
-            {/* Main Display Area */}
             <div className="flex-1 relative overflow-hidden flex flex-col">
-                {/* Text Result View */}
                 {currentState.generatedText && (
                     <div className="w-full h-full overflow-auto p-8 flex justify-center relative z-10 custom-scrollbar">
                         <motion.div 
@@ -305,13 +289,11 @@ const Canvas: React.FC<CanvasProps> = ({
                     </div>
                 )}
 
-                {/* Image Result View with Zoom */}
                 {!currentState.generatedText && (
                     <div 
                         ref={viewportRef}
                         className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
                     >
-                        {/* Placeholder */}
                         {!currentState.generatedImage && !currentState.isGenerating && (
                             <motion.div 
                                 initial={{ opacity: 0 }}
@@ -332,7 +314,6 @@ const Canvas: React.FC<CanvasProps> = ({
                             </motion.div>
                         )}
 
-                        {/* Generated Image */}
                         {currentState.generatedImage && (
                             <img 
                                 onClick={handleZoomClick}
@@ -367,7 +348,6 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
             </div>
 
-            {/* Metadata Inspector Panel */}
             <AnimatePresence>
                 {showInfo && currentHistoryItem?.metadata && (
                     <motion.div 
@@ -389,8 +369,17 @@ const Canvas: React.FC<CanvasProps> = ({
                                     {currentHistoryItem.metadata.mode}
                                 </div>
                             </div>
+
+                            {/* Model Version - New Field */}
+                            {currentHistoryItem.metadata.model && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Model Version</label>
+                                    <div className="text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono break-all">
+                                        {currentHistoryItem.metadata.model}
+                                    </div>
+                                </div>
+                            )}
                             
-                            {/* Ref Strength Display - Only for Image To Image Mode */}
                             {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.refStrength !== undefined && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
@@ -450,7 +439,6 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             )}
 
-                            {/* Negative Prompt Display */}
                             {currentHistoryItem.metadata.negativePrompt && (
                                 <div className="space-y-1">
                                     <div className="flex items-center justify-between">
@@ -473,9 +461,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
             </AnimatePresence>
 
-            {/* Viewport Overlays (Comparison, Close) */}
             <div className="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-6">
-                 {/* Top Row: Close Button (Disabled when Info panel is open to prevent duplicate buttons) */}
                  <div className="flex justify-end mr-8">
                     {currentState.generatedImage && !currentState.generatedText && !showInfo && (
                         <motion.button 
@@ -489,9 +475,7 @@ const Canvas: React.FC<CanvasProps> = ({
                     )}
                  </div>
 
-                 {/* Bottom Row: Comparison */}
                  <div className="flex items-end justify-between w-full">
-                     {/* Comparison Image (Previous result on left) */}
                      <div className="pointer-events-auto">
                         {currentState.comparisonImage && !currentState.generatedText && (
                             <motion.div 
@@ -517,14 +501,12 @@ const Canvas: React.FC<CanvasProps> = ({
          </div>
       </div>
 
-      {/* 3. History Strip (Footer) - Global History */}
       <motion.div 
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.3 }}
          className="flex-none h-24 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center z-20 relative"
       >
-         {/* View All Button */}
          <div className="shrink-0 h-full flex items-center pl-4 pr-2 border-r border-zinc-800/30">
             <button 
                 onClick={onOpenGallery}
@@ -538,7 +520,6 @@ const Canvas: React.FC<CanvasProps> = ({
 
          <div className="flex-1 overflow-x-auto h-full flex items-center px-4 gap-4 custom-scrollbar">
             {isHistoryLoading ? (
-                // Skeletons
                 Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="shrink-0 w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 relative overflow-hidden">
                         <motion.div 
