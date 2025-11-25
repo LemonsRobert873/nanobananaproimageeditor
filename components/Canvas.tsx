@@ -235,13 +235,22 @@ const Canvas: React.FC<CanvasProps> = ({
             <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none gap-4 max-h-[50%] overflow-visible">
                  <AnimatePresence>
                     {activeGenerations.map((gen) => {
+                         const isTextGen = gen.mode === GenerationMode.IMG_TO_PROMPT || gen.mode === GenerationMode.TEXT_TO_PROMPT;
                          const isProModel = gen.model === MODELS.PRO;
-                         const isImageGen = gen.mode === GenerationMode.IMAGE_EDIT || gen.mode === GenerationMode.IMAGE_TO_IMAGE;
+                         const isImageGen = !isTextGen && (gen.mode === GenerationMode.IMAGE_EDIT || gen.mode === GenerationMode.IMAGE_TO_IMAGE);
                          const isFlash = isImageGen && !isProModel;
 
-                         const accentColor = isFlash ? 'text-cyan-400' : 'text-yellow-500';
-                         const borderColor = isFlash ? 'border-cyan-500/30' : 'border-yellow-500/30';
-                         const barColor = isFlash ? 'bg-cyan-500' : 'bg-yellow-500';
+                         let accentColor, borderColor, barColor;
+
+                         if (isTextGen) {
+                            accentColor = 'text-white';
+                            borderColor = 'border-white/20';
+                            barColor = 'bg-white';
+                         } else {
+                            accentColor = isFlash ? 'text-cyan-400' : 'text-yellow-500';
+                            borderColor = isFlash ? 'border-cyan-500/30' : 'border-yellow-500/30';
+                            barColor = isFlash ? 'bg-cyan-500' : 'bg-yellow-500';
+                         }
 
                          return (
                              <motion.div 

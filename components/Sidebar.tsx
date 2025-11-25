@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -749,8 +750,9 @@ const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
         { id: 8, x: 30, delay: 20, size: 12 },
     ];
     
+    // Add key to force re-mount on prop change
     return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+        <div key={isPro ? 'pro' : 'flash'} className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
              {particles.map((p) => (
                  <motion.div
                     key={p.id}
@@ -758,17 +760,19 @@ const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
                     style={{ left: `${p.x}%`, top: -30 }} // Start slightly above viewport
                     initial={{ 
                         opacity: 0,
-                        rotate: 0
+                        rotate: 0,
+                        top: '-5vh' // Start slightly closer for immediate effect
                     }}
                     animate={{ 
-                        top: ['0vh', '100vh'], // Fall full viewport height
+                        top: ['-5vh', '100vh'], // Fall full viewport height
                         opacity: isPro ? [0, 0.4, 0] : [0, 0.6, 0], 
                         rotate: 360
                     }}
                     transition={{
                         duration: isPro ? 25 : 12, // Flash falls faster 
                         repeat: Infinity,
-                        delay: p.delay,
+                        // Randomize delays slightly less to ensure some start immediately
+                        delay: p.delay * 0.5, 
                         ease: "linear"
                     }}
                  >
