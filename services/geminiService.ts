@@ -141,33 +141,11 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
 
       } else {
         // CASE: No Subject Images (Text to Image)
-        const stopAnalysisSim = simulateProgress(
-            0, 30, 2500, updateProgress,
-            ["Expanding concept...", "Applying template...", "Enhancing details..."]
-        );
-
-        const promptResponse = await ai.models.generateContent({
-            model: ANALYSIS_MODEL,
-            contents: {
-                parts: [{
-                    text: `Create a detailed image generation prompt based on the user's concept.
-                    
-                    Concept: "${textPrompt}"
-                    ${negativePrompt ? `Negative Constraints: ${negativePrompt}` : ""}
-
-                    You MUST use the following structure/template for the prompt:
-                    ${PROMPT_TEMPLATE_NO_FACE}`
-                }]
-            }
-        });
-
-        stopAnalysisSim();
-        const enhancedPrompt = promptResponse.text;
+        // DIRECT EXECUTION: No analysis/expansion step.
+        startPct = 10;
+        updateProgress("Preparing generation...", 15);
         
-        updateProgress("Prompt enhanced.", 32);
-        startPct = 35;
-
-        parts.push({ text: `${enhancedPrompt}${negativePromptStr}` });
+        parts.push({ text: `${textPrompt}${negativePromptStr}` });
       }
     } 
     // --- MODE 2: Image to Image ---

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -89,12 +90,12 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                         </div>
                         <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Text-to-Image</div>
                         <p className="text-sm text-zinc-400 relative z-10">
-                           Leave the subject image empty. The system automatically <strong>expands your prompt</strong> using professional photography templates to generate high-quality visuals.
+                           Leave the subject image empty. The system generates an image <strong>exactly based on your text prompt</strong> without auto-expansion or templates.
                         </p>
                         <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1 relative z-10">
-                           <li><strong>Input:</strong> Text Prompt (Auto-Enhanced)</li>
+                           <li><strong>Input:</strong> Text Prompt (Direct Execution)</li>
                            <li><strong>Specs:</strong> Supports up to 4K resolution & multiple aspect ratios.</li>
-                           <li><strong>Best for:</strong> Landscapes, Concept Art, Generic Subjects.</li>
+                           <li><strong>Best for:</strong> Precise control over scene generation.</li>
                         </ul>
                      </div>
                   </div>
