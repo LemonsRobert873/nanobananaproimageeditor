@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
@@ -760,7 +762,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                         </div>
                     )}
 
-                    {item.metadata?.referenceOperation && (
+                    {item.metadata?.mode === GenerationMode.IMAGE_TO_IMAGE && item.metadata?.referenceOperation && (
                         <div className="space-y-1">
                             <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
                             <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
@@ -769,7 +771,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                         </div>
                     )}
 
-                    {item.metadata?.refStrength !== undefined && (
+                    {item.metadata?.mode === GenerationMode.IMAGE_TO_IMAGE && item.metadata?.refStrength !== undefined && (
                         <div className="space-y-1">
                             <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
                             <div className="text-sm text-yellow-500 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50">

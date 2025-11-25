@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -436,7 +438,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             )}
 
-                            {currentHistoryItem.metadata.referenceOperation && (
+                            {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.referenceOperation && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
                                     <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">

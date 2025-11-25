@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -672,8 +674,8 @@ function AppContent() {
               textPrompt: activeState.textPrompt,
               aspectRatio: activeState.aspectRatio,
               resolution: activeState.resolution,
-              referenceOperation: activeState.refOperation,
-              refStrength: activeState.refStrength,
+              referenceOperation: activeMode === GenerationMode.IMAGE_TO_IMAGE ? activeState.refOperation : undefined,
+              refStrength: activeMode === GenerationMode.IMAGE_TO_IMAGE ? activeState.refStrength : undefined,
               negativePrompt: activeState.negativePrompt,
               model: activeState.selectedModel
             }
