@@ -110,6 +110,14 @@ export interface ModeState {
   isGenerating: boolean;
   progress: number;
   progressStep: string;
+  startedAt?: number;
+}
+
+export interface ActiveGeneration {
+    mode: GenerationMode;
+    progress: number;
+    step: string;
+    startedAt: number;
 }
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

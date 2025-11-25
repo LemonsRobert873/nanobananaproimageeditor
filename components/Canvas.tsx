@@ -4,16 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2
 } from 'lucide-react';
-import { ModeState, HistoryItem, GenerationMode } from '../types';
+import { ModeState, HistoryItem, GenerationMode, ActiveGeneration } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
 
 interface CanvasProps {
   currentState: ModeState;
   updateCurrentState: (updates: Partial<ModeState>) => void;
-  isGenerating: boolean;
-  progressStep: string;
-  visualProgress: number;
+  activeGenerations: ActiveGeneration[];
   history: HistoryItem[];
   handleHistorySelect: (item: HistoryItem) => void;
   handleDownload: (url: string) => void;
@@ -26,14 +24,14 @@ interface CanvasProps {
   isGalleryOpen?: boolean;
   isModalOpen?: boolean;
   onDeleteCurrent?: (id: string) => void;
+  // Previously used props 'isGenerating', 'progressStep', 'visualProgress' are removed in favor of activeGenerations
+  isGenerating?: boolean; // Kept as optional to prevent breaking if passed, but logic uses list
 }
 
 const Canvas: React.FC<CanvasProps> = ({
   currentState,
   updateCurrentState,
-  isGenerating,
-  progressStep,
-  visualProgress,
+  activeGenerations,
   history,
   handleHistorySelect,
   handleDownload,
@@ -45,7 +43,7 @@ const Canvas: React.FC<CanvasProps> = ({
   isHistoryLoading = false,
   isGalleryOpen = false,
   isModalOpen = false,
-  onDeleteCurrent
+  onDeleteCurrent,
 }) => {
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
@@ -138,6 +136,16 @@ const Canvas: React.FC<CanvasProps> = ({
   const handleDeleteClick = () => {
       if (currentHistoryItem && onDeleteCurrent) {
           onDeleteCurrent(currentHistoryItem.id);
+      }
+  };
+
+  const getModeLabel = (mode: GenerationMode) => {
+      switch(mode) {
+          case GenerationMode.IMAGE_EDIT: return 'IMAGE EDIT';
+          case GenerationMode.IMAGE_TO_IMAGE: return 'IMG TO IMG';
+          case GenerationMode.IMG_TO_PROMPT: return 'IMG TO PROMPT';
+          case GenerationMode.TEXT_TO_PROMPT: return 'TEXT PROMPT';
+          default: return 'GENERATING...';
       }
   };
 
@@ -234,39 +242,43 @@ const Canvas: React.FC<CanvasProps> = ({
          {/* Content Container */}
          <div className="relative w-full h-full overflow-hidden flex">
             
-            {/* Non-Blocking Status Overlay - Shows during generation but allows interaction */}
-            <AnimatePresence>
-                {isGenerating && (
-                    <motion.div 
-                       key="status-toast"
-                       initial={{ opacity: 0, x: 20, y: 20 }}
-                       animate={{ opacity: 1, x: 0, y: 0 }}
-                       exit={{ opacity: 0, x: 20, y: 20 }}
-                       className="absolute bottom-6 right-6 z-30 bg-zinc-900/90 border border-yellow-500/30 p-4 rounded-xl shadow-2xl backdrop-blur-md w-64 pointer-events-none"
-                    >
-                         <div className="flex items-center justify-between mb-2">
-                             <div className="flex items-center gap-2 text-yellow-500">
-                                 <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
-                                 <span className="text-xs font-bold tracking-wide uppercase">Generating...</span>
-                             </div>
-                             <span className="text-xs text-zinc-400 font-mono">{Math.floor(visualProgress || 0)}%</span>
-                         </div>
-                         <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
-                             <motion.div 
-                               className="absolute h-full bg-yellow-500" 
-                               style={{width: `${visualProgress || 0}%`}} 
-                             >
-                                <motion.div 
-                                    className="absolute inset-0 bg-white/30"
-                                    animate={{ x: ['-100%', '100%'] }}
-                                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                />
-                             </motion.div>
-                         </div>
-                         <p className="text-[10px] text-zinc-500 truncate font-medium">{progressStep}</p>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Non-Blocking Status Overlay (Stacked, Global) */}
+            <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none gap-4 max-h-[50%] overflow-visible">
+                 <AnimatePresence>
+                    {activeGenerations.map((gen) => (
+                         <motion.div 
+                            key={gen.mode}
+                            layout
+                            initial={{ opacity: 0, x: 20, y: 20 }}
+                            animate={{ opacity: 1, x: 0, y: 0 }}
+                            exit={{ opacity: 0, x: 20, y: 20 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="bg-zinc-900/95 border border-yellow-500/30 p-4 rounded-xl shadow-2xl backdrop-blur-md w-64 pointer-events-auto"
+                         >
+                              <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2 text-yellow-500">
+                                      <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
+                                      <span className="text-xs font-bold tracking-wide uppercase">{getModeLabel(gen.mode)}</span>
+                                  </div>
+                                  <span className="text-xs text-zinc-400 font-mono">{Math.round(gen.progress)}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
+                                  <motion.div 
+                                    className="absolute h-full bg-yellow-500" 
+                                    style={{width: `${gen.progress}%`}} 
+                                  >
+                                     <motion.div 
+                                         className="absolute inset-0 bg-white/30"
+                                         animate={{ x: ['-100%', '100%'] }}
+                                         transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                     />
+                                  </motion.div>
+                              </div>
+                              <p className="text-[10px] text-zinc-500 truncate font-medium">{gen.step}</p>
+                         </motion.div>
+                    ))}
+                 </AnimatePresence>
+            </div>
 
             {/* Main Display Area */}
             <div className="flex-1 relative overflow-hidden flex flex-col">
@@ -299,7 +311,7 @@ const Canvas: React.FC<CanvasProps> = ({
                         className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
                     >
                         {/* Placeholder */}
-                        {!currentState.generatedImage && !isGenerating && (
+                        {!currentState.generatedImage && !currentState.isGenerating && (
                             <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}

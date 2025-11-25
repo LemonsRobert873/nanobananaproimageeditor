@@ -12,7 +12,6 @@ interface HeaderProps {
   hasKey: boolean;
   handleKeyClick: () => void;
   onResetClick: () => void;
-  activeGenerations: { mode: GenerationMode; progress: number }[];
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -22,19 +21,7 @@ const Header: React.FC<HeaderProps> = ({
   hasKey, 
   handleKeyClick,
   onResetClick,
-  activeGenerations
 }) => {
-  
-  const getModeLabel = (m: GenerationMode) => {
-      switch(m) {
-          case GenerationMode.IMAGE_EDIT: return 'Edit';
-          case GenerationMode.IMAGE_TO_IMAGE: return 'Img2Img';
-          case GenerationMode.IMG_TO_PROMPT: return 'I2P';
-          case GenerationMode.TEXT_TO_PROMPT: return 'T2P';
-          default: return 'Gen';
-      }
-  };
-
   return (
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
@@ -92,39 +79,8 @@ const Header: React.FC<HeaderProps> = ({
           </LayoutGroup>
         </div>
 
-        {/* Right: Global Progress & Actions */}
+        {/* Right: Actions */}
         <div className="flex items-center justify-end gap-3 w-auto shrink-0">
-          
-          {/* Global Mini Progress Indicator */}
-          <AnimatePresence>
-            {activeGenerations.length > 0 && (
-                <motion.div 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex items-center gap-2 mr-2"
-                >
-                    {activeGenerations.slice(0, 2).map((gen) => (
-                         <motion.button
-                            key={gen.mode}
-                            layout
-                            onClick={() => setMode(gen.mode)}
-                            className="flex items-center gap-2 bg-zinc-900 border border-yellow-500/30 rounded-full px-3 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-800 hover:border-yellow-500 transition-colors"
-                         >
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-                            <span>{getModeLabel(gen.mode)}</span>
-                            <span className="text-yellow-500">{Math.round(gen.progress)}%</span>
-                         </motion.button>
-                    ))}
-                    {activeGenerations.length > 2 && (
-                        <div className="w-6 h-6 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">
-                            +{activeGenerations.length - 2}
-                        </div>
-                    )}
-                </motion.div>
-            )}
-          </AnimatePresence>
-
           <button 
               onClick={onResetClick}
               className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all hover:scale-105"

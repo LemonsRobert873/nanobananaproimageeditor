@@ -20,7 +20,8 @@ import {
   GenerateParams,
   PromptGenParams,
   ModeState,
-  SubjectItem
+  SubjectItem,
+  ActiveGeneration
 } from './types';
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
@@ -121,13 +122,16 @@ function AppContent() {
       [GenerationMode.TEXT_TO_PROMPT]: 0,
   });
 
-  // Derived: Active Generations for Global Progress
-  const activeGenerations = Object.entries(modeStates)
+  // Derived: Active Generations for Global Progress Display
+  const activeGenerations: ActiveGeneration[] = Object.entries(modeStates)
     .filter(([_, state]) => state.isGenerating)
     .map(([m, state]) => ({ 
         mode: m as GenerationMode, 
-        progress: state.progress 
-    }));
+        progress: visualProgressMap[m as GenerationMode] || state.progress,
+        step: state.progressStep,
+        startedAt: state.startedAt || 0
+    }))
+    .sort((a, b) => a.startedAt - b.startedAt); // Oldest first, so newest can be stacked at bottom
 
   // Helper to get current mode data
   const currentState = modeStates[mode];
@@ -348,6 +352,7 @@ function AppContent() {
       delete (stateToSave as any).isGenerating;
       delete (stateToSave as any).progress;
       delete (stateToSave as any).progressStep;
+      delete (stateToSave as any).startedAt;
 
       localStorage.setItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${mode}`, JSON.stringify(stateToSave));
 
@@ -564,7 +569,8 @@ function AppContent() {
         isGenerating: true, 
         progress: 0, 
         progressStep: "Initializing...",
-        generatedText: null // Clear previous text result immediately, image stays for comparison
+        generatedText: null, // Clear previous text result immediately, image stays for comparison
+        startedAt: Date.now() // Track when it started for ordering
     });
 
     const isImageGen = activeMode === GenerationMode.IMAGE_EDIT || activeMode === GenerationMode.IMAGE_TO_IMAGE;
@@ -892,7 +898,6 @@ function AppContent() {
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
         onResetClick={() => setShowResetModal(true)}
-        activeGenerations={activeGenerations}
       />
 
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">
@@ -917,9 +922,7 @@ function AppContent() {
         <Canvas 
           currentState={currentState}
           updateCurrentState={updateCurrentState}
-          isGenerating={currentState.isGenerating}
-          progressStep={currentState.progressStep}
-          visualProgress={visualProgressMap[mode]}
+          activeGenerations={activeGenerations}
           history={history}
           handleHistorySelect={handleHistorySelect}
           handleDownload={handleDownload}
