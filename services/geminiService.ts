@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation } from '../types';
+import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation, SubjectItem } from '../types';
 import { MODEL_NAME, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
 
 // --- Helpers ---
@@ -55,7 +55,6 @@ const simulateProgress = (
         if (progress > end) progress = end;
         
         // Cycle messages based on progress chunks
-        // e.g. 3 messages, split duration into 3 chunks
         const msgIdx = Math.min(
             messages.length - 1, 
             Math.floor((progress - start) / (end - start) * messages.length)
@@ -81,7 +80,7 @@ const simulateProgress = (
 
 export const generateImage = async (params: GenerateParams): Promise<string> => {
   const { 
-    subjectImage, 
+    subjects, // Array of SubjectItem
     mode, 
     textPrompt, 
     referenceImage, 
@@ -109,25 +108,38 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
       ? `\n\nNEGATIVE PROMPT (Strictly Avoid): ${negativePrompt}\nAvoid these elements strictly.` 
       : "";
 
+    // Filter active subjects that contain a valid file
+    const activeSubjects = subjects.filter(s => s.isActive && s.file !== null);
+
     let startPct = 0;
 
     // 1. Preparation Phase
 
     // --- MODE 1: Image Edit ---
     if (mode === GenerationMode.IMAGE_EDIT) {
-      if (subjectImage) {
-        // CASE: Subject Image IS Present
-        // We use the user's text prompt directly combined with the image.
-        // We do NOT use the PROMPT_TEMPLATE_NO_FACE here.
-        const subjectB64 = await fileToBase64(subjectImage);
+      if (activeSubjects.length > 0) {
+        // CASE: Active Subjects Present
+        // Add all active subjects
+        for (let i = 0; i < activeSubjects.length; i++) {
+           const s = activeSubjects[i];
+           if (s.file) {
+               const b64 = await fileToBase64(s.file);
+               parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+           }
+        }
+
+        // Construct context string
+        const subjectIndices = activeSubjects.map((_, i) => `Image ${i + 1} is Subject ${i + 1}`).join('. ');
         
-        parts.push({ inlineData: { mimeType: subjectImage.type, data: subjectB64 } });
         parts.push({ 
-          text: `The first image provided is the REFERENCE IDENTITY (face/character). Generate a new image of this person. ${textPrompt}${negativePromptStr}` 
+          text: `The provided images are the REFERENCE IDENTITIES. ${subjectIndices}. 
+          Generate a new image using these subjects.
+          Use all selected subjects in the scene according to roles implied by the prompt.
+          ${textPrompt}${negativePromptStr}` 
         });
+
       } else {
-        // CASE: Subject Image IS NOT Present
-        // We MUST use the template to expand the prompt first.
+        // CASE: No Subject Images (Text to Image)
         const stopAnalysisSim = simulateProgress(
             0, 30, 2500, updateProgress,
             ["Expanding concept...", "Applying template...", "Enhancing details..."]
@@ -159,9 +171,11 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     } 
     // --- MODE 2: Image to Image ---
     else if (mode === GenerationMode.IMAGE_TO_IMAGE && referenceImage) {
-      if (!subjectImage) throw new Error(ERRORS.MISSING_SUBJECT);
-
-      const subjectB64 = await fileToBase64(subjectImage);
+      // For Image to Image, we typically expect a subject unless it's a pure style transfer, 
+      // but NanoBanana is subject-focused.
+      // Filter logic handled in App.tsx validation, here we just use what's passed.
+      
+      // Load Reference
       const refB64 = await fileToBase64(referenceImage);
       
       let strengthGuidance = "";
@@ -169,62 +183,73 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         strengthGuidance = ` (Reference Adherence: ${refStrength}%)`;
       }
 
+      // Add Subjects FIRST
+      for (const s of activeSubjects) {
+          if (s.file) {
+              const b64 = await fileToBase64(s.file);
+              parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+          }
+      }
+      // Add Reference LAST
+      parts.push({ inlineData: { mimeType: referenceImage.type, data: refB64 } });
+      
+      const subjectCount = activeSubjects.length;
+      const refIndex = subjectCount + 1;
+      
+      const subjectMapping = activeSubjects.map((_, i) => `Image ${i+1} is Subject ${i+1}`).join(', ');
+
       // -- Complex Operation: Replicate Reference (Requires Analysis Step) --
       if (referenceOperation === ReferenceOperation.REPLICATE_REFERENCE) {
         
-        // Start Analysis Simulation (0% -> 40%)
+        // Start Analysis Simulation
         const stopAnalysisSim = simulateProgress(
             0, 40, 4000, updateProgress,
             ["Analyzing scene structure...", "Detecting lighting...", "Extracting composition...", "Building prompt blueprint..."]
         );
 
-        // Actual Analysis Call
+        // Actual Analysis Call (Analyze Reference only)
         const analysisResponse = await ai.models.generateContent({
             model: ANALYSIS_MODEL,
             contents: {
                 parts: [
                     { inlineData: { mimeType: referenceImage.type, data: refB64 } },
-                    { text: `Analyze this image structure and generate a detailed prompt template.` } // Simplified for this view, logic persists
+                    { text: `Analyze this image structure and generate a detailed prompt template.` }
                 ]
             }
         });
 
-        stopAnalysisSim(); // Stop sim
-
+        stopAnalysisSim();
         const generatedPrompt = analysisResponse.text;
         
         updateProgress("Blueprint created.", 42);
         startPct = 45;
 
-        parts.push({ inlineData: { mimeType: subjectImage.type, data: subjectB64 } });
+        // Parts are already populated (Subjects + Ref)
+        // Just add instruction
         parts.push({
-          text: `GENERATE A NEW IMAGE based on the following description using the features from the attached 'Subject Face' photo (Image 1). ${strengthGuidance}\n\n${generatedPrompt}\n\n${textPrompt ? `ADDITIONAL USER NOTES: ${textPrompt}` : ""}\n${negativePromptStr}`
+          text: `GENERATE A NEW IMAGE based on the following description using the features from the attached Subject photos (${subjectMapping}). Image ${refIndex} is the REFERENCE STRUCTURE. ${strengthGuidance}
+          \n\n${generatedPrompt}
+          \n\n${textPrompt ? `ADDITIONAL USER NOTES: ${textPrompt}` : ""}
+          \n${negativePromptStr}`
         });
 
       } else {
         // -- Standard Operations (Apply Clothing, Replace Face) --
         
         if (referenceOperation === ReferenceOperation.APPLY_CLOTHING) {
-            parts.push({ inlineData: { mimeType: subjectImage.type, data: subjectB64 } });
-            parts.push({ inlineData: { mimeType: referenceImage.type, data: refB64 } });
             parts.push({
-              text: `Image 1 is the REFERENCE PERSON. Image 2 is the CLOTHING REFERENCE. Generate a new image of person from Image 1 wearing outfit from Image 2. ${strengthGuidance} ${textPrompt}${negativePromptStr}`
+              text: `${subjectMapping}. Image ${refIndex} is the CLOTHING REFERENCE. Generate a new image of the Subject(s) wearing outfit from Image ${refIndex}. ${strengthGuidance} ${textPrompt}${negativePromptStr}`
             });
         } else {
             // Replace Face
-            parts.push({ inlineData: { mimeType: referenceImage.type, data: refB64 } });
-            parts.push({ inlineData: { mimeType: subjectImage.type, data: subjectB64 } });
             parts.push({
-              text: `Image 1 is TARGET SCENE. Image 2 is SOURCE FACE. Replace face in Image 1 with face in Image 2. ${strengthGuidance} ${textPrompt}${negativePromptStr}`
+              text: `${subjectMapping}. Image ${refIndex} is TARGET SCENE. Replace face(s) in Image ${refIndex} with face(s) from Subject images. ${strengthGuidance} ${textPrompt}${negativePromptStr}`
             });
         }
       }
     }
 
     // 2. Generation Phase
-    // Start Generation Simulation (Current% -> 85%)
-    // Estimated time 10-15s
-    
     const stopGenSim = simulateProgress(
         startPct, 88, 12000, updateProgress,
         [
@@ -279,7 +304,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
 };
 
 export const generatePrompt = async (params: PromptGenParams): Promise<string> => {
-  const { mode, subjectImage, textPrompt, useFaceFeature, onProgress, apiKey, negativePrompt } = params;
+  const { mode, subjects, textPrompt, useFaceFeature, onProgress, apiKey, negativePrompt } = params;
   
   const updateProgress = (msg: string, val: number) => {
     if (onProgress) onProgress(msg, val);
@@ -295,11 +320,17 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
     const parts: any[] = [];
     const negativeCondition = negativePrompt ? `\nNEGATIVE CONDITIONS:\n${negativePrompt}` : "";
 
-    if (mode === GenerationMode.IMG_TO_PROMPT && subjectImage) {
-      const imgB64 = await fileToBase64(subjectImage);
-      parts.push({ inlineData: { mimeType: subjectImage.type, data: imgB64 } });
+    const activeSubjects = subjects.filter(s => s.isActive && s.file !== null);
+
+    if (mode === GenerationMode.IMG_TO_PROMPT && activeSubjects.length > 0) {
+      for (const s of activeSubjects) {
+          if (s.file) {
+              const b64 = await fileToBase64(s.file);
+              parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+          }
+      }
       parts.push({
-        text: `Analyze the uploaded reference image and generate a detailed image generation prompt... ${textPrompt ? `CONTEXT: ${textPrompt}` : ''} ${negativeCondition} STRUCTURE: ${baseTemplate}`
+        text: `Analyze the uploaded reference image(s) and generate a detailed image generation prompt... ${textPrompt ? `CONTEXT: ${textPrompt}` : ''} ${negativeCondition} STRUCTURE: ${baseTemplate}`
       });
     } else {
       parts.push({
@@ -307,7 +338,6 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
       });
     }
 
-    // Simulation for Text Gen (Faster than image)
     const stopSim = simulateProgress(
         0, 90, 4000, updateProgress,
         ["Analyzing context...", "Structuring prompt...", "Writing detailed description...", "Refining camera settings..."]

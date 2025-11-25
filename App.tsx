@@ -18,7 +18,8 @@ import {
   HistoryItem,
   GenerateParams,
   PromptGenParams,
-  ModeState
+  ModeState,
+  SubjectItem
 } from './types';
 import { ERRORS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
@@ -35,7 +36,7 @@ import { dataURLtoFile } from './utils/imageUtils';
 
 // Default state template for a mode
 const DEFAULT_MODE_STATE: ModeState = {
-  subjectImage: null,
+  subjects: [],
   textPrompt: '',
   referenceImage: null,
   generatedImage: null,
@@ -246,16 +247,31 @@ function AppContent() {
                     }
                 }
 
-                // Recover Images from IndexedDB
-                const subjectKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_subject`;
-                const referenceKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_reference`;
-                
-                const [subjectFile, referenceFile] = await Promise.all([
-                    getStateImage(subjectKey),
-                    getStateImage(referenceKey)
-                ]);
+                // Recover Subjects from IndexedDB
+                if (restoredModes[m].subjects && Array.isArray(restoredModes[m].subjects)) {
+                    const loadedSubjects: SubjectItem[] = [];
+                    for (const s of restoredModes[m].subjects) {
+                        const key = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_subject_${s.id}`;
+                        const file = await getStateImage(key);
+                        // If file is found, use it. If not found (null), use null.
+                        // We must preserve the subject slot even if empty.
+                        loadedSubjects.push({ ...s, file });
+                    }
+                    restoredModes[m].subjects = loadedSubjects;
+                } else if ((restoredModes[m] as any).subjectImage) {
+                     // Legacy migration: if single subjectImage was stored previously
+                     // Try to load the old single key
+                     const oldKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_subject`;
+                     const file = await getStateImage(oldKey);
+                     if (file) {
+                         const id = Date.now().toString();
+                         restoredModes[m].subjects = [{ id, file, isActive: true }];
+                     }
+                }
 
-                if (subjectFile) restoredModes[m].subjectImage = subjectFile;
+                // Recover Reference Image
+                const referenceKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_reference`;
+                const referenceFile = await getStateImage(referenceKey);
                 if (referenceFile) restoredModes[m].referenceImage = referenceFile;
             }
 
@@ -279,13 +295,18 @@ function AppContent() {
 
       // Save Current Mode State (Metadata)
       const stateToSave = { ...currentState };
-      // Remove large objects/blobs before saving to localStorage
-      delete (stateToSave as any).subjectImage;
-      delete (stateToSave as any).referenceImage;
-      delete (stateToSave as any).generatedImage; // Don't persist generated results automatically
-      delete (stateToSave as any).comparisonImage; 
       
-      // Clean up transitory fields
+      // We must strip actual Files from the subjects array before saving to localStorage
+      // But keep the metadata (id, isActive)
+      stateToSave.subjects = currentState.subjects.map(s => ({
+          id: s.id,
+          isActive: s.isActive,
+          file: null as any // Placeholder, actual file in IDB
+      }));
+
+      delete (stateToSave as any).referenceImage;
+      delete (stateToSave as any).generatedImage;
+      delete (stateToSave as any).comparisonImage; 
       delete (stateToSave as any).lastParams;
       delete (stateToSave as any).hasError;
       delete (stateToSave as any).errorMessage;
@@ -295,23 +316,21 @@ function AppContent() {
   }, [mode, currentState, isStateRestoring]);
 
   // 4. Persist Images Watchers
-  // We attach a specific effect to watch file changes across all modes
   useEffect(() => {
     if (isStateRestoring) return;
 
-    // Helper to save specific image for a mode
-    const syncImage = (m: GenerationMode, type: 'subject' | 'reference') => {
-        const file = modeStates[m][type === 'subject' ? 'subjectImage' : 'referenceImage'];
-        const key = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_${type}`;
-        saveStateImage(key, file);
-    };
+    // Save Reference Image
+    const refFile = modeStates[mode].referenceImage;
+    saveStateImage(`${STORAGE_KEYS.IMAGE_PREFIX}${mode}_reference`, refFile);
 
-    Object.values(GenerationMode).forEach(m => {
-        syncImage(m, 'subject');
-        syncImage(m, 'reference');
+    // Save Subject Images
+    const currentSubjects = modeStates[mode].subjects;
+    currentSubjects.forEach(s => {
+        // saveStateImage handles null (deletes key if file is null)
+        saveStateImage(`${STORAGE_KEYS.IMAGE_PREFIX}${mode}_subject_${s.id}`, s.file);
     });
 
-  }, [modeStates, isStateRestoring]);
+  }, [mode, modeStates, isStateRestoring]);
 
   // Smooth Progress Interpolation
   useEffect(() => {
@@ -459,16 +478,22 @@ function AppContent() {
     const currentImageRef = currentState.generatedImage;
     let paramsToUse: GenerateParams | PromptGenParams;
 
+    // Validation: Check for active subjects WITH files
+    const activeSubjectsWithFiles = currentState.subjects.filter(s => s.isActive && s.file !== null);
+
     if (!isRetry) {
-        if (mode === GenerationMode.IMAGE_EDIT && !currentState.textPrompt.trim()) {
-             updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
-             addToast(ERRORS.MISSING_PROMPT, 'error');
-             return; 
+        if (mode === GenerationMode.IMAGE_EDIT) {
+             if (!currentState.textPrompt.trim() && activeSubjectsWithFiles.length === 0) {
+                 // Allow pure text gen if no subjects, but strictly check prompt
+                 updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
+                 addToast(ERRORS.MISSING_PROMPT, 'error');
+                 return; 
+             }
         }
         if (mode === GenerationMode.IMAGE_TO_IMAGE) {
-            if (!currentState.subjectImage) {
-                 updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
-                 addToast(ERRORS.MISSING_SUBJECT, 'error');
+            if (activeSubjectsWithFiles.length === 0) {
+                 updateCurrentState({ errorMessage: "At least one active subject with an image is required." });
+                 addToast("At least one active subject with an image is required.", 'error');
                  return;
             }
             if (!currentState.referenceImage) {
@@ -477,7 +502,7 @@ function AppContent() {
                  return;
             }
         }
-        if (mode === GenerationMode.IMG_TO_PROMPT && !currentState.subjectImage) {
+        if (mode === GenerationMode.IMG_TO_PROMPT && activeSubjectsWithFiles.length === 0) {
              updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
              addToast(ERRORS.MISSING_SUBJECT, 'error');
              return;
@@ -518,7 +543,7 @@ function AppContent() {
       } else {
           if (isImageGen) {
               paramsToUse = {
-                subjectImage: currentState.subjectImage || undefined,
+                subjects: currentState.subjects, // Pass subjects array
                 mode,
                 textPrompt: currentState.textPrompt,
                 referenceImage: currentState.referenceImage || undefined,
@@ -533,7 +558,7 @@ function AppContent() {
           } else {
               paramsToUse = {
                   mode,
-                  subjectImage: currentState.subjectImage || undefined,
+                  subjects: currentState.subjects, // Pass subjects array
                   textPrompt: currentState.textPrompt,
                   useFaceFeature: currentState.useFaceFeature,
                   onProgress: onProgressCallback,
@@ -552,14 +577,13 @@ function AppContent() {
           
           serviceProgressRef.current = 100;
           setProgressStep("Done!");
-          await new Promise(resolve => setTimeout(resolve, 300)); // Short delay to see 100%
+          await new Promise(resolve => setTimeout(resolve, 300));
 
           updateCurrentState({ 
             generatedImage: imageUrl,
             comparisonImage: currentImageRef || currentState.comparisonImage 
           });
           
-          // Check daily reset before incrementing (PT Timezone)
           const currentPTDate = getCurrentPTDate();
           const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
           
@@ -568,7 +592,6 @@ function AppContent() {
               currentBase = 0;
               localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
           } else {
-              // Read directly from storage to prevent race conditions or stale state
               currentBase = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
           }
 
@@ -643,7 +666,7 @@ function AppContent() {
       setShowFullProgress(false);
       serviceProgressRef.current = 100;
     }
-  }, [mode, currentState, apiKey, dailyImageCount]); // Added dailyImageCount to deps
+  }, [mode, currentState, apiKey, dailyImageCount]); 
 
   const handleRetry = () => handleGenerate(true);
 
@@ -749,9 +772,18 @@ function AppContent() {
   };
 
   const handleUseAsSubject = (url: string) => {
+    if (currentState.subjects.length >= 5) {
+        addToast('Max 5 subjects allowed. Remove one to add new.', 'warning');
+        return;
+    }
     const file = dataURLtoFile(url, 'generated-subject.png');
-    updateCurrentState({ subjectImage: file });
-    addToast('Image set as Subject', 'success');
+    const newSubject: SubjectItem = {
+        id: Date.now().toString(),
+        file: file,
+        isActive: true
+    };
+    updateCurrentState({ subjects: [...currentState.subjects, newSubject] });
+    addToast('Image added to Subjects', 'success');
   };
 
   return (

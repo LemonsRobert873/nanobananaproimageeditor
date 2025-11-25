@@ -1,5 +1,4 @@
 
-
 export enum GenerationMode {
   IMAGE_EDIT = 'IMAGE_EDIT',            // Formerly Text Prompt
   IMAGE_TO_IMAGE = 'IMAGE_TO_IMAGE',    // Formerly Image Reference
@@ -58,8 +57,14 @@ export interface GeneratedText {
 
 export type HistoryItem = GeneratedImage | GeneratedText;
 
+export interface SubjectItem {
+  id: string;
+  file: File | null;
+  isActive: boolean;
+}
+
 export interface GenerateParams {
-  subjectImage?: File;
+  subjects: SubjectItem[];
   mode: GenerationMode;
   textPrompt: string;
   referenceImage?: File;
@@ -74,8 +79,8 @@ export interface GenerateParams {
 
 export interface PromptGenParams {
   mode: GenerationMode;
-  subjectImage?: File; // Required for IMG_TO_PROMPT
-  textPrompt: string;  // Required for TEXT_TO_PROMPT, optional for IMG_TO_PROMPT
+  subjects: SubjectItem[]; // Replaces subjectImage
+  textPrompt: string;  
   useFaceFeature: boolean;
   onProgress?: (message: string, progress: number) => void;
   apiKey?: string;
@@ -83,7 +88,7 @@ export interface PromptGenParams {
 }
 
 export interface ModeState {
-  subjectImage: File | null;
+  subjects: SubjectItem[];
   textPrompt: string;
   referenceImage: File | null;
   generatedImage: string | null;
