@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Check, Monitor, Image as ImageIcon, Sparkles } from 'lucide-react';
@@ -10,9 +8,10 @@ interface ResolutionSelectorProps {
   value: Resolution;
   onChange: (value: Resolution) => void;
   disabled?: boolean;
+  isPro?: boolean;
 }
 
-const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange, disabled }) => {
+const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange, disabled, isPro = true }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +39,7 @@ const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full bg-zinc-900 border ${isOpen ? 'border-yellow-500' : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
+        className={`w-full bg-zinc-900 border ${isOpen ? (isPro ? 'border-yellow-500' : 'border-cyan-500') : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
       >
         <div className="flex items-center gap-2 min-w-0">
             {selectedOption && <div className="shrink-0">{getIcon(selectedOption.value)}</div>}
@@ -76,12 +75,12 @@ const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
                                 isSelected 
-                                ? 'bg-yellow-500/10 text-yellow-500 font-medium' 
+                                ? (isPro ? 'bg-yellow-500/10 text-yellow-500 font-medium' : 'bg-cyan-500/10 text-cyan-400 font-medium') 
                                 : 'text-zinc-300 hover:bg-zinc-800'
                             }`}
                         >
                             <div className="flex items-center gap-3">
-                                <span className={isSelected ? 'text-yellow-500' : 'text-zinc-500'}>
+                                <span className={isSelected ? (isPro ? 'text-yellow-500' : 'text-cyan-400') : 'text-zinc-500'}>
                                     {getIcon(opt.value)}
                                 </span>
                                 <span>{opt.label}</span>

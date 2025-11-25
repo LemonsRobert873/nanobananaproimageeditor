@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -234,52 +230,54 @@ const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       {/* ==========================================
-          VISUAL EFFECTS LAYER
+          VISUAL EFFECTS LAYER (Image Modes Only)
          ========================================== */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          {/* Main Glow Pulse (Full Area) */}
-          <motion.div 
-             className={`absolute inset-0 transition-colors duration-700 ${
-                 isPro ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
-             }`}
-             animate={{
-                 boxShadow: isPro 
-                    ? [
-                        'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
-                        'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
-                        'inset 0 0 30px -5px rgba(234,179,8,0.1)'
-                      ]
-                    : [
-                        'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
-                        'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
-                        'inset 0 0 40px -5px rgba(6,182,212,0.15)'
-                      ]
-             }}
-             transition={{
-                 duration: isPro ? 4 : 1.5, // Flash is faster
-                 repeat: Infinity,
-                 ease: "easeInOut"
-             }}
-          />
+      {isImageMode && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+              {/* Main Glow Pulse (Full Area) */}
+              <motion.div 
+                 className={`absolute inset-0 transition-colors duration-700 ${
+                     isPro ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
+                 }`}
+                 animate={{
+                     boxShadow: isPro 
+                        ? [
+                            'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
+                            'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
+                            'inset 0 0 30px -5px rgba(234,179,8,0.1)'
+                          ]
+                        : [
+                            'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
+                            'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
+                            'inset 0 0 40px -5px rgba(6,182,212,0.15)'
+                          ]
+                 }}
+                 transition={{
+                     duration: isPro ? 4 : 1.5, // Flash is faster
+                     repeat: Infinity,
+                     ease: "easeInOut"
+                 }}
+              />
 
-          {/* Right Border Accent (Extends to right side as requested) */}
-          <motion.div
-            className="absolute inset-y-0 right-0 w-[1px]"
-            animate={{
-                boxShadow: isPro 
-                    ? ['-2px 0 10px 1px rgba(234,179,8,0.3)', '-4px 0 20px 2px rgba(234,179,8,0.6)', '-2px 0 10px 1px rgba(234,179,8,0.3)']
-                    : ['-2px 0 15px 1px rgba(6,182,212,0.2)', '-4px 0 30px 2px rgba(6,182,212,0.4)', '-2px 0 15px 1px rgba(6,182,212,0.2)']
-            }}
-            transition={{
-                duration: isPro ? 3 : 1,
-                repeat: Infinity,
-                ease: "easeInOut"
-            }}
-          />
-          
-          {/* Falling Particles */}
-          <BackgroundEffects isPro={isPro} />
-      </div>
+              {/* Right Border Accent (Extends to right side as requested) */}
+              <motion.div
+                className="absolute inset-y-0 right-0 w-[1px]"
+                animate={{
+                    boxShadow: isPro 
+                        ? ['-2px 0 10px 1px rgba(234,179,8,0.3)', '-4px 0 20px 2px rgba(234,179,8,0.6)', '-2px 0 10px 1px rgba(234,179,8,0.3)']
+                        : ['-2px 0 15px 1px rgba(6,182,212,0.2)', '-4px 0 30px 2px rgba(6,182,212,0.4)', '-2px 0 15px 1px rgba(6,182,212,0.2)']
+                }}
+                transition={{
+                    duration: isPro ? 3 : 1,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                }}
+              />
+              
+              {/* Falling Particles */}
+              <BackgroundEffects isPro={isPro} />
+          </div>
+      )}
 
       {/* ==========================================
           SCROLLABLE CONTENT LAYER
@@ -660,6 +658,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <AspectRatioSelector 
                             value={currentState.aspectRatio}
                             onChange={(val) => updateCurrentState({ aspectRatio: val })}
+                            isPro={isPro}
                         />
                         </div>
                         <div className="space-y-1.5">
@@ -668,6 +667,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             value={currentState.resolution}
                             onChange={(val) => updateCurrentState({ resolution: val })}
                             disabled={!isPro}
+                            isPro={isPro}
                         />
                         </div>
                     </div>
