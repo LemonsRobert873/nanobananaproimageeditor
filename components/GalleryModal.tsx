@@ -341,8 +341,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                             </button>
                         </div>
                         
-                        {/* 3-Column Grid 16:9 */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* 3-Column Grid 16:9 - Strictly enforced grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-12">
                             {filteredHistory.map(item => {
                                 const isSelected = selectedIds.has(item.id);
                                 return (
@@ -352,7 +352,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                             isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
                                         }`}
                                     >
-                                        {/* Checkbox Overlay (Click to Select) */}
+                                        {/* Selection Checkbox (Top Left) */}
                                         <div 
                                             className="absolute top-2 left-2 z-20 cursor-pointer p-1"
                                             onClick={(e) => {
@@ -365,13 +365,13 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                                     <CheckSquare size={16} />
                                                 </div>
                                             ) : (
-                                                <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors">
+                                                <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors shadow-sm">
                                                     <Square size={16} />
                                                 </div>
                                             )}
                                         </div>
 
-                                        {/* Main Content (Click to Open Lightbox) */}
+                                        {/* Main Content (Click to Open) */}
                                         <div 
                                             className="cursor-pointer w-full h-full" 
                                             onClick={() => setActiveItem(item)}
@@ -379,28 +379,39 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                             {item.type === 'image' ? (
                                                 <img 
                                                     src={item.url} 
-                                                    draggable="false"
                                                     className="w-full h-full object-cover" 
                                                     loading="lazy" 
                                                     alt="Generated" 
+                                                    draggable="false"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full p-4 flex flex-col bg-zinc-900 overflow-hidden">
+                                                <div className="w-full h-full p-4 flex flex-col bg-zinc-900/50">
                                                     <div className="flex items-center gap-2 text-zinc-500 mb-2 shrink-0">
-                                                        <FileText size={16} />
+                                                        <FileText size={14} />
                                                         <span className="text-[10px] uppercase font-bold tracking-wider">Prompt Text</span>
                                                     </div>
-                                                    <p className="text-xs text-zinc-400 line-clamp-6 leading-relaxed flex-1">
-                                                        {item.text}
-                                                    </p>
+                                                    <div className="flex-1 overflow-hidden relative">
+                                                        <p className="text-xs text-zinc-300 line-clamp-6 leading-relaxed">
+                                                            {item.text}
+                                                        </p>
+                                                        {/* Fade effect for text truncation */}
+                                                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-zinc-900 to-transparent" />
+                                                    </div>
                                                 </div>
                                             )}
                                             
-                                            {/* Hover Metadata Overlay */}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
-                                                <div className="flex items-center gap-1.5 text-zinc-300">
-                                                    {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
-                                                    <span className="text-[10px] font-medium">{item.metadata?.mode?.replace(/_/g, ' ')}</span>
+                                            {/* Metadata Overlay (Bottom - Hover Only) */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
+                                                <div className="flex items-center justify-between gap-2">
+                                                     <div className="flex items-center gap-1.5 text-zinc-300">
+                                                        {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
+                                                        <span className="text-[10px] font-medium uppercase tracking-wide">
+                                                            {item.metadata?.mode?.replace(/_/g, ' ') || 'Generated'}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[10px] text-zinc-500 font-mono">
+                                                        {new Date(item.timestamp).toLocaleDateString()}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
