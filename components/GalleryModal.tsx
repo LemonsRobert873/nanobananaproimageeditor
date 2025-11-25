@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Check } from 'lucide-react';
 import { HistoryItem, GenerationMode } from '../types';
@@ -16,6 +16,95 @@ interface GalleryModalProps {
 
 type ContentFilter = 'all' | 'image' | 'text';
 type SortOrder = 'newest' | 'oldest';
+
+// --- Optimized Gallery Item Component ---
+const GalleryItem = React.memo(({ 
+  item, 
+  isSelected, 
+  onToggle, 
+  onActivate 
+}: { 
+  item: HistoryItem, 
+  isSelected: boolean, 
+  onToggle: (id: string) => void, 
+  onActivate: (item: HistoryItem) => void 
+}) => {
+  return (
+    <div 
+        className={`relative group rounded-xl overflow-hidden border-2 transition-colors duration-200 aspect-video ${
+            isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
+        } ${item.type === 'image' ? 'bg-black' : 'bg-zinc-900'}`}
+        // Performance: contain-content isolates layout/paint. 
+        style={{ contain: 'content' }}
+    >
+        {/* Selection Checkbox (Top Left) */}
+        <div 
+            className="absolute top-2 left-2 z-20 cursor-pointer p-1"
+            onClick={(e) => {
+                e.stopPropagation();
+                onToggle(item.id);
+            }}
+        >
+            {isSelected ? (
+                <div className="bg-yellow-500 text-black rounded text-xs p-0.5 shadow-sm">
+                    <CheckSquare size={16} />
+                </div>
+            ) : (
+                <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors shadow-sm">
+                    <Square size={16} />
+                </div>
+            )}
+        </div>
+
+        {/* Main Content (Click to Open) */}
+        <div 
+            className="cursor-pointer w-full h-full" 
+            onClick={() => onActivate(item)}
+        >
+            {item.type === 'image' ? (
+                <img 
+                    src={item.url} 
+                    className="w-full h-full object-contain" 
+                    loading="lazy" 
+                    decoding="async"
+                    alt="Generated" 
+                    draggable="false"
+                />
+            ) : (
+                <div className="w-full h-full p-4 flex flex-col bg-zinc-900/50">
+                    <div className="flex items-center gap-2 text-zinc-500 mb-2 shrink-0">
+                        <FileText size={14} />
+                        <span className="text-[10px] uppercase font-bold tracking-wider">Prompt Text</span>
+                    </div>
+                    <div className="flex-1 overflow-hidden relative">
+                        <p className="text-xs text-zinc-300 line-clamp-6 leading-relaxed">
+                            {item.text}
+                        </p>
+                        {/* Fade effect for text truncation */}
+                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-zinc-900 to-transparent" />
+                    </div>
+                </div>
+            )}
+            
+            {/* Metadata Overlay (Bottom - Hover Only) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
+                <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-zinc-300">
+                        {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
+                        <span className="text-[10px] font-medium uppercase tracking-wide">
+                            {item.metadata?.mode?.replace(/_/g, ' ') || 'Generated'}
+                        </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                        {new Date(item.timestamp).toLocaleDateString()}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+});
+
 
 const GalleryModal: React.FC<GalleryModalProps> = ({ 
   isOpen, 
@@ -107,15 +196,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, lightboxZoomed, activeItem, onClose]);
 
-  const toggleSelection = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedIds(newSet);
-  };
+  // Stable callback for selection to prevent list re-renders
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        return newSet;
+    });
+  }, []);
 
   const toggleSelectAll = () => {
     // Only select currently filtered items
@@ -219,7 +308,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/95 backdrop-blur-md"
+            // Removed backdrop-blur-md from here for performance, since bg is almost opaque
+            className="absolute inset-0 bg-black/95"
             onClick={onClose}
           />
           <motion.div 
@@ -343,81 +433,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                         
                         {/* 3-Column Grid 16:9 - Strictly enforced grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-12">
-                            {filteredHistory.map(item => {
-                                const isSelected = selectedIds.has(item.id);
-                                return (
-                                    <div 
-                                        key={item.id}
-                                        className={`relative group rounded-xl overflow-hidden border-2 transition-all aspect-video ${
-                                            isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
-                                        } ${item.type === 'image' ? 'bg-black' : 'bg-zinc-900'}`}
-                                    >
-                                        {/* Selection Checkbox (Top Left) */}
-                                        <div 
-                                            className="absolute top-2 left-2 z-20 cursor-pointer p-1"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleSelection(item.id);
-                                            }}
-                                        >
-                                            {isSelected ? (
-                                                <div className="bg-yellow-500 text-black rounded text-xs p-0.5 shadow-sm">
-                                                    <CheckSquare size={16} />
-                                                </div>
-                                            ) : (
-                                                <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors shadow-sm">
-                                                    <Square size={16} />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Main Content (Click to Open) */}
-                                        <div 
-                                            className="cursor-pointer w-full h-full" 
-                                            onClick={() => setActiveItem(item)}
-                                        >
-                                            {item.type === 'image' ? (
-                                                <img 
-                                                    src={item.url} 
-                                                    className="w-full h-full object-contain" 
-                                                    loading="lazy" 
-                                                    alt="Generated" 
-                                                    draggable="false"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full p-4 flex flex-col bg-zinc-900/50">
-                                                    <div className="flex items-center gap-2 text-zinc-500 mb-2 shrink-0">
-                                                        <FileText size={14} />
-                                                        <span className="text-[10px] uppercase font-bold tracking-wider">Prompt Text</span>
-                                                    </div>
-                                                    <div className="flex-1 overflow-hidden relative">
-                                                        <p className="text-xs text-zinc-300 line-clamp-6 leading-relaxed">
-                                                            {item.text}
-                                                        </p>
-                                                        {/* Fade effect for text truncation */}
-                                                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-zinc-900 to-transparent" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Metadata Overlay (Bottom - Hover Only) */}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
-                                                <div className="flex items-center justify-between gap-2">
-                                                     <div className="flex items-center gap-1.5 text-zinc-300">
-                                                        {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
-                                                        <span className="text-[10px] font-medium uppercase tracking-wide">
-                                                            {item.metadata?.mode?.replace(/_/g, ' ') || 'Generated'}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-[10px] text-zinc-500 font-mono">
-                                                        {new Date(item.timestamp).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            {filteredHistory.map(item => (
+                                <GalleryItem 
+                                    key={item.id}
+                                    item={item}
+                                    isSelected={selectedIds.has(item.id)}
+                                    onToggle={toggleSelection}
+                                    onActivate={setActiveItem}
+                                />
+                            ))}
                         </div>
                     </>
                 )}

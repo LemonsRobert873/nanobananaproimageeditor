@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -123,11 +124,11 @@ function AppContent() {
   });
 
   // Derived: Active Generations for Global Progress Display
-  const activeGenerations: ActiveGeneration[] = Object.entries(modeStates)
+  const activeGenerations: ActiveGeneration[] = (Object.entries(modeStates) as [GenerationMode, ModeState][])
     .filter(([_, state]) => state.isGenerating)
     .map(([m, state]) => ({ 
-        mode: m as GenerationMode, 
-        progress: visualProgressMap[m as GenerationMode] || state.progress,
+        mode: m, 
+        progress: visualProgressMap[m] || state.progress,
         step: state.progressStep,
         startedAt: state.startedAt || 0
     }))
