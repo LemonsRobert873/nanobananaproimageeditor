@@ -657,21 +657,23 @@ function AppContent() {
           // Only auto-switch if this was the last interacted mode or we want to force attention
           setMode(activeMode); 
           
-          // Quota Update
-          const currentPTDate = getCurrentPTDate();
-          const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
-          
-          let currentBase = 0;
-          if (lastResetDate !== currentPTDate) {
-              currentBase = 0;
-              localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
-          } else {
-              currentBase = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
-          }
+          // Quota Update - Only for Pro Model
+          if (activeState.selectedModel === MODELS.PRO) {
+              const currentPTDate = getCurrentPTDate();
+              const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
+              
+              let currentBase = 0;
+              if (lastResetDate !== currentPTDate) {
+                  currentBase = 0;
+                  localStorage.setItem(QUOTA_KEYS.DATE, currentPTDate);
+              } else {
+                  currentBase = parseInt(localStorage.getItem(QUOTA_KEYS.COUNT) || '0', 10);
+              }
 
-          const newVal = currentBase + 1;
-          localStorage.setItem(QUOTA_KEYS.COUNT, newVal.toString());
-          setDailyImageCount(newVal);
+              const newVal = currentBase + 1;
+              localStorage.setItem(QUOTA_KEYS.COUNT, newVal.toString());
+              setDailyImageCount(newVal);
+          }
           
           const newHistoryItem: GeneratedImage = {
             type: 'image',
