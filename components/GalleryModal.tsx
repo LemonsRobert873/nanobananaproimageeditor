@@ -318,7 +318,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                 </div>
             </div>
 
-            {/* Content Area - Masonry Grid */}
+            {/* Content Area - Grid */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-950/30 custom-scrollbar">
                 {filteredHistory.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
@@ -341,14 +341,14 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                             </button>
                         </div>
                         
-                        {/* CSS Columns Masonry */}
-                        <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+                        {/* 3-Column Grid 16:9 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filteredHistory.map(item => {
                                 const isSelected = selectedIds.has(item.id);
                                 return (
                                     <div 
                                         key={item.id}
-                                        className={`break-inside-avoid relative group rounded-xl overflow-hidden border-2 transition-all bg-zinc-900 mb-4 ${
+                                        className={`relative group rounded-xl overflow-hidden border-2 transition-all bg-zinc-900 aspect-video ${
                                             isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
                                         }`}
                                     >
@@ -373,24 +373,24 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
 
                                         {/* Main Content (Click to Open Lightbox) */}
                                         <div 
-                                            className="cursor-pointer" 
+                                            className="cursor-pointer w-full h-full" 
                                             onClick={() => setActiveItem(item)}
                                         >
                                             {item.type === 'image' ? (
                                                 <img 
                                                     src={item.url} 
                                                     draggable="false"
-                                                    className="w-full h-auto block" 
+                                                    className="w-full h-full object-cover" 
                                                     loading="lazy" 
                                                     alt="Generated" 
                                                 />
                                             ) : (
-                                                <div className="w-full aspect-[3/4] p-4 flex flex-col bg-zinc-900">
-                                                    <div className="flex items-center gap-2 text-zinc-500 mb-2">
+                                                <div className="w-full h-full p-4 flex flex-col bg-zinc-900 overflow-hidden">
+                                                    <div className="flex items-center gap-2 text-zinc-500 mb-2 shrink-0">
                                                         <FileText size={16} />
                                                         <span className="text-[10px] uppercase font-bold tracking-wider">Prompt Text</span>
                                                     </div>
-                                                    <p className="text-xs text-zinc-400 line-clamp-[10] leading-relaxed flex-1">
+                                                    <p className="text-xs text-zinc-400 line-clamp-6 leading-relaxed flex-1">
                                                         {item.text}
                                                     </p>
                                                 </div>
