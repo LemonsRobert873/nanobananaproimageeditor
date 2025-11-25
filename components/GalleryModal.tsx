@@ -1,7 +1,6 @@
-
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Check } from 'lucide-react';
+import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
@@ -20,19 +19,26 @@ type SortOrder = 'newest' | 'oldest';
 // --- Optimized Gallery Item Component ---
 const GalleryItem = React.memo(({ 
   item, 
-  isSelected, 
+  isSelected,
+  isFocused,
+  domId,
   onToggle, 
   onActivate 
 }: { 
   item: HistoryItem, 
   isSelected: boolean, 
+  isFocused: boolean,
+  domId: string,
   onToggle: (id: string) => void, 
   onActivate: (item: HistoryItem) => void 
 }) => {
   return (
     <div 
-        className={`relative group rounded-xl overflow-hidden border-2 transition-colors duration-200 aspect-video ${
-            isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700'
+        id={domId}
+        className={`relative group rounded-xl overflow-hidden border-2 transition-all duration-200 aspect-video ${
+            isFocused 
+              ? 'border-zinc-200 ring-2 ring-white ring-inset z-10 scale-[1.02] shadow-xl' 
+              : (isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700')
         } ${item.type === 'image' ? 'bg-black' : 'bg-zinc-900'}`}
         // Performance: contain-content isolates layout/paint. 
         style={{ contain: 'content' }}
@@ -50,7 +56,7 @@ const GalleryItem = React.memo(({
                     <CheckSquare size={16} />
                 </div>
             ) : (
-                <div className="bg-black/40 text-white/50 hover:text-white rounded p-0.5 backdrop-blur-sm transition-colors shadow-sm">
+                <div className={`rounded p-0.5 backdrop-blur-sm transition-colors shadow-sm ${isFocused ? 'bg-black/60 text-white' : 'bg-black/40 text-white/50 hover:text-white'}`}>
                     <Square size={16} />
                 </div>
             )}
@@ -86,8 +92,8 @@ const GalleryItem = React.memo(({
                 </div>
             )}
             
-            {/* Metadata Overlay (Bottom - Hover Only) */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-none">
+            {/* Metadata Overlay (Bottom - Hover or Focus) */}
+            <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-3 pointer-events-none transition-opacity ${isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                 <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-zinc-300">
                         {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
@@ -119,6 +125,9 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeItem, setActiveItem] = useState<HistoryItem | null>(null);
   const [lightboxZoomed, setLightboxZoomed] = useState(false);
+  
+  // Navigation State
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   // Filter States
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
@@ -148,53 +157,26 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
       return result;
   }, [history, contentFilter, modeFilter, sortOrder]);
 
-  // Reset selection and zoom when modal opens/closes or active item changes
+  // Reset selection, focus, and zoom when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
         setActiveItem(null);
         setLightboxZoomed(false);
+        setFocusedId(null);
+    } else {
+        // Automatically focus the first item when opening if list exists
+        if (filteredHistory.length > 0) {
+            setFocusedId(filteredHistory[0].id);
+        }
     }
-  }, [isOpen]);
+  }, [isOpen]); // filteredHistory dependency removed to avoid reset on filter change, logic handled below
 
   // Reset zoom when active item changes
   useEffect(() => {
     setLightboxZoomed(false);
   }, [activeItem]);
-
-  // Global Escape Key Handler for Gallery Context
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // Priority 1: Reset Zoom
-        if (lightboxZoomed) {
-          setLightboxZoomed(false);
-          e.stopPropagation();
-          e.preventDefault();
-          return;
-        }
-        
-        // Priority 2: Close Lightbox
-        if (activeItem) {
-          setActiveItem(null);
-          e.stopPropagation();
-          e.preventDefault();
-          return;
-        }
-        
-        // Priority 3: Close Gallery
-        onClose();
-        e.stopPropagation();
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, lightboxZoomed, activeItem, onClose]);
 
   // Stable callback for selection to prevent list re-renders
   const toggleSelection = useCallback((id: string) => {
@@ -205,6 +187,126 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
         return newSet;
     });
   }, []);
+
+  // Keyboard Navigation Handler
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Prevent default browser scrolling for arrow keys if we are handling navigation
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            // e.preventDefault() is called inside cases to avoid blocking defaults when not relevant
+        }
+
+        // Global Escape (Highest Priority)
+        if (e.key === 'Escape') {
+            if (lightboxZoomed) {
+                setLightboxZoomed(false);
+                e.stopPropagation();
+                e.preventDefault();
+                return;
+            }
+            if (activeItem) {
+                setActiveItem(null);
+                // When closing lightbox, ensure focus is on the item we just closed
+                setFocusedId(activeItem.id);
+                e.stopPropagation();
+                e.preventDefault();
+                return;
+            }
+            onClose();
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+        }
+
+        // 1. Lightbox Navigation
+        if (activeItem) {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                const currentIndex = filteredHistory.findIndex(i => i.id === activeItem.id);
+                if (currentIndex === -1) return;
+
+                let nextIndex = currentIndex;
+                if (e.key === 'ArrowLeft') nextIndex = Math.max(0, currentIndex - 1);
+                if (e.key === 'ArrowRight') nextIndex = Math.min(filteredHistory.length - 1, currentIndex + 1);
+
+                if (nextIndex !== currentIndex) {
+                    setActiveItem(filteredHistory[nextIndex]);
+                    setFocusedId(filteredHistory[nextIndex].id); // Sync focus behind scene
+                }
+            }
+            return;
+        }
+
+        // 2. Grid Navigation (When Lightbox Closed)
+        // If nothing is focused, start with the first item
+        const currentIndex = focusedId ? filteredHistory.findIndex(i => i.id === focusedId) : -1;
+        
+        // Auto-focus first item if navigation key pressed without focus
+        if (currentIndex === -1 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(e.key)) {
+            if (filteredHistory.length > 0) {
+                e.preventDefault();
+                setFocusedId(filteredHistory[0].id);
+            }
+            return;
+        }
+
+        if (currentIndex === -1) return;
+
+        // Determine Columns based on Window Width (matching Tailwind breakpoints)
+        const width = window.innerWidth;
+        let cols = 1;
+        if (width >= 1024) cols = 3;      // lg:
+        else if (width >= 640) cols = 2;  // sm:
+        
+        let nextIndex = currentIndex;
+
+        switch (e.key) {
+            case 'ArrowRight':
+                e.preventDefault();
+                nextIndex = Math.min(filteredHistory.length - 1, currentIndex + 1);
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                nextIndex = Math.max(0, currentIndex - 1);
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                nextIndex = Math.min(filteredHistory.length - 1, currentIndex + cols);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                nextIndex = Math.max(0, currentIndex - cols);
+                break;
+            case 'Enter':
+                e.preventDefault();
+                setActiveItem(filteredHistory[currentIndex]);
+                break;
+            case ' ': // Space to toggle select
+                e.preventDefault();
+                toggleSelection(filteredHistory[currentIndex].id);
+                break;
+        }
+
+        if (nextIndex !== currentIndex) {
+            setFocusedId(filteredHistory[nextIndex].id);
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, activeItem, focusedId, filteredHistory, toggleSelection, onClose, lightboxZoomed]);
+
+  // Scroll Focused Item into View
+  useEffect(() => {
+    if (isOpen && focusedId && !activeItem) {
+        const element = document.getElementById(`gallery-item-${focusedId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+  }, [focusedId, isOpen, activeItem]);
 
   const toggleSelectAll = () => {
     // Only select currently filtered items
@@ -229,6 +331,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
       addToast(`Deleted ${selectedIds.size} items`, 'success');
       setSelectedIds(new Set());
       setShowDeleteConfirm(false);
+      setFocusedId(null); // Reset focus after bulk delete
     } catch (e) {
       addToast('Failed to delete selected items', 'error');
     } finally {
@@ -277,6 +380,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
           await onDeleteItems([id]);
           addToast('Item deleted', 'success');
           setActiveItem(null);
+          // Focus resets automatically or stays if index valid
       } catch (e) {
           addToast('Failed to delete item', 'error');
       }
@@ -409,7 +513,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
             </div>
 
             {/* Content Area - Grid */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-950/30 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-950/30 custom-scrollbar outline-none" tabIndex={0}>
                 {filteredHistory.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
                         <Grid3X3 size={48} className="opacity-20" />
@@ -436,10 +540,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                             {filteredHistory.map(item => (
                                 <GalleryItem 
                                     key={item.id}
+                                    domId={`gallery-item-${item.id}`}
                                     item={item}
                                     isSelected={selectedIds.has(item.id)}
+                                    isFocused={focusedId === item.id}
                                     onToggle={toggleSelection}
-                                    onActivate={setActiveItem}
+                                    onActivate={(itm) => {
+                                        setActiveItem(itm);
+                                        setFocusedId(itm.id);
+                                    }}
                                 />
                             ))}
                         </div>
@@ -476,7 +585,10 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                         item={activeItem} 
                         isZoomed={lightboxZoomed}
                         setZoomed={setLightboxZoomed}
-                        onClose={() => setActiveItem(null)} 
+                        onClose={() => {
+                            setActiveItem(null);
+                            // Focus returns to grid via escape key handler automatically
+                        }} 
                         onDelete={() => handleSingleDelete(activeItem.id)}
                         onDownload={() => handleSingleDownload(activeItem)}
                     />
