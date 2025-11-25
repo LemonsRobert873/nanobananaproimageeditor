@@ -19,7 +19,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addToast = useCallback((message: string, type: ToastType) => {
     const id = Date.now().toString() + Math.random().toString();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => [{ id, message, type }, ...prev]); // Add new to front (top)
 
     // Auto dismiss
     setTimeout(() => {
@@ -34,8 +34,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div className="fixed bottom-36 right-6 z-[100] flex flex-col gap-2 pointer-events-none items-end">
-        <AnimatePresence>
+      {/* Updated Position: Top Right, Stacking Downwards, High Z-Index to sit above header */}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none items-end w-full max-w-sm">
+        <AnimatePresence mode="popLayout">
           {toasts.map(toast => (
             <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
           ))}
@@ -54,19 +55,19 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
   };
 
   const bgColors = {
-    success: 'bg-zinc-900 border-green-900/30',
-    error: 'bg-zinc-900 border-red-900/30',
-    warning: 'bg-zinc-900 border-yellow-900/30',
-    info: 'bg-zinc-900 border-blue-900/30'
+    success: 'bg-zinc-950/95 border-green-900/50',
+    error: 'bg-zinc-950/95 border-red-900/50',
+    warning: 'bg-zinc-950/95 border-yellow-900/50',
+    info: 'bg-zinc-950/95 border-blue-900/50'
   };
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 20, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, x: 20, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-xl max-w-sm backdrop-blur-md ${bgColors[toast.type]}`}
+      className={`pointer-events-auto flex items-start gap-3 p-3 rounded-xl border shadow-2xl backdrop-blur-md w-full ${bgColors[toast.type]}`}
     >
       <div className="shrink-0 mt-0.5">{icons[toast.type]}</div>
       <div className="flex-1">

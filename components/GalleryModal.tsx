@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info } from 'lucide-react';
+import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Check } from 'lucide-react';
 import { HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
@@ -13,6 +13,9 @@ interface GalleryModalProps {
   onDeleteItems: (ids: string[]) => Promise<void>;
   onDownloadImage: (url: string, id: string) => void;
 }
+
+type ContentFilter = 'all' | 'image' | 'text';
+type SortOrder = 'newest' | 'oldest';
 
 const GalleryModal: React.FC<GalleryModalProps> = ({ 
   isOpen, 
@@ -27,6 +30,34 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeItem, setActiveItem] = useState<HistoryItem | null>(null);
   const [lightboxZoomed, setLightboxZoomed] = useState(false);
+
+  // Filter States
+  const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
+  const [modeFilter, setModeFilter] = useState<GenerationMode | 'all'>('all');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+
+  // Filter Logic
+  const filteredHistory = useMemo(() => {
+      let result = [...history];
+
+      // Content Filter
+      if (contentFilter !== 'all') {
+          result = result.filter(item => item.type === contentFilter);
+      }
+
+      // Mode Filter
+      if (modeFilter !== 'all') {
+          result = result.filter(item => item.metadata?.mode === modeFilter);
+      }
+
+      // Sort Order
+      result.sort((a, b) => {
+          if (sortOrder === 'newest') return b.timestamp - a.timestamp;
+          return a.timestamp - b.timestamp;
+      });
+
+      return result;
+  }, [history, contentFilter, modeFilter, sortOrder]);
 
   // Reset selection and zoom when modal opens/closes or active item changes
   useEffect(() => {
@@ -66,7 +97,6 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
         }
         
         // Priority 3: Close Gallery
-        // (Gallery closing triggers Header state change logic in App/Header)
         onClose();
         e.stopPropagation();
         e.preventDefault();
@@ -88,11 +118,17 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === history.length) {
-      setSelectedIds(new Set());
+    // Only select currently filtered items
+    const visibleIds = filteredHistory.map(item => item.id);
+    const allVisibleSelected = visibleIds.every(id => selectedIds.has(id));
+
+    const newSet = new Set(selectedIds);
+    if (allVisibleSelected) {
+      visibleIds.forEach(id => newSet.delete(id));
     } else {
-      setSelectedIds(new Set(history.map(item => item.id)));
+      visibleIds.forEach(id => newSet.add(id));
     }
+    setSelectedIds(newSet);
   };
 
   const handleBulkDelete = async () => {
@@ -199,7 +235,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                 <Grid3X3 size={20} className="text-yellow-500" />
                 Gallery
                 <span className="text-zinc-500 text-sm font-normal ml-2">
-                    {history.length} items
+                    {filteredHistory.length} items
                 </span>
               </h3>
               <div className="flex items-center gap-4">
@@ -229,12 +265,65 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
               </div>
             </div>
 
+            {/* Filter Bar */}
+            <div className="flex flex-wrap items-center gap-4 px-6 py-3 border-b border-zinc-800 bg-zinc-900/40">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                        <Filter size={12} /> Type
+                    </span>
+                    <div className="flex bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+                        {(['all', 'image', 'text'] as ContentFilter[]).map((type) => (
+                             <button
+                                key={type}
+                                onClick={() => setContentFilter(type)}
+                                className={`px-3 py-1 text-xs rounded-md transition-all capitalize ${
+                                    contentFilter === type 
+                                    ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
+                                    : 'text-zinc-500 hover:text-zinc-300'
+                                }`}
+                             >
+                                 {type}
+                             </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="w-px h-6 bg-zinc-800" />
+
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Mode</span>
+                     <select 
+                        value={modeFilter} 
+                        onChange={(e) => setModeFilter(e.target.value as GenerationMode | 'all')}
+                        className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+                     >
+                         <option value="all">All Modes</option>
+                         <option value={GenerationMode.IMAGE_EDIT}>Image Edit</option>
+                         <option value={GenerationMode.IMAGE_TO_IMAGE}>Image to Image</option>
+                         <option value={GenerationMode.IMG_TO_PROMPT}>Img to Prompt</option>
+                         <option value={GenerationMode.TEXT_TO_PROMPT}>Text Prompt</option>
+                     </select>
+                </div>
+
+                <div className="w-px h-6 bg-zinc-800" />
+                
+                <div className="flex items-center gap-2 ml-auto">
+                     <button
+                        onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-400 hover:text-white hover:border-zinc-700 transition-all"
+                     >
+                         {sortOrder === 'newest' ? <ArrowDownWideNarrow size={14} /> : <ArrowUpNarrowWide size={14} />}
+                         {sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}
+                     </button>
+                </div>
+            </div>
+
             {/* Content Area - Masonry Grid */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-950/30 custom-scrollbar">
-                {history.length === 0 ? (
+                {filteredHistory.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
                         <Grid3X3 size={48} className="opacity-20" />
-                        <p>No items in history yet.</p>
+                        <p>No items found matching filters.</p>
                     </div>
                 ) : (
                     <>
@@ -243,7 +332,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                 onClick={toggleSelectAll}
                                 className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors"
                             >
-                                {selectedIds.size === history.length && history.length > 0 ? (
+                                {filteredHistory.every(item => selectedIds.has(item.id)) ? (
                                     <CheckSquare className="text-yellow-500" size={18} />
                                 ) : (
                                     <Square className="text-zinc-600" size={18} />
@@ -254,7 +343,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                         
                         {/* CSS Columns Masonry */}
                         <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
-                            {history.map(item => {
+                            {filteredHistory.map(item => {
                                 const isSelected = selectedIds.has(item.id);
                                 return (
                                     <div 
@@ -445,8 +534,6 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                 {item.type === 'image' ? (
                     <div 
                         ref={viewportRef}
-                        // CRITICAL FIX: Use 'flex' without 'items-center/justify-center' to avoid clipping when zoomed.
-                        // Use 'm-auto' on the image to handle centering when unzoomed.
                         className="w-full h-full overflow-auto flex custom-scrollbar"
                     >
                         <img 
@@ -454,8 +541,6 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                             alt="Detail" 
                             draggable="false"
                             onClick={handleZoomClick}
-                            // 'm-auto' ensures safe centering (centers if small, start-aligns if overflowing)
-                            // 'block' ensures it behaves as a block element
                             className={`transition-transform duration-200 ease-out block m-auto ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
                             style={isZoomed ? {
                                 height: '200%',

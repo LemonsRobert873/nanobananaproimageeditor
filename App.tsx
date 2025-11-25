@@ -1,6 +1,6 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
 import ResetModal from './components/ResetModal';
@@ -121,6 +121,14 @@ function AppContent() {
       [GenerationMode.TEXT_TO_PROMPT]: 0,
   });
 
+  // Derived: Active Generations for Global Progress
+  const activeGenerations = Object.entries(modeStates)
+    .filter(([_, state]) => state.isGenerating)
+    .map(([m, state]) => ({ 
+        mode: m as GenerationMode, 
+        progress: state.progress 
+    }));
+
   // Helper to get current mode data
   const currentState = modeStates[mode];
 
@@ -134,6 +142,23 @@ function AppContent() {
 
   const updateCurrentState = (updates: Partial<ModeState>) => {
       updateModeState(mode, updates);
+  };
+
+  // Safe mode switching that clears temporary view state
+  const handleSetMode = (newMode: GenerationMode) => {
+    if (newMode !== mode) {
+        // Enforce strict per-mode isolation for "previous on left" view
+        // Reset comparisonImage when entering the new mode
+        // Note: We update the state via setModeStates callback to ensure it applies before render
+        setModeStates(prev => ({
+            ...prev,
+            [newMode]: {
+                ...prev[newMode],
+                comparisonImage: null
+            }
+        }));
+        setMode(newMode);
+    }
   };
 
   // --- Global Escape Key Handling ---
@@ -254,7 +279,8 @@ function AppContent() {
                             ...parsed,
                             isGenerating: false,
                             progress: 0,
-                            progressStep: ''
+                            progressStep: '',
+                            comparisonImage: null // Always clear previous preview on reload
                         };
                     } catch (e) {
                         console.error(`Failed to parse state for ${m}`, e);
@@ -602,15 +628,29 @@ function AppContent() {
           updateModeState(activeMode, { progress: 100, progressStep: "Done!" });
           await new Promise(resolve => setTimeout(resolve, 300));
 
-          // Set active mode if user wandered off, or just update data
-          // If we want to auto-switch:
-          setMode(activeMode); 
-
-          updateModeState(activeMode, { 
-            generatedImage: imageUrl,
-            comparisonImage: currentImageRef || activeState.comparisonImage,
-            isGenerating: false 
+          // State update logic:
+          // If user is currently in the activeMode, show the previous image on the left (comparisonImage).
+          // If user navigated away, do NOT set comparisonImage (clean slate on return).
+          setModeStates(prev => {
+              // We check against the `mode` from the latest render via setModeStates updater
+              // But we can't access outer scope `mode` reliably if it changed.
+              // However, since we are updating `activeMode`'s state specifically:
+              // We should just set comparisonImage.
+              // If the user *is* in this mode, it shows. If they aren't, when they click back,
+              // `handleSetMode` will clear it.
+              return {
+                  ...prev,
+                  [activeMode]: {
+                      ...prev[activeMode],
+                      generatedImage: imageUrl,
+                      comparisonImage: currentImageRef || prev[activeMode].comparisonImage,
+                      isGenerating: false
+                  }
+              };
           });
+
+          // Only auto-switch if this was the last interacted mode or we want to force attention
+          setMode(activeMode); 
           
           // Quota Update
           const currentPTDate = getCurrentPTDate();
@@ -659,7 +699,8 @@ function AppContent() {
 
           updateModeState(activeMode, { 
               generatedText: promptText, 
-              isGenerating: false 
+              isGenerating: false,
+              comparisonImage: null // No image comparison for text modes
           });
           
           const newHistoryItem: GeneratedText = {
@@ -722,21 +763,19 @@ function AppContent() {
       // 1. Identify Target Mode
       const targetMode = item.metadata?.mode || GenerationMode.IMAGE_EDIT;
       
-      // 2. Switch Mode
-      setMode(targetMode);
-      
-      // 3. Update Target Mode State with Content
+      // 2. Update Target Mode State with Content & Clear Comparison
       setModeStates(prev => ({
           ...prev,
           [targetMode]: {
               ...prev[targetMode],
               generatedImage: item.type === 'image' ? item.url : null,
               generatedText: item.type === 'text' ? item.text : null,
-              // Keep comparison if it exists, or maybe clear it? Let's keep existing comparison if pertinent.
-              comparisonImage: item.type === 'image' ? prev[targetMode].generatedImage || prev[targetMode].comparisonImage : null
+              comparisonImage: null // Clean slate on history load
           }
       }));
 
+      // 3. Switch Mode
+      setMode(targetMode);
       setShowGallery(false);
   };
 
@@ -756,7 +795,7 @@ function AppContent() {
             (itemToDelete.type === 'text' && itemToDelete.text === state.generatedText);
         
         if (isDisplayed) {
-            updateModeState(impactedMode, { generatedImage: null, generatedText: null });
+            updateModeState(impactedMode, { generatedImage: null, generatedText: null, comparisonImage: null });
         }
     }
 
@@ -777,17 +816,6 @@ function AppContent() {
       const deletedSet = new Set(ids);
       const remainingHistory = history.filter(item => !deletedSet.has(item.id));
       setHistory(remainingHistory);
-
-      // Check current mode displays
-      Object.values(GenerationMode).forEach(m => {
-          const state = modeStates[m];
-          // Simple check: if current image URL matches a deleted item's URL (imperfect if duplicate URLs, but unlikely with data URIs)
-          // Better: we can't easily map URL back to ID without history lookup. 
-          // So we rely on the fact that if history is gone, we just clear if it matches the *content*.
-          // But actually, we don't have the ID of the *current* image stored in modeState, only the string.
-          // For now, let's leave the current view intact unless explicit single delete.
-          // Or we can scan history before filtering.
-      });
   };
 
   const handleDownload = (url: string) => {
@@ -808,7 +836,7 @@ function AppContent() {
   const handleSendToImageEdit = () => {
     if (currentState.generatedText) {
       updateModeState(GenerationMode.IMAGE_EDIT, { textPrompt: currentState.generatedText });
-      setMode(GenerationMode.IMAGE_EDIT);
+      handleSetMode(GenerationMode.IMAGE_EDIT);
       addToast('Prompt sent to Image Edit', 'success');
     }
   };
@@ -858,12 +886,13 @@ function AppContent() {
       
       <Header 
         mode={mode}
-        setMode={setMode}
+        setMode={handleSetMode}
         showGuide={showGuide}
         setShowGuide={setShowGuide}
         hasKey={hasKey}
         handleKeyClick={handleKeyClick}
         onResetClick={() => setShowResetModal(true)}
+        activeGenerations={activeGenerations}
       />
 
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -152,38 +151,13 @@ const Canvas: React.FC<CanvasProps> = ({
          transition={{ delay: 0.2 }}
          className="flex-none h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950 z-20 relative"
       >
-        <div className="flex items-center gap-4">
-            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                 {currentState.generatedText ? 'Generated Prompt' : 'Result Canvas'}
             </h2>
-            
-            {(currentState.generatedImage || currentState.generatedText) && (
-                <div className="flex items-center gap-1">
-                    <button 
-                    onClick={() => setShowInfo(!showInfo)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border ${
-                        showInfo 
-                        ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                    }`}
-                    title="Toggle Info"
-                    >
-                        <Info size={14} />
-                        <span>Info</span>
-                    </button>
-
-                    <button 
-                        onClick={handleDeleteClick}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-red-400 hover:border-red-900/50 hover:bg-red-900/10"
-                        title="Delete this result"
-                    >
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-            )}
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {currentState.generatedText ? (
              <>
                <Button 
@@ -193,13 +167,13 @@ const Canvas: React.FC<CanvasProps> = ({
                >
                   <Type size={14} /> Use in Image Edit
                </Button>
-               <div className="w-px h-4 bg-zinc-800 mx-1" />
+               <div className="w-px h-4 bg-zinc-800" />
                <Button 
                   variant="ghost"
                   onClick={onCopyText}
                   className="h-8 px-3 text-xs gap-2"
                >
-                  <Copy size={14} /> Copy Text
+                  <Copy size={14} /> Copy
                </Button>
              </>
           ) : (
@@ -221,6 +195,33 @@ const Canvas: React.FC<CanvasProps> = ({
                     <User size={14} /> Use as Subject
                 </Button>
             </>
+          )}
+
+          {/* Info and Delete grouped on the right */}
+          {(currentState.generatedImage || currentState.generatedText) && (
+             <>
+                <div className="w-px h-4 bg-zinc-800" />
+                <button 
+                onClick={() => setShowInfo(!showInfo)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border ${
+                    showInfo 
+                    ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+                title="Toggle Info"
+                >
+                    <Info size={14} />
+                    <span>Info</span>
+                </button>
+
+                <button 
+                    onClick={handleDeleteClick}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-red-400 hover:border-red-900/50 hover:bg-red-900/10"
+                    title="Delete this result"
+                >
+                    <Trash2 size={14} />
+                </button>
+             </>
           )}
         </div>
       </motion.div>
@@ -477,7 +478,7 @@ const Canvas: React.FC<CanvasProps> = ({
 
                  {/* Bottom Row: Comparison */}
                  <div className="flex items-end justify-between w-full">
-                     {/* Comparison Image */}
+                     {/* Comparison Image (Previous result on left) */}
                      <div className="pointer-events-auto">
                         {currentState.comparisonImage && !currentState.generatedText && (
                             <motion.div 
