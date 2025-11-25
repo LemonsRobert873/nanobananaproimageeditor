@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -52,7 +52,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                     <div>
                        <h4 className="text-zinc-200 font-medium mb-1">Getting Started</h4>
                        <p className="text-zinc-400 text-sm leading-relaxed mb-2">
-                          <strong>NanoBanana Pro Studio</strong> harnesses the power of the <strong>Gemini 3 Pro</strong> model (via Google GenAI SDK) for high-fidelity image editing and generation. 
+                          <strong>NanoBanana Pro Studio</strong> is a dual-model workspace. It harnesses <strong>Gemini 3 Pro</strong> for high-fidelity 4K image generation and <strong>Gemini 2.5 Flash</strong> for lightning-fast prompt analysis and expansion.
                        </p>
                        <p className="text-zinc-400 text-sm leading-relaxed">
                           <strong>Privacy Note:</strong> This application runs entirely in your browser. Your API key and images are transmitted directly to the Google Gemini API. No data is stored on our servers.
@@ -93,6 +93,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                         </p>
                         <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1 relative z-10">
                            <li><strong>Input:</strong> Text Prompt (Auto-Enhanced)</li>
+                           <li><strong>Specs:</strong> Supports up to 4K resolution & multiple aspect ratios.</li>
                            <li><strong>Best for:</strong> Landscapes, Concept Art, Generic Subjects.</li>
                         </ul>
                      </div>
@@ -176,6 +177,12 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                            </h5>
                            <ul className="space-y-3 text-sm text-zinc-400">
                                <li className="flex gap-3">
+                                   <span className="bg-zinc-800 p-1 rounded text-pink-400 h-fit mt-0.5"><Monitor size={12} /></span>
+                                   <span>
+                                       <strong className="text-zinc-300">Canvas Zoom:</strong> Click any generated image to toggle high-res zoom. Move your mouse to pan around 4K details.
+                                   </span>
+                               </li>
+                               <li className="flex gap-3">
                                    <span className="bg-zinc-800 p-1 rounded text-blue-400 h-fit mt-0.5"><Copy size={12} /></span>
                                    <span>
                                        <strong className="text-zinc-300">Drag & Drop:</strong> Drag images from your history strip directly onto the subject cards or reference area to reuse them.
@@ -231,4 +238,3 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
 };
 
 export default GuideModal;
-    

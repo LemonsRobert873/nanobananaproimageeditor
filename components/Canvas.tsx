@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -599,7 +600,7 @@ const Canvas: React.FC<CanvasProps> = ({
 
          <div className="shrink-0 h-full flex items-center px-6 border-l border-zinc-800/30 bg-zinc-900/10">
               <div 
-                 className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl shadow-lg flex flex-col items-center justify-center gap-1 cursor-help min-w-[140px]"
+                 className="scale-90 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl shadow-lg flex flex-col items-center justify-center gap-1 cursor-help min-w-[140px]"
                  title="Daily Quota resets at 12:00 AM PT (Pacific Time)"
               >
                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-tight text-center">Today Generated</span>
