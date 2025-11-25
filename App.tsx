@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -44,7 +45,6 @@ const DEFAULT_MODE_STATE: ModeState = {
   referenceImage: null,
   generatedImage: null,
   generatedText: null,
-  comparisonImage: null,
   useFaceFeature: true,
   refOperation: ReferenceOperation.APPLY_CLOTHING,
   aspectRatio: AspectRatio.PORTRAIT_9_16,
@@ -151,19 +151,9 @@ function AppContent() {
       updateModeState(mode, updates);
   };
 
-  // Safe mode switching that clears temporary view state
+  // Safe mode switching
   const handleSetMode = (newMode: GenerationMode) => {
     if (newMode !== mode) {
-        // Enforce strict per-mode isolation for "previous on left" view
-        // Reset comparisonImage when entering the new mode
-        // Note: We update the state via setModeStates callback to ensure it applies before render
-        setModeStates(prev => ({
-            ...prev,
-            [newMode]: {
-                ...prev[newMode],
-                comparisonImage: null
-            }
-        }));
         setMode(newMode);
     }
   };
@@ -287,8 +277,7 @@ function AppContent() {
                             selectedModel: parsed.selectedModel || MODELS.PRO, // Restore model
                             isGenerating: false,
                             progress: 0,
-                            progressStep: '',
-                            comparisonImage: null // Always clear previous preview on reload
+                            progressStep: ''
                         };
                     } catch (e) {
                         console.error(`Failed to parse state for ${m}`, e);
@@ -349,7 +338,6 @@ function AppContent() {
       delete (stateToSave as any).referenceImage;
       delete (stateToSave as any).generatedImage;
       delete (stateToSave as any).generatedText;
-      delete (stateToSave as any).comparisonImage; 
       delete (stateToSave as any).lastParams;
       delete (stateToSave as any).hasError;
       delete (stateToSave as any).errorMessage;
@@ -527,7 +515,6 @@ function AppContent() {
     // Reset error state for this mode
     updateModeState(activeMode, { errorMessage: null, hasError: false });
     
-    const currentImageRef = activeState.generatedImage;
     let paramsToUse: GenerateParams | PromptGenParams;
 
     // Validation
@@ -648,7 +635,6 @@ function AppContent() {
                   [activeMode]: {
                       ...prev[activeMode],
                       generatedImage: imageUrl,
-                      comparisonImage: currentImageRef || prev[activeMode].comparisonImage,
                       isGenerating: false
                   }
               };
@@ -707,8 +693,7 @@ function AppContent() {
 
           updateModeState(activeMode, { 
               generatedText: promptText, 
-              isGenerating: false,
-              comparisonImage: null // No image comparison for text modes
+              isGenerating: false
           });
           
           const newHistoryItem: GeneratedText = {
@@ -771,14 +756,13 @@ function AppContent() {
       // 1. Identify Target Mode
       const targetMode = item.metadata?.mode || GenerationMode.IMAGE_EDIT;
       
-      // 2. Update Target Mode State with Content & Clear Comparison
+      // 2. Update Target Mode State with Content
       setModeStates(prev => ({
           ...prev,
           [targetMode]: {
               ...prev[targetMode],
               generatedImage: item.type === 'image' ? item.url : null,
-              generatedText: item.type === 'text' ? item.text : null,
-              comparisonImage: null // Clean slate on history load
+              generatedText: item.type === 'text' ? item.text : null
           }
       }));
 
@@ -803,7 +787,7 @@ function AppContent() {
             (itemToDelete.type === 'text' && itemToDelete.text === state.generatedText);
         
         if (isDisplayed) {
-            updateModeState(impactedMode, { generatedImage: null, generatedText: null, comparisonImage: null });
+            updateModeState(impactedMode, { generatedImage: null, generatedText: null });
         }
     }
 

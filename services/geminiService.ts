@@ -145,7 +145,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         // CASE: No Subject Images (Text to Image)
         startPct = 10;
         updateProgress("Preparing generation...", 15);
-        parts.push({ text: `${textPrompt}${negativePromptStr}` });
+        parts.push({ text: `Generate an image matching this description: ${textPrompt}${negativePromptStr}` });
       }
     } 
     // --- MODE 2: Image to Image ---
@@ -251,7 +251,8 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     const config: any = {
       imageConfig: {
         aspectRatio: aspectRatio
-      }
+      },
+      systemInstruction: "You are an image generation model. You must generate an image matching the prompt. Do not ask clarifying questions. If the prompt is simple (e.g. 'car'), generate a high-quality example of that subject. Do not return text."
     };
     
     // Only add imageSize for Pro model to avoid Flash model issues

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -500,26 +501,10 @@ const Canvas: React.FC<CanvasProps> = ({
                     )}
                  </div>
 
+                 {/* Bottom Actions Area */}
                  <div className="flex items-end justify-between w-full">
                      <div className="pointer-events-auto">
-                        {currentState.comparisonImage && !currentState.generatedText && (
-                            <motion.div 
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="w-32 sm:w-48 bg-zinc-900 p-2 rounded-xl border border-zinc-700 shadow-2xl relative group"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <img src={currentState.comparisonImage} draggable="false" className="w-full rounded-lg" alt="Previous" />
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); updateCurrentState({ comparisonImage: null }); }} 
-                                    className="absolute -top-2 -right-2 bg-zinc-800 text-white rounded-full p-1.5 border border-zinc-600 shadow-lg hover:bg-red-600 transition-colors"
-                                >
-                                    <X size={12} />
-                                </button>
-                                <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[10px] text-white/90 backdrop-blur-md font-medium">Previous</div>
-                            </motion.div>
-                        )}
+                        {/* Comparison Image Removed */}
                      </div>
                  </div>
             </div>
