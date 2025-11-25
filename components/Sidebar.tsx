@@ -244,9 +244,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                         'inset 0 0 30px -5px rgba(234,179,8,0.1)'
                       ]
                     : [
-                        'inset 0 0 40px -5px rgba(6,182,212,0.2)', 
-                        'inset 0 0 80px -5px rgba(6,182,212,0.4)', 
-                        'inset 0 0 40px -5px rgba(6,182,212,0.2)'
+                        'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
+                        'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
+                        'inset 0 0 40px -5px rgba(6,182,212,0.15)'
                       ]
              }}
              transition={{
@@ -262,7 +262,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             animate={{
                 boxShadow: isPro 
                     ? ['-2px 0 10px 1px rgba(234,179,8,0.3)', '-4px 0 20px 2px rgba(234,179,8,0.6)', '-2px 0 10px 1px rgba(234,179,8,0.3)']
-                    : ['-2px 0 15px 1px rgba(6,182,212,0.4)', '-4px 0 30px 2px rgba(6,182,212,0.8)', '-2px 0 15px 1px rgba(6,182,212,0.4)']
+                    : ['-2px 0 15px 1px rgba(6,182,212,0.2)', '-4px 0 30px 2px rgba(6,182,212,0.4)', '-2px 0 15px 1px rgba(6,182,212,0.2)']
             }}
             transition={{
                 duration: isPro ? 3 : 1,
@@ -754,16 +754,15 @@ const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
              {particles.map((p) => (
                  <motion.div
                     key={p.id}
-                    className="absolute top-0"
-                    style={{ left: `${p.x}%` }}
+                    className="absolute"
+                    style={{ left: `${p.x}%`, top: -30 }} // Start slightly above viewport
                     initial={{ 
-                        y: '-10%',
                         opacity: 0,
                         rotate: 0
                     }}
                     animate={{ 
-                        y: ['-10%', '110%'], 
-                        opacity: isPro ? [0, 0.4, 0] : [0, 0.6, 0], // Flash particles slightly brighter 
+                        top: ['0vh', '100vh'], // Fall full viewport height
+                        opacity: isPro ? [0, 0.4, 0] : [0, 0.6, 0], 
                         rotate: 360
                     }}
                     transition={{
