@@ -16,6 +16,7 @@ import FileUpload from './FileUpload';
 import AspectRatioSelector from './AspectRatioSelector';
 import ResolutionSelector from './ResolutionSelector';
 import { useToast } from '../context/ToastContext';
+import { dataURLtoFile } from '../utils/imageUtils';
 
 interface SidebarProps {
   mode: GenerationMode;
@@ -53,6 +54,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Track strictly which subject card is focused for paste targeting
   const [focusedSubjectId, setFocusedSubjectId] = useState<string | null>(null);
 
+  // Track if dragging over subject section to create new block
+  const [isDragOverSubjectSection, setIsDragOverSubjectSection] = useState(false);
+
   // Sync state when mode changes
   useEffect(() => {
       const saved = localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
@@ -60,6 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       // Reset focus on mode change
       setFocusedSubjectId(null);
       setActiveTarget(null);
+      setIsDragOverSubjectSection(false);
   }, [mode]);
 
   // Persist state when it changes
@@ -120,6 +125,55 @@ const Sidebar: React.FC<SidebarProps> = ({
       });
   };
 
+  const handleSectionDragOver = (e: React.DragEvent) => {
+      if (currentState.subjects.length < 5) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOverSubjectSection(true);
+          e.dataTransfer.dropEffect = 'copy';
+      } else {
+          // If 5 subjects, don't allow general section drop (still allows drop on specific card if handled there)
+          setIsDragOverSubjectSection(false);
+      }
+  };
+
+  const handleSectionDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOverSubjectSection(false);
+  };
+
+  const handleSectionDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOverSubjectSection(false);
+
+      if (currentState.subjects.length >= 5) {
+          addToast("Maximum 5 subjects allowed", 'warning');
+          return;
+      }
+
+      let file: File | null = null;
+      // 1. Check internal drag
+      const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
+      if (internalUrl) {
+           file = dataURLtoFile(internalUrl, `dropped-subject-${Date.now()}.png`);
+      } else if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+           // 2. Check external drag
+           file = e.dataTransfer.files[0];
+      }
+
+      if (file && file.type.startsWith('image/')) {
+          const newSubject: SubjectItem = {
+              id: Date.now().toString() + Math.random().toString().slice(2, 5),
+              file: file,
+              isActive: true
+          };
+          updateCurrentState({ subjects: [...currentState.subjects, newSubject] });
+          addToast("Subject added", 'success');
+      }
+  };
+
   // Clipboard Paste Listener
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -160,8 +214,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                  return;
              }
              
-             // Priority 3: No specific target? Maybe add new subject? 
-             // We'll leave it as manual action required for now to match strict card targeting logic.
+             // Priority 3: Auto-create subject if possible (no specific target or subject section active)
+             if (currentState.subjects.length < 5 && (!activeTarget || activeTarget === 'subject')) {
+                  const newSubject: SubjectItem = {
+                      id: Date.now().toString() + Math.random().toString().slice(2, 5),
+                      file: file,
+                      isActive: true
+                  };
+                  updateCurrentState({ subjects: [...currentState.subjects, newSubject] });
+                  addToast("Subject added from clipboard", 'success');
+                  return;
+             }
         }
     };
     window.addEventListener('paste', handlePaste);
@@ -199,13 +262,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="space-y-4 overflow-hidden"
+                    className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-colors ${isDragOverSubjectSection ? 'bg-yellow-500/10 ring-2 ring-yellow-500/30' : ''}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         setActiveTarget('subject');
                     }}
+                    onDragOver={handleSectionDragOver}
+                    onDragLeave={handleSectionDragLeave}
+                    onDrop={handleSectionDrop}
                 >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                         <div className="flex items-center gap-2 text-zinc-100 font-medium">
                             <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
                             <div className="flex items-center">
@@ -236,7 +302,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <motion.div 
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="mb-2"
+                          className="mb-2 px-1"
                         >
                             {currentState.subjects.filter(s => s.isActive && s.file !== null).length > 0 ? (
                                 <div className="flex items-center gap-2 text-xs text-green-400 bg-green-950/20 px-3 py-2 rounded-lg border border-green-900/50">
@@ -255,7 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     )}
 
                     {/* Subject Grid - Card Layout */}
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 px-1">
                         <AnimatePresence>
                             {currentState.subjects.map((subject) => (
                                 <SubjectCard 
@@ -272,8 +338,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     {currentState.subjects.length === 0 && (
-                        <div className="text-center p-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
-                            <p className="text-sm text-zinc-500">Click + to add subjects.</p>
+                        <div className={`text-center p-6 border-2 border-dashed rounded-xl transition-colors mx-1 ${isDragOverSubjectSection ? 'border-yellow-500 bg-yellow-500/5' : 'border-zinc-800 bg-zinc-900/30'}`}>
+                            <p className="text-sm text-zinc-500">{isDragOverSubjectSection ? 'Drop to add subject' : 'Click + or drop image here'}</p>
+                        </div>
+                    )}
+                    
+                    {/* Visual cue for background drag when cards exist but < 5 */}
+                    {currentState.subjects.length > 0 && currentState.subjects.length < 5 && isDragOverSubjectSection && (
+                        <div className="absolute inset-0 bg-yellow-500/5 pointer-events-none rounded-xl border-2 border-yellow-500/30 z-10 flex items-center justify-center">
+                             <div className="bg-zinc-900/90 text-yellow-500 px-3 py-1.5 rounded-lg shadow-lg text-xs font-bold flex items-center gap-2">
+                                <Plus size={14} /> Add New Subject
+                             </div>
                         </div>
                     )}
 
@@ -605,35 +680,20 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        // Handle drag from history (dataURL) or file system
+        e.stopPropagation(); // Handle drop on card specifically
+        onFocus();
+        
+        let file: File | null = null;
+        // 1. Check internal drag
         const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
         if (internalUrl) {
-            // Convert dataURL to File
-            // Needs utility from elsewhere or re-implementation. 
-            // Importing utility from '../utils/imageUtils' ideally, but sidebar has access.
-            // Let's assume we can parse it here or import it.
-            // Since we can't easily import inside a component definition block in XML change, 
-            // we rely on Sidebar parent or duplicate logic. 
-            // For cleanliness, we'll try to get File from data transfer items if possible or use parent.
-            // Actually, we can just use the utility if it's imported at top of file (it is not currently imported).
-            // Let's assume parent logic or simple conversion.
-            // We'll rely on Sidebar having the utility, but wait, Sidebar doesn't have it imported.
-            // I'll update imports above to include dataURLtoFile if needed, or implement simple logic.
-            // Actually, standard file drop is easier.
-        } 
-        
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-             const file = e.dataTransfer.files[0];
-             if (file.type.startsWith('image/')) {
-                 onUpdateFile(file);
-                 onFocus();
-             }
-        } else if (internalUrl) {
-             // Handle internal drop
-             // Since we don't have utility here, we'll dispatch a custom event or just ... 
-             // Ideally we import { dataURLtoFile } from '../utils/imageUtils'; at the top.
-             // I will add the import to the Sidebar file content.
-             // See imports in Sidebar.tsx content above.
+             file = dataURLtoFile(internalUrl, `dropped-on-card-${Date.now()}.png`);
+        } else if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+             file = e.dataTransfer.files[0];
+        }
+
+        if (file && file.type.startsWith('image/')) {
+            onUpdateFile(file);
         }
     };
 

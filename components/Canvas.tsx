@@ -322,7 +322,13 @@ const Canvas: React.FC<CanvasProps> = ({
                                 onClick={handleZoomClick}
                                 src={currentState.generatedImage} 
                                 alt="Generated result" 
-                                draggable="false"
+                                draggable={!isZoomed}
+                                onDragStart={(e) => {
+                                    if (currentState.generatedImage) {
+                                        e.dataTransfer.setData('application/x-nanobanana-image', currentState.generatedImage);
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                    }
+                                }}
                                 className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
                                     isGenerating ? 'cursor-wait' : (isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
                                 }`}
