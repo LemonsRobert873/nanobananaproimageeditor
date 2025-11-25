@@ -76,11 +76,11 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                             <Sparkles size={12} /> Identity Preservation
                         </div>
                         <p className="text-sm text-zinc-400 relative z-10">
-                           Upload a <strong>Subject Face</strong> and provide a prompt. The model generates a new image while rigorously maintaining the subject's facial features and identity.
+                           Upload up to 5 <strong>Subject Faces</strong> and provide a prompt. The model generates a new image while rigorously maintaining the facial features and identities.
                         </p>
                         <ul className="text-xs text-zinc-500 list-disc list-inside space-y-1 relative z-10">
-                           <li><strong>Input:</strong> Subject Image + Text Prompt</li>
-                           <li><strong>Best for:</strong> Placing a specific person in new scenarios.</li>
+                           <li><strong>Input:</strong> Subject Image(s) + Text Prompt</li>
+                           <li><strong>Best for:</strong> Placing specific people or characters in new scenarios.</li>
                         </ul>
                      </div>
                      <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl space-y-3 relative overflow-hidden group">
@@ -107,7 +107,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5 mb-4">
                      <p className="text-sm text-zinc-400 mb-2">
-                        Requires two inputs: a <strong>Subject (Face)</strong> and a <strong>Reference (Style/Scene)</strong>.
+                        Requires <strong>Subject(s)</strong> (up to 5) and a <strong>Reference Image</strong> (Style/Scene).
                      </p>
                      <div className="flex items-center gap-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded border border-yellow-500/20 w-fit">
                         <Sliders size={12} />
@@ -116,9 +116,9 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   <div className="grid gap-4 md:grid-cols-3">
                      {[
-                        { icon: User, title: 'Apply Clothing', desc: 'Dresses the Subject in the outfit shown in the Reference image. Keeps the subject\'s face.' },
-                        { icon: ImagePlus, title: 'Replace Face', desc: 'Swaps the face in the Reference image with the Subject\'s face. Preserves lighting/scene.' },
-                        { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes the Reference image structure and recreates it featuring the Subject.' },
+                        { icon: User, title: 'Apply Clothing', desc: 'Dresses the Subject(s) in the outfit shown in the Reference image. Keeps identities intact.' },
+                        { icon: ImagePlus, title: 'Replace Face', desc: 'Swaps faces in the Reference image with the Subject(s). Preserves lighting/scene.' },
+                        { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes the Reference image structure and recreates it featuring the Subject(s).' },
                      ].map((item, i) => (
                         <div key={i} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl hover:border-zinc-700 transition-colors">
                            <div className="flex items-center gap-2 mb-2 text-purple-400">
@@ -178,7 +178,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                                <li className="flex gap-3">
                                    <span className="bg-zinc-800 p-1 rounded text-blue-400 h-fit mt-0.5"><Copy size={12} /></span>
                                    <span>
-                                       <strong className="text-zinc-300">Drag & Drop:</strong> Drag images from your history strip directly onto the input upload areas to reuse them.
+                                       <strong className="text-zinc-300">Drag & Drop:</strong> Drag images from your history strip directly onto the subject cards or reference area to reuse them.
                                    </span>
                                </li>
                                <li className="flex gap-3">
@@ -231,3 +231,4 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
 };
 
 export default GuideModal;
+    
