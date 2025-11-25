@@ -131,7 +131,8 @@ function AppContent() {
         mode: m, 
         progress: visualProgressMap[m] || state.progress,
         step: state.progressStep,
-        startedAt: state.startedAt || 0
+        startedAt: state.startedAt || 0,
+        model: state.selectedModel
     }))
     .sort((a, b) => a.startedAt - b.startedAt); // Oldest first, so newest can be stacked at bottom
 

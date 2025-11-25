@@ -45,8 +45,8 @@ const Header: React.FC<HeaderProps> = ({
             <div className="text-2xl transition-transform group-hover:rotate-12">🍌</div>
             <span className={`font-semibold tracking-tight hidden lg:inline whitespace-nowrap transition-all duration-300 ${
                 isPro 
-                ? 'text-zinc-100 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]' 
-                : 'text-zinc-100 drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+                ? 'text-zinc-100 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
+                : 'text-zinc-100 drop-shadow-[0_0_15px_rgba(34,211,238,0.6)]'
             }`}>
               NanoBanana <span className={isPro ? "text-yellow-500" : "text-cyan-400"}>{isPro ? "Pro" : "Flash"}</span> Studio
             </span>
