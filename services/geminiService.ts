@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation, SubjectItem } from '../types';
 import { MODEL_NAME, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
@@ -171,10 +172,6 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     } 
     // --- MODE 2: Image to Image ---
     else if (mode === GenerationMode.IMAGE_TO_IMAGE && referenceImage) {
-      // For Image to Image, we typically expect a subject unless it's a pure style transfer, 
-      // but NanoBanana is subject-focused.
-      // Filter logic handled in App.tsx validation, here we just use what's passed.
-      
       // Load Reference
       const refB64 = await fileToBase64(referenceImage);
       
@@ -182,22 +179,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
       if (refStrength !== undefined) {
         strengthGuidance = ` (Reference Adherence: ${refStrength}%)`;
       }
-
-      // Add Subjects FIRST
-      for (const s of activeSubjects) {
-          if (s.file) {
-              const b64 = await fileToBase64(s.file);
-              parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
-          }
-      }
-      // Add Reference LAST
-      parts.push({ inlineData: { mimeType: referenceImage.type, data: refB64 } });
       
-      const subjectCount = activeSubjects.length;
-      const refIndex = subjectCount + 1;
-      
-      const subjectMapping = activeSubjects.map((_, i) => `Image ${i+1} is Subject ${i+1}`).join(', ');
-
       // -- Complex Operation: Replicate Reference (Requires Analysis Step) --
       if (referenceOperation === ReferenceOperation.REPLICATE_REFERENCE) {
         
@@ -207,13 +189,13 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
             ["Analyzing scene structure...", "Detecting lighting...", "Extracting composition...", "Building prompt blueprint..."]
         );
 
-        // Actual Analysis Call (Analyze Reference only)
+        // STEP 1: Analyze Reference only
         const analysisResponse = await ai.models.generateContent({
             model: ANALYSIS_MODEL,
             contents: {
                 parts: [
                     { inlineData: { mimeType: referenceImage.type, data: refB64 } },
-                    { text: `Analyze this image structure and generate a detailed prompt template.` }
+                    { text: `Analyze this image structure and generate a detailed prompt template using this structure: ${PROMPT_TEMPLATE_WITH_FACE}` }
                 ]
             }
         });
@@ -224,17 +206,53 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         updateProgress("Blueprint created.", 42);
         startPct = 45;
 
-        // Parts are already populated (Subjects + Ref)
-        // Just add instruction
+        // STEP 2: Build Generation Parts
+        // CRITICAL: For Replicate Reference, we DO NOT send the reference image to the generation model.
+        // We only send subjects + the detailed prompt derived from the reference.
+        
+        // Add Subjects
+        for (const s of activeSubjects) {
+            if (s.file) {
+                const b64 = await fileToBase64(s.file);
+                parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+            }
+        }
+        
+        const subjectMapping = activeSubjects.map((_, i) => `Image ${i+1} is Subject ${i+1}`).join(', ');
+
         parts.push({
-          text: `GENERATE A NEW IMAGE based on the following description using the features from the attached Subject photos (${subjectMapping}). Image ${refIndex} is the REFERENCE STRUCTURE. ${strengthGuidance}
-          \n\n${generatedPrompt}
-          \n\n${textPrompt ? `ADDITIONAL USER NOTES: ${textPrompt}` : ""}
-          \n${negativePromptStr}`
+          text: `GENERATE A NEW IMAGE. 
+          The provided images are the REFERENCE IDENTITIES (${subjectMapping}).
+          
+          TASK: Create a new image that perfectly matches the scene description below, but replace the characters/faces with the Subject identities provided above.
+          
+          SCENE BLUEPRINT:
+          ${generatedPrompt}
+          
+          ADDITIONAL NOTES: ${textPrompt || "None"}
+          ${negativePromptStr}
+          
+          IMPORTANT: Do NOT return the original reference image. Synthesize a NEW image.`
         });
 
       } else {
         // -- Standard Operations (Apply Clothing, Replace Face) --
+        // These ops generally NEED the reference image pixels to perform well.
+        
+        // Add Subjects FIRST
+        for (const s of activeSubjects) {
+            if (s.file) {
+                const b64 = await fileToBase64(s.file);
+                parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+            }
+        }
+        // Add Reference LAST
+        parts.push({ inlineData: { mimeType: referenceImage.type, data: refB64 } });
+        
+        const subjectCount = activeSubjects.length;
+        const refIndex = subjectCount + 1;
+        
+        const subjectMapping = activeSubjects.map((_, i) => `Image ${i+1} is Subject ${i+1}`).join(', ');
         
         if (referenceOperation === ReferenceOperation.APPLY_CLOTHING) {
             parts.push({

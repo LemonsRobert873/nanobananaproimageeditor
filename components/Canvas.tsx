@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2
 } from 'lucide-react';
 import { ModeState, HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
@@ -12,7 +13,6 @@ interface CanvasProps {
   currentState: ModeState;
   updateCurrentState: (updates: Partial<ModeState>) => void;
   isGenerating: boolean;
-  showFullProgress: boolean;
   progressStep: string;
   visualProgress: number;
   history: HistoryItem[];
@@ -26,13 +26,13 @@ interface CanvasProps {
   isHistoryLoading?: boolean;
   isGalleryOpen?: boolean;
   isModalOpen?: boolean;
+  onDeleteCurrent?: (id: string) => void;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
   currentState,
   updateCurrentState,
   isGenerating,
-  showFullProgress,
   progressStep,
   visualProgress,
   history,
@@ -45,7 +45,8 @@ const Canvas: React.FC<CanvasProps> = ({
   onOpenGallery,
   isHistoryLoading = false,
   isGalleryOpen = false,
-  isModalOpen = false
+  isModalOpen = false,
+  onDeleteCurrent
 }) => {
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
@@ -53,7 +54,7 @@ const Canvas: React.FC<CanvasProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null);
   const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
 
-  // Find the history item that matches the current view to show its metadata
+  // Find the history item that matches the current view to show its metadata or enable delete
   const currentHistoryItem = history.find(item => 
     (item.type === 'image' && item.url === currentState.generatedImage) ||
     (item.type === 'text' && item.text === currentState.generatedText)
@@ -69,10 +70,9 @@ const Canvas: React.FC<CanvasProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        // Priority 1: If Canvas is zoomed and no higher priority modal (Gallery/Guide) is open
         if (isZoomed && !isGalleryOpen && !isModalOpen) {
            setIsZoomed(false);
-           e.stopImmediatePropagation(); // Handle locally, don't let App handle
+           e.stopImmediatePropagation(); 
         }
       }
     };
@@ -88,7 +88,6 @@ const Canvas: React.FC<CanvasProps> = ({
         
         if (img) {
              const { x, y } = clickTargetRef.current;
-             
              requestAnimationFrame(() => {
                  const viewportW = viewport.clientWidth;
                  const viewportH = viewport.clientHeight;
@@ -114,8 +113,7 @@ const Canvas: React.FC<CanvasProps> = ({
   }, [isZoomed]);
 
   const handleZoomClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (isGenerating) return;
-
+    // Zoom allowed even during generation if previous image exists
     if (isZoomed) {
         setIsZoomed(false);
     } else {
@@ -137,6 +135,12 @@ const Canvas: React.FC<CanvasProps> = ({
     handleDownload(url);
     addToast('Download started', 'info');
   };
+  
+  const handleDeleteClick = () => {
+      if (currentHistoryItem && onDeleteCurrent) {
+          onDeleteCurrent(currentHistoryItem.id);
+      }
+  };
 
   return (
     <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
@@ -152,19 +156,30 @@ const Canvas: React.FC<CanvasProps> = ({
             <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-widest">
                 {currentState.generatedText ? 'Generated Prompt' : 'Result Canvas'}
             </h2>
+            
             {(currentState.generatedImage || currentState.generatedText) && (
-                <button 
-                  onClick={() => setShowInfo(!showInfo)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border ${
-                    showInfo 
-                      ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
-                  title="Toggle Metadata Inspector"
-                >
-                    <Info size={14} />
-                    <span>{currentState.generatedText ? 'Text Info' : 'Image Info'}</span>
-                </button>
+                <div className="flex items-center gap-1">
+                    <button 
+                    onClick={() => setShowInfo(!showInfo)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border ${
+                        showInfo 
+                        ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                    }`}
+                    title="Toggle Info"
+                    >
+                        <Info size={14} />
+                        <span>Info</span>
+                    </button>
+
+                    <button 
+                        onClick={handleDeleteClick}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-red-400 hover:border-red-900/50 hover:bg-red-900/10"
+                        title="Delete this result"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
             )}
         </div>
         
@@ -218,49 +233,36 @@ const Canvas: React.FC<CanvasProps> = ({
          {/* Content Container */}
          <div className="relative w-full h-full overflow-hidden flex">
             
-            {/* Loading Overlay */}
-            <AnimatePresence mode="wait">
-                {isGenerating && showFullProgress && (
+            {/* Non-Blocking Status Overlay - Shows during generation but allows interaction */}
+            <AnimatePresence>
+                {isGenerating && (
                     <motion.div 
-                       key="loading"
-                       initial={{ opacity: 0 }}
-                       animate={{ opacity: 1 }}
-                       exit={{ opacity: 0 }}
-                       className="absolute inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-8"
+                       key="status-toast"
+                       initial={{ opacity: 0, x: 20, y: 20 }}
+                       animate={{ opacity: 1, x: 0, y: 0 }}
+                       exit={{ opacity: 0, x: 20, y: 20 }}
+                       className="absolute bottom-6 right-6 z-30 bg-zinc-900/90 border border-yellow-500/30 p-4 rounded-xl shadow-2xl backdrop-blur-md w-64 pointer-events-none"
                     >
-                        <motion.div 
-                           className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-8 shadow-2xl max-w-md w-full"
-                           initial={{ scale: 0.95 }}
-                           animate={{ scale: 1 }}
-                        >
-                            <div className="w-16 h-16 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-6 relative">
-                                <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30 animate-ping"></div>
-                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }}>
-                                    <Sparkles className="w-8 h-8 text-yellow-500" />
-                                </motion.div>
-                            </div>
-                            <div className="space-y-4">
-                                <h3 className="text-xl font-medium text-white text-center">{progressStep}</h3>
-                                <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden relative">
-                                    <motion.div 
-                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${Math.min(100, Math.max(0, visualProgress))}%` }}
-                                        transition={{ ease: "linear" }}
-                                    >
-                                        <motion.div 
-                                            className="absolute inset-0 bg-white/20"
-                                            animate={{ x: ['-100%', '100%'] }}
-                                            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                        />
-                                    </motion.div>
-                                </div>
-                                <div className="flex justify-between text-xs text-zinc-500 font-medium uppercase tracking-wider">
-                                    <span>Processing</span>
-                                    <span>{Math.floor(visualProgress)}%</span>
-                                </div>
-                            </div>
-                        </motion.div>
+                         <div className="flex items-center justify-between mb-2">
+                             <div className="flex items-center gap-2 text-yellow-500">
+                                 <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
+                                 <span className="text-xs font-bold tracking-wide uppercase">Generating...</span>
+                             </div>
+                             <span className="text-xs text-zinc-400 font-mono">{Math.floor(visualProgress || 0)}%</span>
+                         </div>
+                         <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
+                             <motion.div 
+                               className="absolute h-full bg-yellow-500" 
+                               style={{width: `${visualProgress || 0}%`}} 
+                             >
+                                <motion.div 
+                                    className="absolute inset-0 bg-white/30"
+                                    animate={{ x: ['-100%', '100%'] }}
+                                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                />
+                             </motion.div>
+                         </div>
+                         <p className="text-[10px] text-zinc-500 truncate font-medium">{progressStep}</p>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -309,7 +311,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                     <div>
                                         <h3 className="text-zinc-300 font-medium text-lg">Ready to create</h3>
                                         <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
-                                            Select a mode above to start generating images or prompts.
+                                            Select a mode, configure settings, and click Generate.
                                         </p>
                                     </div>
                                 </div>
@@ -330,7 +332,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                     }
                                 }}
                                 className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
-                                    isGenerating ? 'cursor-wait' : (isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in')
+                                    isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
                                 }`}
                                 style={isZoomed ? {
                                     height: '200%',
@@ -457,7 +459,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
             </AnimatePresence>
 
-            {/* Viewport Overlays (Comparison, Close, Mini Progress) */}
+            {/* Viewport Overlays (Comparison, Close) */}
             <div className="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-6">
                  {/* Top Row: Close Button (Disabled when Info panel is open to prevent duplicate buttons) */}
                  <div className="flex justify-end mr-8">
@@ -473,7 +475,7 @@ const Canvas: React.FC<CanvasProps> = ({
                     )}
                  </div>
 
-                 {/* Bottom Row: Comparison & Mini-Progress */}
+                 {/* Bottom Row: Comparison */}
                  <div className="flex items-end justify-between w-full">
                      {/* Comparison Image */}
                      <div className="pointer-events-auto">
@@ -496,47 +498,12 @@ const Canvas: React.FC<CanvasProps> = ({
                             </motion.div>
                         )}
                      </div>
-
-                     {/* Mini Progress Widget */}
-                     <div className="pointer-events-auto">
-                         <AnimatePresence>
-                            {isGenerating && !showFullProgress && (
-                                 <motion.div 
-                                    initial={{ opacity: 0, y: 20, x: 20 }}
-                                    animate={{ opacity: 1, y: 0, x: 0 }}
-                                    exit={{ opacity: 0, y: 20, x: 20 }}
-                                    className="w-64 bg-zinc-900/90 border border-yellow-500/30 p-3 rounded-xl shadow-2xl backdrop-blur-md"
-                                 >
-                                     <div className="flex items-center justify-between mb-2">
-                                         <div className="flex items-center gap-2 text-yellow-500">
-                                             <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={12}/></motion.span>
-                                             <span className="text-[10px] font-bold tracking-wide uppercase">Processing...</span>
-                                         </div>
-                                         <span className="text-[10px] text-zinc-400 font-mono">{Math.floor(visualProgress)}%</span>
-                                     </div>
-                                     <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden mb-1 relative">
-                                         <motion.div 
-                                           className="absolute h-full bg-yellow-500" 
-                                           style={{width: `${visualProgress}%`}} 
-                                         >
-                                            <motion.div 
-                                                className="absolute inset-0 bg-white/30"
-                                                animate={{ x: ['-100%', '100%'] }}
-                                                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                            />
-                                         </motion.div>
-                                     </div>
-                                     <p className="text-[10px] text-zinc-500 truncate font-medium">{progressStep}</p>
-                                 </motion.div>
-                              )}
-                          </AnimatePresence>
-                     </div>
                  </div>
             </div>
          </div>
       </div>
 
-      {/* 3. History Strip (Footer) */}
+      {/* 3. History Strip (Footer) - Global History */}
       <motion.div 
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
@@ -579,16 +546,15 @@ const Canvas: React.FC<CanvasProps> = ({
                     key={item.id}
                     onClick={() => handleHistorySelect(item)}
                     className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
-                        !isGenerating && (
+                        (
                         (item.type === 'image' && currentState.generatedImage === item.url) || 
                         (item.type === 'text' && currentState.generatedText === item.text)
                         ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
                     }`}
-                    title={item.type === 'image' ? 'View Image' : 'View Prompt Text'}
+                    title={`View in ${item.metadata?.mode}`}
                     draggable={item.type === 'image'}
                     onDragStart={(e) => {
                         if (item.type === 'image') {
-                        // We must use React.DragEvent to avoid TS errors or cast it
                         const dragEvent = e as unknown as React.DragEvent;
                         dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
                         dragEvent.dataTransfer.effectAllowed = 'copy';

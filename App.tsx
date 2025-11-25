@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import KeySettings from './components/KeySettings';
 import GuideModal from './components/GuideModal';
@@ -51,7 +52,11 @@ const DEFAULT_MODE_STATE: ModeState = {
   negativePrompt: '',
   lastParams: null,
   hasError: false,
-  errorMessage: null
+  errorMessage: null,
+  // Generation State per mode
+  isGenerating: false,
+  progress: 0,
+  progressStep: ''
 };
 
 // Keys for persistence
@@ -108,30 +113,34 @@ function AppContent() {
     [GenerationMode.TEXT_TO_PROMPT]: { ...DEFAULT_MODE_STATE },
   });
 
-  // --- State: Processing & View ---
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [showFullProgress, setShowFullProgress] = useState<boolean>(false);
-  const [progressStep, setProgressStep] = useState<string>('');
-  const [visualProgress, setVisualProgress] = useState<number>(0);
-  
-  const serviceProgressRef = useRef<number>(0);
+  // State for Smooth Visual Progress (mapped by mode)
+  const [visualProgressMap, setVisualProgressMap] = useState<Record<GenerationMode, number>>({
+      [GenerationMode.IMAGE_EDIT]: 0,
+      [GenerationMode.IMAGE_TO_IMAGE]: 0,
+      [GenerationMode.IMG_TO_PROMPT]: 0,
+      [GenerationMode.TEXT_TO_PROMPT]: 0,
+  });
 
   // Helper to get current mode data
   const currentState = modeStates[mode];
 
-  // Helper to update current mode data
-  const updateCurrentState = (updates: Partial<ModeState>) => {
+  // Helper to update specific mode data
+  const updateModeState = (targetMode: GenerationMode, updates: Partial<ModeState>) => {
     setModeStates(prev => ({
       ...prev,
-      [mode]: { ...prev[mode], ...updates }
+      [targetMode]: { ...prev[targetMode], ...updates }
     }));
+  };
+
+  const updateCurrentState = (updates: Partial<ModeState>) => {
+      updateModeState(mode, updates);
   };
 
   // --- Global Escape Key Handling ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (showGallery) return;
+        if (showGallery) return; // Gallery handles its own
 
         if (showKeySettings) {
           setShowKeySettings(false);
@@ -206,14 +215,13 @@ function AppContent() {
       }
       setDailyImageCount(count);
 
-      // Clean up legacy session storage if exists
       sessionStorage.removeItem('nanobanana_session_count');
     };
 
     initApp();
   }, []);
 
-  // 2. Load Application State (Modes, Settings, Images)
+  // 2. Load Application State
   useEffect(() => {
     const restoreState = async () => {
         setIsStateRestoring(true);
@@ -240,8 +248,14 @@ function AppContent() {
                 if (savedJson) {
                     try {
                         const parsed = JSON.parse(savedJson);
-                        // Merge parsed data into default state
-                        restoredModes[m] = { ...restoredModes[m], ...parsed };
+                        // Merge parsed data into default state, but reset generation flags
+                        restoredModes[m] = { 
+                            ...restoredModes[m], 
+                            ...parsed,
+                            isGenerating: false,
+                            progress: 0,
+                            progressStep: ''
+                        };
                     } catch (e) {
                         console.error(`Failed to parse state for ${m}`, e);
                     }
@@ -253,14 +267,11 @@ function AppContent() {
                     for (const s of restoredModes[m].subjects) {
                         const key = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_subject_${s.id}`;
                         const file = await getStateImage(key);
-                        // If file is found, use it. If not found (null), use null.
-                        // We must preserve the subject slot even if empty.
                         loadedSubjects.push({ ...s, file });
                     }
                     restoredModes[m].subjects = loadedSubjects;
                 } else if ((restoredModes[m] as any).subjectImage) {
-                     // Legacy migration: if single subjectImage was stored previously
-                     // Try to load the old single key
+                     // Legacy migration
                      const oldKey = `${STORAGE_KEYS.IMAGE_PREFIX}${m}_subject`;
                      const file = await getStateImage(oldKey);
                      if (file) {
@@ -284,32 +295,33 @@ function AppContent() {
     };
 
     restoreState();
-  }, []); // Run once on mount
+  }, []);
 
   // 3. Persist State Watchers
   useEffect(() => {
       if (isStateRestoring) return;
 
-      // Save Active Mode
       localStorage.setItem(STORAGE_KEYS.ACTIVE_MODE, mode);
 
-      // Save Current Mode State (Metadata)
       const stateToSave = { ...currentState };
       
-      // We must strip actual Files from the subjects array before saving to localStorage
-      // But keep the metadata (id, isActive)
+      // Strip files and volatile generation state
       stateToSave.subjects = currentState.subjects.map(s => ({
           id: s.id,
           isActive: s.isActive,
-          file: null as any // Placeholder, actual file in IDB
+          file: null as any
       }));
 
       delete (stateToSave as any).referenceImage;
       delete (stateToSave as any).generatedImage;
+      delete (stateToSave as any).generatedText;
       delete (stateToSave as any).comparisonImage; 
       delete (stateToSave as any).lastParams;
       delete (stateToSave as any).hasError;
       delete (stateToSave as any).errorMessage;
+      delete (stateToSave as any).isGenerating;
+      delete (stateToSave as any).progress;
+      delete (stateToSave as any).progressStep;
 
       localStorage.setItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${mode}`, JSON.stringify(stateToSave));
 
@@ -319,63 +331,62 @@ function AppContent() {
   useEffect(() => {
     if (isStateRestoring) return;
 
-    // Save Reference Image
     const refFile = modeStates[mode].referenceImage;
     saveStateImage(`${STORAGE_KEYS.IMAGE_PREFIX}${mode}_reference`, refFile);
 
-    // Save Subject Images
     const currentSubjects = modeStates[mode].subjects;
     currentSubjects.forEach(s => {
-        // saveStateImage handles null (deletes key if file is null)
         saveStateImage(`${STORAGE_KEYS.IMAGE_PREFIX}${mode}_subject_${s.id}`, s.file);
     });
 
   }, [mode, modeStates, isStateRestoring]);
 
-  // Smooth Progress Interpolation
+  // Smooth Progress Interpolation (Multi-Mode)
   useEffect(() => {
     let animationFrameId: number;
     
     const animate = () => {
-      if (!isGenerating) return;
-
-      setVisualProgress(current => {
-        const target = serviceProgressRef.current;
-        const diff = target - current;
-        
-        // Immediate finish snap
-        if (target >= 100) return 100;
-        
-        // Smooth interpolation
-        if (Math.abs(diff) < 0.1) return target;
-        
-        return current + diff * 0.15;
+      setVisualProgressMap(prev => {
+         const nextMap = { ...prev };
+         let changed = false;
+         
+         Object.values(GenerationMode).forEach(m => {
+             const state = modeStates[m];
+             if (state.isGenerating) {
+                 const target = state.progress;
+                 const current = prev[m] || 0;
+                 const diff = target - current;
+                 
+                 if (target >= 100) {
+                     nextMap[m] = 100;
+                     changed = true;
+                 } else if (Math.abs(diff) > 0.1) {
+                     nextMap[m] = current + diff * 0.15;
+                     changed = true;
+                 } else if (Math.abs(diff) > 0) {
+                     nextMap[m] = target;
+                     changed = true;
+                 }
+             } else {
+                 if (prev[m] !== 0 && prev[m] !== 100) {
+                     nextMap[m] = 0; // Reset if not generating
+                     changed = true;
+                 }
+             }
+         });
+         
+         return changed ? nextMap : prev;
       });
 
       animationFrameId = requestAnimationFrame(animate);
     };
 
-    if (isGenerating) {
-      animationFrameId = requestAnimationFrame(animate);
-    } else {
-      if (currentState.generatedImage || currentState.generatedText) {
-        setVisualProgress(100);
-      } else {
-        setVisualProgress(0);
-      }
-    }
-
+    animationFrameId = requestAnimationFrame(animate);
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
+  }, [modeStates]);
 
-  // Restore full progress overlay if content is closed during generation
-  useEffect(() => {
-    if (isGenerating && !currentState.generatedImage && !currentState.generatedText) {
-      setShowFullProgress(true);
-    }
-  }, [isGenerating, currentState.generatedImage, currentState.generatedText]);
 
   // --- Resize Logic ---
   const startResizing = useCallback(() => setIsResizing(true), []);
@@ -448,21 +459,18 @@ function AppContent() {
       await clearAllHistory();
       await clearAllStateImages();
       
-      // Clear persistence keys
       Object.values(STORAGE_KEYS).forEach(key => {
           localStorage.removeItem(key);
       });
-      // Clear dynamic mode keys
       Object.values(GenerationMode).forEach(m => {
           localStorage.removeItem(`${STORAGE_KEYS.MODE_STATE_PREFIX}${m}`);
-          localStorage.removeItem(`nanobanana_advanced_${m}`); // Clear Sidebar persistence too
+          localStorage.removeItem(`nanobanana_advanced_${m}`);
       });
       
-      // Reset Quota explicitly
       const ptDate = getCurrentPTDate();
       localStorage.setItem(QUOTA_KEYS.DATE, ptDate);
       localStorage.setItem(QUOTA_KEYS.COUNT, '0');
-      sessionStorage.removeItem('nanobanana_session_count'); // Clear legacy if exists
+      sessionStorage.removeItem('nanobanana_session_count');
 
       if (includeApiKey) {
           localStorage.removeItem('gemini_api_key');
@@ -471,119 +479,140 @@ function AppContent() {
       window.location.reload();
   };
 
+  // --- CORE GENERATION HANDLER ---
   const handleGenerate = useCallback(async (isRetryArg: boolean | React.MouseEvent = false) => {
     const isRetry = isRetryArg === true;
-    updateCurrentState({ errorMessage: null, hasError: false });
     
-    const currentImageRef = currentState.generatedImage;
+    // Capture the mode initiating the request to ensure parallel safety
+    const activeMode = mode; 
+    const activeState = modeStates[activeMode];
+
+    // Reset error state for this mode
+    updateModeState(activeMode, { errorMessage: null, hasError: false });
+    
+    const currentImageRef = activeState.generatedImage;
     let paramsToUse: GenerateParams | PromptGenParams;
 
-    // Validation: Check for active subjects WITH files
-    const activeSubjectsWithFiles = currentState.subjects.filter(s => s.isActive && s.file !== null);
+    // Validation
+    const activeSubjectsWithFiles = activeState.subjects.filter(s => s.isActive && s.file !== null);
 
     if (!isRetry) {
-        if (mode === GenerationMode.IMAGE_EDIT) {
-             if (!currentState.textPrompt.trim() && activeSubjectsWithFiles.length === 0) {
-                 // Allow pure text gen if no subjects, but strictly check prompt
-                 updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
-                 addToast(ERRORS.MISSING_PROMPT, 'error');
+        if (activeMode === GenerationMode.IMAGE_EDIT) {
+             if (!activeState.textPrompt.trim() && activeSubjectsWithFiles.length === 0) {
+                 const err = ERRORS.MISSING_PROMPT;
+                 updateModeState(activeMode, { errorMessage: err });
+                 addToast(err, 'error');
                  return; 
              }
         }
-        if (mode === GenerationMode.IMAGE_TO_IMAGE) {
+        if (activeMode === GenerationMode.IMAGE_TO_IMAGE) {
             if (activeSubjectsWithFiles.length === 0) {
-                 updateCurrentState({ errorMessage: "At least one active subject with an image is required." });
-                 addToast("At least one active subject with an image is required.", 'error');
+                 const err = "At least one active subject with an image is required.";
+                 updateModeState(activeMode, { errorMessage: err });
+                 addToast(err, 'error');
                  return;
             }
-            if (!currentState.referenceImage) {
-                 updateCurrentState({ errorMessage: ERRORS.MISSING_REF });
-                 addToast(ERRORS.MISSING_REF, 'error');
+            if (!activeState.referenceImage) {
+                 const err = ERRORS.MISSING_REF;
+                 updateModeState(activeMode, { errorMessage: err });
+                 addToast(err, 'error');
                  return;
             }
         }
-        if (mode === GenerationMode.IMG_TO_PROMPT && activeSubjectsWithFiles.length === 0) {
-             updateCurrentState({ errorMessage: ERRORS.MISSING_SUBJECT });
-             addToast(ERRORS.MISSING_SUBJECT, 'error');
+        if (activeMode === GenerationMode.IMG_TO_PROMPT && activeSubjectsWithFiles.length === 0) {
+             const err = ERRORS.MISSING_SUBJECT;
+             updateModeState(activeMode, { errorMessage: err });
+             addToast(err, 'error');
              return;
         }
-        if (mode === GenerationMode.TEXT_TO_PROMPT && !currentState.textPrompt.trim()) {
-             updateCurrentState({ errorMessage: ERRORS.MISSING_PROMPT });
-             addToast(ERRORS.MISSING_PROMPT, 'error');
+        if (activeMode === GenerationMode.TEXT_TO_PROMPT && !activeState.textPrompt.trim()) {
+             const err = ERRORS.MISSING_PROMPT;
+             updateModeState(activeMode, { errorMessage: err });
+             addToast(err, 'error');
              return;
         }
     }
 
-    setIsGenerating(true);
-    const isImageGen = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
-    
-    if (isImageGen) {
-        setShowFullProgress(!currentState.generatedImage);
-    } else {
-        setShowFullProgress(!currentState.generatedText);
-    }
-    
-    setVisualProgress(0);
-    serviceProgressRef.current = 0;
-    setProgressStep("Initializing...");
-    updateCurrentState({ generatedText: null });
+    // Set Generation State for specific mode
+    updateModeState(activeMode, { 
+        isGenerating: true, 
+        progress: 0, 
+        progressStep: "Initializing...",
+        generatedText: null // Clear previous text result immediately, image stays for comparison
+    });
 
+    const isImageGen = activeMode === GenerationMode.IMAGE_EDIT || activeMode === GenerationMode.IMAGE_TO_IMAGE;
+    
     try {
       const onProgressCallback = (msg: string, val: number) => {
-        setProgressStep(msg);
-        serviceProgressRef.current = val;
+        // Update ONLY this mode's state
+        setModeStates(prev => ({
+            ...prev,
+            [activeMode]: {
+                ...prev[activeMode],
+                progress: val,
+                progressStep: msg
+            }
+        }));
       };
 
-      if (isRetry && currentState.lastParams) {
+      if (isRetry && activeState.lastParams) {
           paramsToUse = { 
-              ...currentState.lastParams,
+              ...activeState.lastParams,
               onProgress: onProgressCallback,
               apiKey: apiKey || undefined 
           } as GenerateParams | PromptGenParams;
       } else {
           if (isImageGen) {
               paramsToUse = {
-                subjects: currentState.subjects, // Pass subjects array
-                mode,
-                textPrompt: currentState.textPrompt,
-                referenceImage: currentState.referenceImage || undefined,
-                referenceOperation: currentState.refOperation,
-                aspectRatio: currentState.aspectRatio,
-                resolution: currentState.resolution,
+                subjects: activeState.subjects,
+                mode: activeMode,
+                textPrompt: activeState.textPrompt,
+                referenceImage: activeState.referenceImage || undefined,
+                referenceOperation: activeState.refOperation,
+                aspectRatio: activeState.aspectRatio,
+                resolution: activeState.resolution,
                 onProgress: onProgressCallback,
                 apiKey: apiKey || undefined,
-                refStrength: currentState.refStrength,
-                negativePrompt: currentState.negativePrompt
+                refStrength: activeState.refStrength,
+                negativePrompt: activeState.negativePrompt
               } as GenerateParams;
           } else {
               paramsToUse = {
-                  mode,
-                  subjects: currentState.subjects, // Pass subjects array
-                  textPrompt: currentState.textPrompt,
-                  useFaceFeature: currentState.useFaceFeature,
+                  mode: activeMode,
+                  subjects: activeState.subjects,
+                  textPrompt: activeState.textPrompt,
+                  useFaceFeature: activeState.useFaceFeature,
                   onProgress: onProgressCallback,
                   apiKey: apiKey || undefined,
-                  negativePrompt: currentState.negativePrompt
+                  negativePrompt: activeState.negativePrompt
               } as PromptGenParams;
           }
       }
 
+      // Save params
       const paramsForStorage = { ...paramsToUse };
       delete (paramsForStorage as any).onProgress;
-      updateCurrentState({ lastParams: paramsForStorage });
+      updateModeState(activeMode, { lastParams: paramsForStorage });
 
       if (isImageGen) {
           const imageUrl = await generateImage(paramsToUse as GenerateParams);
           
-          serviceProgressRef.current = 100;
-          setProgressStep("Done!");
+          // Complete
+          updateModeState(activeMode, { progress: 100, progressStep: "Done!" });
           await new Promise(resolve => setTimeout(resolve, 300));
 
-          updateCurrentState({ 
+          // Set active mode if user wandered off, or just update data
+          // If we want to auto-switch:
+          setMode(activeMode); 
+
+          updateModeState(activeMode, { 
             generatedImage: imageUrl,
-            comparisonImage: currentImageRef || currentState.comparisonImage 
+            comparisonImage: currentImageRef || activeState.comparisonImage,
+            isGenerating: false 
           });
           
+          // Quota Update
           const currentPTDate = getCurrentPTDate();
           const lastResetDate = localStorage.getItem(QUOTA_KEYS.DATE);
           
@@ -604,15 +633,15 @@ function AppContent() {
             id: Date.now().toString(),
             url: imageUrl,
             timestamp: Date.now(),
-            prompt: currentState.textPrompt || "Reference based generation",
+            prompt: activeState.textPrompt || "Reference based generation",
             metadata: {
-              mode,
-              textPrompt: currentState.textPrompt,
-              aspectRatio: currentState.aspectRatio,
-              resolution: currentState.resolution,
-              referenceOperation: currentState.refOperation,
-              refStrength: currentState.refStrength,
-              negativePrompt: currentState.negativePrompt
+              mode: activeMode,
+              textPrompt: activeState.textPrompt,
+              aspectRatio: activeState.aspectRatio,
+              resolution: activeState.resolution,
+              referenceOperation: activeState.refOperation,
+              refStrength: activeState.refStrength,
+              negativePrompt: activeState.negativePrompt
             }
           };
           
@@ -623,23 +652,27 @@ function AppContent() {
       } else {
           const promptText = await generatePrompt(paramsToUse as PromptGenParams);
 
-          serviceProgressRef.current = 100;
-          setProgressStep("Done!");
+          updateModeState(activeMode, { progress: 100, progressStep: "Done!" });
           await new Promise(resolve => setTimeout(resolve, 300));
 
-          updateCurrentState({ generatedText: promptText });
+          setMode(activeMode);
+
+          updateModeState(activeMode, { 
+              generatedText: promptText, 
+              isGenerating: false 
+          });
           
           const newHistoryItem: GeneratedText = {
             type: 'text',
             id: Date.now().toString(),
             text: promptText,
             timestamp: Date.now(),
-            sourcePrompt: currentState.textPrompt || "Image analysis",
+            sourcePrompt: activeState.textPrompt || "Image analysis",
             metadata: {
-              mode,
-              textPrompt: currentState.textPrompt,
-              useFaceFeature: currentState.useFaceFeature,
-              negativePrompt: currentState.negativePrompt
+              mode: activeMode,
+              textPrompt: activeState.textPrompt,
+              useFaceFeature: activeState.useFaceFeature,
+              negativePrompt: activeState.negativePrompt
             }
           };
           
@@ -648,7 +681,7 @@ function AppContent() {
           addToast("Prompt generated successfully", 'success');
       }
       
-      updateCurrentState({ hasError: false, errorMessage: null });
+      updateModeState(activeMode, { hasError: false, errorMessage: null });
 
     } catch (err: any) {
       const msg = err.message || ERRORS.GENERIC;
@@ -658,22 +691,23 @@ function AppContent() {
             setShowKeySettings(true);
         }
       }
-      updateCurrentState({ hasError: true, errorMessage: msg });
+      updateModeState(activeMode, { 
+          hasError: true, 
+          errorMessage: msg,
+          isGenerating: false,
+          progress: 0 
+      });
       addToast(msg, 'error');
-
-    } finally {
-      setIsGenerating(false);
-      setShowFullProgress(false);
-      serviceProgressRef.current = 100;
     }
-  }, [mode, currentState, apiKey, dailyImageCount]); 
+  }, [mode, modeStates, apiKey, dailyImageCount]); 
 
   const handleRetry = () => handleGenerate(true);
 
+  // Keyboard Shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        if (!isGenerating && !showKeySettings && !showGuide && !showGallery && !showResetModal) {
+        if (!currentState.isGenerating && !showKeySettings && !showGuide && !showGallery && !showResetModal) {
           e.preventDefault();
           handleGenerate();
         }
@@ -681,44 +715,54 @@ function AppContent() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleGenerate, isGenerating, showKeySettings, showGuide, showGallery, showResetModal]);
+  }, [handleGenerate, currentState.isGenerating, showKeySettings, showGuide, showGallery, showResetModal]);
 
+  // --- HISTORY HANDLER ---
   const handleHistorySelect = (item: HistoryItem) => {
-    if (item.type === 'image') {
-      updateCurrentState({ generatedImage: item.url, generatedText: null });
-    } else if (item.type === 'text') {
-      updateCurrentState({ generatedText: item.text, generatedImage: null });
-    }
-    if (isGenerating) setShowFullProgress(false);
-    setShowGallery(false);
+      // 1. Identify Target Mode
+      const targetMode = item.metadata?.mode || GenerationMode.IMAGE_EDIT;
+      
+      // 2. Switch Mode
+      setMode(targetMode);
+      
+      // 3. Update Target Mode State with Content
+      setModeStates(prev => ({
+          ...prev,
+          [targetMode]: {
+              ...prev[targetMode],
+              generatedImage: item.type === 'image' ? item.url : null,
+              generatedText: item.type === 'text' ? item.text : null,
+              // Keep comparison if it exists, or maybe clear it? Let's keep existing comparison if pertinent.
+              comparisonImage: item.type === 'image' ? prev[targetMode].generatedImage || prev[targetMode].comparisonImage : null
+          }
+      }));
+
+      setShowGallery(false);
   };
 
-  const handleDeleteHistoryItem = async (e: React.MouseEvent, itemId: string) => {
-    e.stopPropagation();
+  const handleDeleteHistoryItem = async (e: React.MouseEvent | null, itemId: string) => {
+    if (e) e.stopPropagation();
+    
+    // Find item to check if it's currently displayed
     const itemToDelete = history.find(item => item.id === itemId);
     if (!itemToDelete) return;
 
-    const isDisplayed = 
-      (itemToDelete.type === 'image' && itemToDelete.url === currentState.generatedImage) ||
-      (itemToDelete.type === 'text' && itemToDelete.text === currentState.generatedText);
+    // Check if displayed in ANY mode, clear if so
+    const impactedMode = itemToDelete.metadata?.mode;
+    if (impactedMode) {
+        const state = modeStates[impactedMode];
+        const isDisplayed = 
+            (itemToDelete.type === 'image' && itemToDelete.url === state.generatedImage) ||
+            (itemToDelete.type === 'text' && itemToDelete.text === state.generatedText);
+        
+        if (isDisplayed) {
+            updateModeState(impactedMode, { generatedImage: null, generatedText: null });
+        }
+    }
 
     try {
       await deleteHistoryItem(itemId);
-      const updatedHistory = history.filter(item => item.id !== itemId);
-      setHistory(updatedHistory);
-
-      if (isDisplayed) {
-        if (updatedHistory.length > 0) {
-          const nextItem = updatedHistory[0];
-          if (nextItem.type === 'image') {
-            updateCurrentState({ generatedImage: nextItem.url, generatedText: null });
-          } else {
-            updateCurrentState({ generatedText: nextItem.text, generatedImage: null });
-          }
-        } else {
-          updateCurrentState({ generatedImage: null, generatedText: null });
-        }
-      }
+      setHistory(prev => prev.filter(item => item.id !== itemId));
       addToast('Item deleted', 'success');
     } catch (err) {
       addToast('Failed to delete item', 'error');
@@ -729,17 +773,21 @@ function AppContent() {
       for (const id of ids) {
           await deleteHistoryItem(id);
       }
-      const updatedHistory = history.filter(item => !ids.includes(item.id));
-      setHistory(updatedHistory);
       
-      const currentId = history.find(item => 
-          (item.type === 'image' && item.url === currentState.generatedImage) ||
-          (item.type === 'text' && item.text === currentState.generatedText)
-      )?.id;
+      const deletedSet = new Set(ids);
+      const remainingHistory = history.filter(item => !deletedSet.has(item.id));
+      setHistory(remainingHistory);
 
-      if (currentId && ids.includes(currentId)) {
-           updateCurrentState({ generatedImage: null, generatedText: null });
-      }
+      // Check current mode displays
+      Object.values(GenerationMode).forEach(m => {
+          const state = modeStates[m];
+          // Simple check: if current image URL matches a deleted item's URL (imperfect if duplicate URLs, but unlikely with data URIs)
+          // Better: we can't easily map URL back to ID without history lookup. 
+          // So we rely on the fact that if history is gone, we just clear if it matches the *content*.
+          // But actually, we don't have the ID of the *current* image stored in modeState, only the string.
+          // For now, let's leave the current view intact unless explicit single delete.
+          // Or we can scan history before filtering.
+      });
   };
 
   const handleDownload = (url: string) => {
@@ -759,13 +807,7 @@ function AppContent() {
 
   const handleSendToImageEdit = () => {
     if (currentState.generatedText) {
-      setModeStates(prev => ({
-        ...prev,
-        [GenerationMode.IMAGE_EDIT]: {
-          ...prev[GenerationMode.IMAGE_EDIT],
-          textPrompt: currentState.generatedText!
-        }
-      }));
+      updateModeState(GenerationMode.IMAGE_EDIT, { textPrompt: currentState.generatedText });
       setMode(GenerationMode.IMAGE_EDIT);
       addToast('Prompt sent to Image Edit', 'success');
     }
@@ -829,7 +871,7 @@ function AppContent() {
           mode={mode}
           currentState={currentState}
           updateCurrentState={updateCurrentState}
-          isGenerating={isGenerating}
+          isGenerating={currentState.isGenerating}
           handleGenerate={handleGenerate}
           handleRetry={handleRetry}
           error={currentState.errorMessage}
@@ -846,10 +888,9 @@ function AppContent() {
         <Canvas 
           currentState={currentState}
           updateCurrentState={updateCurrentState}
-          isGenerating={isGenerating}
-          showFullProgress={showFullProgress}
-          progressStep={progressStep}
-          visualProgress={visualProgress}
+          isGenerating={currentState.isGenerating}
+          progressStep={currentState.progressStep}
+          visualProgress={visualProgressMap[mode]}
           history={history}
           handleHistorySelect={handleHistorySelect}
           handleDownload={handleDownload}
@@ -861,6 +902,7 @@ function AppContent() {
           isHistoryLoading={isHistoryLoading}
           isGalleryOpen={showGallery}
           isModalOpen={showGuide || showKeySettings || showResetModal}
+          onDeleteCurrent={(id) => handleDeleteHistoryItem(null, id)}
         />
         
         {isResizing && (

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -235,13 +236,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
 
   const displayError = error || currentState.errorMessage;
+  
+  // Show multi-subject only in Image modes
+  const showMultiSubjectUI = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
 
   return (
     <aside 
       style={{ width }}
       className="flex-none flex flex-col border-r border-zinc-800 bg-zinc-950 overflow-y-auto"
       onClick={() => {
-          // Clicking sidebar bg clears specific focus if not handled by child
           setFocusedSubjectId(null);
           setActiveTarget(null);
       }}
@@ -253,9 +256,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         className="p-6 space-y-8"
       >
         
-        {/* Subject Image Section */}
+        {/* Subject Image Section - Conditional */}
         <AnimatePresence mode="popLayout">
-            {mode !== GenerationMode.TEXT_TO_PROMPT && (
+            {showMultiSubjectUI && (
                 <motion.section 
                     key="subject-input"
                     initial={{ opacity: 0, height: 0 }}
@@ -354,13 +357,43 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 </motion.section>
             )}
+            
+            {/* For Prompt Gen modes, provide single File Input if needed (Img To Prompt) */}
+            {mode === GenerationMode.IMG_TO_PROMPT && (
+                 <motion.section 
+                    key="single-subject"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-2"
+                >
+                     <div className="flex items-center gap-2 text-zinc-100 font-medium">
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
+                        Source Image
+                     </div>
+                     <FileUpload 
+                         label=""
+                         helperText="Image to analyze"
+                         selectedFile={currentState.subjects[0]?.file || null}
+                         onFileSelect={(file) => {
+                             // Use subject slot 0 for ImgToPrompt
+                             const newSub = { id: '0', file, isActive: true };
+                             updateCurrentState({ subjects: [newSub] });
+                         }}
+                         required
+                         className="mb-2"
+                         isActive={activeTarget === 'subject'} // Reusing 'subject' target logic slightly
+                         onActivate={() => setActiveTarget('subject')}
+                     />
+                </motion.section>
+            )}
         </AnimatePresence>
 
         {/* Mode Specific Inputs */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 text-zinc-100 font-medium">
             <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
-                {mode === GenerationMode.TEXT_TO_PROMPT ? '1' : '2'}
+                {showMultiSubjectUI || mode === GenerationMode.IMG_TO_PROMPT ? '2' : '1'}
             </div>
             {mode === GenerationMode.IMAGE_EDIT ? 'Prompt Instructions' : 
              mode === GenerationMode.IMAGE_TO_IMAGE ? 'Reference & Operation' : 
@@ -571,7 +604,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className="space-y-4"
                 >
                 <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">3</div>
+                    <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
+                        {showMultiSubjectUI ? '3' : '2'}
+                    </div>
                     Image Settings
                 </div>
                 <div className="grid grid-cols-2 gap-3">

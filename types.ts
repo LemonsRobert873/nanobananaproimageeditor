@@ -1,4 +1,5 @@
 
+
 export enum GenerationMode {
   IMAGE_EDIT = 'IMAGE_EDIT',            // Formerly Text Prompt
   IMAGE_TO_IMAGE = 'IMAGE_TO_IMAGE',    // Formerly Image Reference
@@ -105,6 +106,10 @@ export interface ModeState {
   lastParams: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'> | null;
   hasError: boolean;
   errorMessage: string | null;
+  // Per-Mode Generation State
+  isGenerating: boolean;
+  progress: number;
+  progressStep: string;
 }
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
