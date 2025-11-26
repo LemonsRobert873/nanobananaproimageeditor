@@ -508,10 +508,12 @@ function AppContent() {
       if (processingJobIdsRef.current.has(job.id)) return;
       processingJobIdsRef.current.add(job.id);
 
+      const startTime = Date.now();
+
       // 1. Update status to processing
       setModeStates(prev => {
           const queue = prev[mode].queue.map(j => 
-            j.id === job.id ? { ...j, status: 'processing' as const, startedAt: Date.now() } : j
+            j.id === job.id ? { ...j, status: 'processing' as const, startedAt: startTime } : j
           );
           return { ...prev, [mode]: { ...prev[mode], queue } };
       });
@@ -537,6 +539,8 @@ function AppContent() {
           if (isImageGen) {
               const imageUrl = await generateImage(paramsToUse as GenerateParams);
               
+              const duration = Date.now() - startTime;
+
               // Complete 100%
               setModeStates(prev => {
                   const queue = prev[mode].queue.map(j => 
@@ -590,7 +594,8 @@ function AppContent() {
                   referenceOperation: mode === GenerationMode.IMAGE_TO_IMAGE ? (job.params as GenerateParams).referenceOperation : undefined,
                   refStrength: mode === GenerationMode.IMAGE_TO_IMAGE ? (job.params as GenerateParams).refStrength : undefined,
                   negativePrompt: (job.params as GenerateParams).negativePrompt,
-                  model: (job.params as GenerateParams).modelName
+                  model: (job.params as GenerateParams).modelName,
+                  duration: duration
                 }
               };
               
@@ -600,6 +605,8 @@ function AppContent() {
 
           } else {
               const promptText = await generatePrompt(paramsToUse as PromptGenParams);
+              
+              const duration = Date.now() - startTime;
 
               setModeStates(prev => {
                   const queue = prev[mode].queue.map(j => 
@@ -629,7 +636,8 @@ function AppContent() {
                   mode: mode,
                   textPrompt: (job.params as PromptGenParams).textPrompt,
                   useFaceFeature: (job.params as PromptGenParams).useFaceFeature,
-                  negativePrompt: (job.params as PromptGenParams).negativePrompt
+                  negativePrompt: (job.params as PromptGenParams).negativePrompt,
+                  duration: duration
                 }
               };
               

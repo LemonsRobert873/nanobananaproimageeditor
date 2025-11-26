@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -31,6 +29,37 @@ interface CanvasProps {
   isGenerating?: boolean;
   onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
 }
+
+const JobTimer = ({ startedAt, isComplete }: { startedAt: number, isComplete: boolean }) => {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+       if (!isComplete) {
+         setElapsed(Math.max(0, Date.now() - startedAt));
+       }
+    };
+    
+    update();
+    
+    if (isComplete) return;
+
+    const interval = setInterval(update, 30);
+    return () => clearInterval(interval);
+  }, [startedAt, isComplete]);
+
+  const seconds = Math.floor(elapsed / 1000);
+  const centiseconds = Math.floor((elapsed % 1000) / 10);
+
+  const ss = seconds.toString().padStart(2, '0');
+  const ms = centiseconds.toString().padStart(2, '0');
+
+  return (
+    <span className="text-[10px] font-mono text-zinc-400 tabular-nums shrink-0 ml-auto pl-2">
+      {ss}:{ms}s
+    </span>
+  );
+};
 
 const Canvas: React.FC<CanvasProps> = ({
   currentState,
@@ -252,6 +281,7 @@ const Canvas: React.FC<CanvasProps> = ({
                          const isImageGen = !isTextGen && (gen.mode === GenerationMode.IMAGE_EDIT || gen.mode === GenerationMode.IMAGE_TO_IMAGE);
                          const isFlash = isImageGen && !isProModel;
                          const isQueued = gen.status === 'queued';
+                         const isComplete = gen.progress === 100;
 
                          let accentColor, borderColor, barColor;
 
@@ -309,9 +339,13 @@ const Canvas: React.FC<CanvasProps> = ({
                                         </motion.div>
                                       )}
                                   </div>
-                                  <p className="text-[10px] text-zinc-500 truncate font-medium">
-                                      {isQueued ? 'Waiting in queue...' : gen.step}
-                                  </p>
+                                  
+                                  <div className="flex items-center justify-between gap-3">
+                                      <p className="text-[10px] text-zinc-500 truncate font-medium flex-1">
+                                          {isQueued ? 'Waiting in queue...' : gen.step}
+                                      </p>
+                                      {!isQueued && <JobTimer startedAt={gen.startedAt} isComplete={isComplete} />}
+                                  </div>
                              </motion.div>
                          );
                     })}
@@ -427,6 +461,16 @@ const Canvas: React.FC<CanvasProps> = ({
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Model Version</label>
                                     <div className="text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono break-all">
                                         {currentHistoryItem.metadata.model}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Generation Duration - New Field */}
+                            {currentHistoryItem.metadata.duration && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
+                                    <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono">
+                                        {(currentHistoryItem.metadata.duration / 1000).toFixed(2)}s
                                     </div>
                                 </div>
                             )}

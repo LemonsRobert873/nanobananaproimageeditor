@@ -37,6 +37,7 @@ export interface HistoryItemMetadata {
   refStrength?: number;
   negativePrompt?: string;
   model?: string;
+  duration?: number;
 }
 
 export interface GeneratedImage {

@@ -1,9 +1,5 @@
 
 
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Type, Layers } from 'lucide-react';
@@ -765,6 +761,16 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                                     )}
                                 </div>
                              )}
+                        </div>
+                    )}
+
+                    {/* Generation Duration - New Field */}
+                    {item.metadata?.duration && (
+                        <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
+                            <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono">
+                                {(item.metadata.duration / 1000).toFixed(2)}s
+                            </div>
                         </div>
                     )}
 
