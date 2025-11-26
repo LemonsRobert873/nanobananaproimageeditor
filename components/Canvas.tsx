@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -28,6 +26,7 @@ interface CanvasProps {
   onDeleteCurrent?: (id: string) => void;
   isGenerating?: boolean;
   onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
+  isProTheme?: boolean;
 }
 
 const JobTimer = ({ startedAt, isComplete }: { startedAt: number, isComplete: boolean }) => {
@@ -79,6 +78,7 @@ const Canvas: React.FC<CanvasProps> = ({
   onDeleteCurrent,
   isGenerating,
   onSendPromptToMode,
+  isProTheme = true
 }) => {
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
@@ -179,6 +179,9 @@ const Canvas: React.FC<CanvasProps> = ({
       }
   };
 
+  // Border color for selected history item
+  const selectedBorder = isProTheme ? 'border-yellow-500' : 'border-cyan-500';
+
   return (
     <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
       <motion.div 
@@ -198,6 +201,7 @@ const Canvas: React.FC<CanvasProps> = ({
              <>
                <Button 
                   variant="ghost"
+                  isProTheme={isProTheme}
                   onClick={() => onSendPromptToMode(currentState.generatedText!, GenerationMode.IMAGE_EDIT)}
                   className="h-8 px-3 text-xs gap-2 text-zinc-400 hover:text-white"
                >
@@ -205,6 +209,7 @@ const Canvas: React.FC<CanvasProps> = ({
                </Button>
                <Button 
                   variant="ghost"
+                  isProTheme={isProTheme}
                   onClick={() => onSendPromptToMode(currentState.generatedText!, GenerationMode.IMAGE_TO_IMAGE)}
                   className="h-8 px-3 text-xs gap-2 text-zinc-400 hover:text-white"
                >
@@ -213,6 +218,7 @@ const Canvas: React.FC<CanvasProps> = ({
                <div className="w-px h-4 bg-zinc-800" />
                <Button 
                   variant="ghost"
+                  isProTheme={isProTheme}
                   onClick={onCopyText}
                   className="h-8 px-3 text-xs gap-2"
                >
@@ -222,7 +228,8 @@ const Canvas: React.FC<CanvasProps> = ({
           ) : (
             <>
                 <Button 
-                    variant="ghost" 
+                    variant="ghost"
+                    isProTheme={isProTheme}
                     disabled={!currentState.generatedImage} 
                     onClick={() => currentState.generatedImage && onDownload(currentState.generatedImage)}
                     className="h-8 px-3 text-xs gap-2"
@@ -231,6 +238,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 </Button>
                 <Button 
                     variant="ghost" 
+                    isProTheme={isProTheme}
                     disabled={!currentState.generatedImage} 
                     onClick={() => currentState.generatedImage && handleUseAsSubject(currentState.generatedImage)}
                     className="h-8 px-3 text-xs gap-2"
@@ -247,7 +255,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 onClick={() => setShowInfo(!showInfo)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium border ${
                     showInfo 
-                    ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                    ? (isProTheme ? 'bg-yellow-500 border-yellow-500 text-zinc-950 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-cyan-500 border-cyan-500 text-zinc-950 shadow-[0_0_10px_rgba(6,182,212,0.3)]') 
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
                 }`}
                 title="Toggle Info"
@@ -286,9 +294,9 @@ const Canvas: React.FC<CanvasProps> = ({
                          let accentColor, borderColor, barColor;
 
                          if (isTextGen) {
-                            accentColor = 'text-white';
-                            borderColor = 'border-white/20';
-                            barColor = 'bg-white';
+                            accentColor = 'text-cyan-400';
+                            borderColor = 'border-cyan-500/30';
+                            barColor = 'bg-cyan-500';
                          } else {
                             accentColor = isFlash ? 'text-cyan-400' : 'text-yellow-500';
                             borderColor = isFlash ? 'border-cyan-500/30' : 'border-yellow-500/30';
@@ -478,7 +486,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.refStrength !== undefined && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
-                                    <div className="text-sm text-yellow-500 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 flex items-center justify-between">
+                                    <div className={`text-sm font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 flex items-center justify-between ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
                                         <span>{currentHistoryItem.metadata.refStrength}%</span>
                                         <span className="text-xs text-zinc-500">
                                             {currentHistoryItem.metadata.refStrength >= 80 ? 'Strict' : currentHistoryItem.metadata.refStrength <= 40 ? 'Creative' : 'Balanced'}
@@ -527,7 +535,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                                 navigator.clipboard.writeText(currentHistoryItem.metadata.textPrompt!);
                                                 addToast('Copied to clipboard', 'info');
                                             }}
-                                            className="text-[10px] flex items-center gap-1.5 text-zinc-500 hover:text-yellow-500 transition-colors px-2 py-0.5 rounded bg-zinc-800/50 hover:bg-zinc-800"
+                                            className={`text-[10px] flex items-center gap-1.5 text-zinc-500 transition-colors px-2 py-0.5 rounded bg-zinc-800/50 hover:bg-zinc-800 ${isProTheme ? 'hover:text-yellow-500' : 'hover:text-cyan-400'}`}
                                         >
                                             <Copy size={10} /> Copy
                                         </button>
@@ -612,7 +620,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 className="flex flex-col items-center justify-center gap-1.5 w-16 h-16 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-white text-zinc-500 transition-colors group"
                 title="View Full Gallery"
             >
-                <Grid3X3 size={18} className="group-hover:text-yellow-500 transition-colors" />
+                <Grid3X3 size={18} className={`transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'}`} />
                 <span className="text-[10px] font-medium">View All</span>
             </button>
          </div>
@@ -636,14 +644,14 @@ const Canvas: React.FC<CanvasProps> = ({
                     layout
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ scale: 1.05, borderColor: '#EAB308' }}
+                    whileHover={{ scale: 1.05, borderColor: isProTheme ? '#EAB308' : '#22d3ee' }}
                     key={item.id}
                     onClick={() => handleHistorySelect(item)}
                     className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
                         (
                         (item.type === 'image' && currentState.generatedImage === item.url) || 
                         (item.type === 'text' && currentState.generatedText === item.text)
-                        ) ? 'border-yellow-500 opacity-100' : 'border-zinc-800 opacity-60 hover:opacity-100'
+                        ) ? `${selectedBorder} opacity-100` : 'border-zinc-800 opacity-60 hover:opacity-100'
                     }`}
                     title={`View in ${item.metadata?.mode}`}
                     draggable={item.type === 'image'}
@@ -659,7 +667,7 @@ const Canvas: React.FC<CanvasProps> = ({
                         <img src={item.url} draggable="false" className="w-full h-full object-cover" alt="History" />
                     ) : (
                         <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
-                            <MessageSquare size={20} className="mb-1 text-zinc-600 group-hover:text-yellow-500 transition-colors" />
+                            <MessageSquare size={20} className={`mb-1 text-zinc-600 transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'}`} />
                             <div className="w-full space-y-1">
                                 <div className="h-1 w-full bg-zinc-800 rounded-full" />
                                 <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
@@ -668,7 +676,7 @@ const Canvas: React.FC<CanvasProps> = ({
                     )}
                     <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         {item.type === 'text' && (
-                            <div className="bg-zinc-950/80 p-1 rounded text-yellow-500 shadow-sm flex items-center justify-center">
+                            <div className={`bg-zinc-950/80 p-1 rounded shadow-sm flex items-center justify-center ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
                                 <Type size={10} />
                             </div>
                         )}

@@ -8,9 +8,10 @@ interface KeySettingsProps {
   onClose: () => void;
   onSave: (key: string) => void;
   currentKey: string;
+  isProTheme?: boolean;
 }
 
-const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, currentKey }) => {
+const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, currentKey, isProTheme = true }) => {
   const [key, setKey] = useState(currentKey);
   const [show, setShow] = useState(false);
   const [isShake, setIsShake] = useState(false);
@@ -27,6 +28,9 @@ const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, curr
       }
       onSave(key);
   };
+
+  const focusClass = isProTheme ? 'focus:ring-yellow-500 focus:border-yellow-500' : 'focus:ring-cyan-500 focus:border-cyan-500';
+  const iconColor = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
 
   return (
     <AnimatePresence>
@@ -48,7 +52,7 @@ const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, curr
           >
             <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950/50">
               <h3 className="text-zinc-100 font-medium flex items-center gap-2">
-                <Key size={16} className="text-yellow-500" />
+                <Key size={16} className={iconColor} />
                 API Key Configuration
               </h3>
               <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors">
@@ -72,7 +76,7 @@ const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, curr
                     placeholder="AIzaSy..."
                     animate={isShake ? { x: [-5, 5, -5, 5, 0] } : { x: 0 }}
                     transition={{ duration: 0.4 }}
-                    className={`w-full bg-zinc-950 border ${isShake ? 'border-red-500' : 'border-zinc-800'} rounded-lg pl-10 pr-10 py-3 text-sm text-zinc-200 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-colors placeholder-zinc-700`}
+                    className={`w-full bg-zinc-950 border ${isShake ? 'border-red-500' : 'border-zinc-800'} rounded-lg pl-10 pr-10 py-3 text-sm text-zinc-200 focus:ring-1 outline-none transition-colors placeholder-zinc-700 ${focusClass}`}
                   />
                   <Key className="absolute left-3 top-3.5 text-zinc-600 w-4 h-4" />
                   <button 
@@ -85,12 +89,12 @@ const KeySettings: React.FC<KeySettingsProps> = ({ isOpen, onClose, onSave, curr
               </div>
               
               <div className="pt-4 flex justify-end gap-3 border-t border-zinc-800/50 mt-4">
-                 <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                 <Button onClick={handleSave}>Save Key</Button>
+                 <Button variant="ghost" isProTheme={isProTheme} onClick={onClose}>Cancel</Button>
+                 <Button isProTheme={isProTheme} onClick={handleSave}>Save Key</Button>
               </div>
               
               <div className="text-xs text-center text-zinc-600 pt-1">
-                Don't have a key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-yellow-500 hover:underline">Get one here</a>
+                Don't have a key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className={`hover:underline ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>Get one here</a>
               </div>
             </div>
           </motion.div>

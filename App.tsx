@@ -142,6 +142,12 @@ function AppContent() {
   // Helper to get current mode data
   const currentState = modeStates[mode];
 
+  // --- Theme Logic ---
+  // Image Modes: Theme based on Model (Pro=Yellow, Flash=Blue)
+  // Text Modes: Always Blue
+  const isImageMode = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
+  const isProTheme = isImageMode && currentState.selectedModel === MODELS.PRO;
+
   // Helper to update specific mode data
   const updateModeState = (targetMode: GenerationMode, updates: Partial<ModeState>) => {
     setModeStates(prev => ({
@@ -979,17 +985,20 @@ function AppContent() {
         onClose={() => setShowKeySettings(false)} 
         onSave={handleSaveKey}
         currentKey={apiKey}
+        isProTheme={isProTheme}
       />
       
       <GuideModal 
         isOpen={showGuide}
         onClose={() => setShowGuide(false)}
+        isProTheme={isProTheme}
       />
 
       <ResetModal 
         isOpen={showResetModal}
         onClose={() => setShowResetModal(false)}
         onConfirm={handleResetApp}
+        isProTheme={isProTheme}
       />
 
       <GalleryModal
@@ -999,6 +1008,7 @@ function AppContent() {
         onDeleteItems={handleDeleteHistoryItems}
         onDownloadImage={(url) => handleDownload(url)}
         onSendPromptToMode={handleSendPromptToMode}
+        isProTheme={isProTheme}
       />
       
       <Header 
@@ -1010,6 +1020,7 @@ function AppContent() {
         handleKeyClick={handleKeyClick}
         onResetClick={() => setShowResetModal(true)}
         activeModel={currentState.selectedModel}
+        isProTheme={isProTheme}
       />
 
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">
@@ -1022,10 +1033,11 @@ function AppContent() {
           handleRetry={handleRetry}
           error={currentState.errorMessage}
           width={sidebarWidth}
+          isProTheme={isProTheme}
         />
         
         <div 
-          className={`w-1.5 -ml-[3px] z-50 cursor-col-resize flex-none transition-colors hover:bg-yellow-500 active:bg-yellow-500 ${isResizing ? 'bg-yellow-500' : 'bg-transparent'}`}
+          className={`w-1.5 -ml-[3px] z-50 cursor-col-resize flex-none transition-colors hover:bg-yellow-500 active:bg-yellow-500 ${isResizing ? (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500') : 'bg-transparent'}`}
           onMouseDown={startResizing}
           onDoubleClick={() => setSidebarWidth(420)}
           title="Drag to resize"
@@ -1048,6 +1060,7 @@ function AppContent() {
           isModalOpen={showGuide || showKeySettings || showResetModal}
           onDeleteCurrent={(id) => handleDeleteHistoryItem(null, id)}
           onSendPromptToMode={handleSendPromptToMode}
+          isProTheme={isProTheme}
         />
         
         {isResizing && (

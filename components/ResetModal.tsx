@@ -7,9 +7,10 @@ interface ResetModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (includeApiKey: boolean) => void;
+  isProTheme?: boolean;
 }
 
-const ResetModal: React.FC<ResetModalProps> = ({ isOpen, onClose, onConfirm }) => {
+const ResetModal: React.FC<ResetModalProps> = ({ isOpen, onClose, onConfirm, isProTheme = true }) => {
   const [includeApiKey, setIncludeApiKey] = useState(false);
 
   return (
@@ -32,7 +33,7 @@ const ResetModal: React.FC<ResetModalProps> = ({ isOpen, onClose, onConfirm }) =
           >
              <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950/50">
               <h3 className="text-zinc-100 font-medium flex items-center gap-2">
-                <RotateCcw size={16} className="text-yellow-500" />
+                <RotateCcw size={16} className={isProTheme ? "text-yellow-500" : "text-cyan-400"} />
                 Reset NanoBanana Pro Studio?
               </h3>
               <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors">
@@ -41,7 +42,7 @@ const ResetModal: React.FC<ResetModalProps> = ({ isOpen, onClose, onConfirm }) =
             </div>
             
             <div className="p-6 space-y-6">
-               <div className="bg-yellow-900/10 border border-yellow-900/20 rounded-lg p-4 flex gap-3">
+               <div className={`bg-opacity-10 border bg-yellow-900 border-yellow-900/20 rounded-lg p-4 flex gap-3`}>
                    <AlertTriangle className="text-yellow-600 shrink-0" size={20} />
                    <div className="space-y-1">
                        <p className="text-sm text-yellow-500 font-medium">Warning: Irreversible Action</p>
@@ -70,8 +71,8 @@ const ResetModal: React.FC<ResetModalProps> = ({ isOpen, onClose, onConfirm }) =
                </div>
                
                <div className="flex justify-end gap-3 pt-2">
-                   <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                   <Button variant="danger" onClick={() => onConfirm(includeApiKey)}>Reset App</Button>
+                   <Button variant="ghost" isProTheme={isProTheme} onClick={onClose}>Cancel</Button>
+                   <Button variant="danger" isProTheme={isProTheme} onClick={() => onConfirm(includeApiKey)}>Reset App</Button>
                </div>
             </div>
           </motion.div>

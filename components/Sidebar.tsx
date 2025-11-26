@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -28,6 +27,7 @@ interface SidebarProps {
   handleRetry: () => void;
   error: string | null;
   width: number;
+  isProTheme: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -38,7 +38,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   handleGenerate, 
   handleRetry,
   error,
-  width
+  width,
+  isProTheme
 }) => {
   const { addToast } = useToast();
   const [showAdvanced, setShowAdvanced] = useState(() => {
@@ -220,7 +221,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   
   const btnLabelBase = mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image';
   const btnLabel = queueCount > 0 ? `${btnLabelBase} (${queueCount})` : btnLabelBase;
-  const btnVariant = isImageMode && !isPro ? 'cyan' : 'primary';
+  // Use primary variant which now respects isProTheme prop
+  const btnVariant = 'primary'; 
+
+  // Colors helpers
+  const focusRing = isProTheme ? 'focus:ring-yellow-500 focus:border-yellow-500' : 'focus:ring-cyan-500 focus:border-cyan-500';
+  const accentText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
+  const accentHover = isProTheme ? 'hover:text-yellow-500 hover:border-yellow-500' : 'hover:text-cyan-400 hover:border-cyan-400';
+  const accentBg = isProTheme ? 'bg-yellow-500' : 'bg-cyan-500';
 
   return (
     <aside 
@@ -239,10 +247,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               {/* Main Glow Pulse (Full Area) */}
               <motion.div 
                  className={`absolute inset-0 transition-colors duration-700 ${
-                     isPro ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
+                     isProTheme ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
                  }`}
                  animate={{
-                     boxShadow: isPro 
+                     boxShadow: isProTheme 
                         ? [
                             'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
                             'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
@@ -255,7 +263,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           ]
                  }}
                  transition={{
-                     duration: isPro ? 4 : 1.5, // Flash is faster
+                     duration: isProTheme ? 4 : 1.5, // Flash is faster
                      repeat: Infinity,
                      ease: "easeInOut"
                  }}
@@ -265,19 +273,19 @@ const Sidebar: React.FC<SidebarProps> = ({
               <motion.div
                 className="absolute inset-y-0 right-0 w-[1px]"
                 animate={{
-                    boxShadow: isPro 
+                    boxShadow: isProTheme 
                         ? ['-2px 0 10px 1px rgba(234,179,8,0.3)', '-4px 0 20px 2px rgba(234,179,8,0.6)', '-2px 0 10px 1px rgba(234,179,8,0.3)']
                         : ['-2px 0 15px 1px rgba(6,182,212,0.2)', '-4px 0 30px 2px rgba(6,182,212,0.4)', '-2px 0 15px 1px rgba(6,182,212,0.2)']
                 }}
                 transition={{
-                    duration: isPro ? 3 : 1,
+                    duration: isProTheme ? 3 : 1,
                     repeat: Infinity,
                     ease: "easeInOut"
                 }}
               />
               
               {/* Falling Particles */}
-              <BackgroundEffects isPro={isPro} />
+              <BackgroundEffects isProTheme={isProTheme} />
           </div>
       )}
 
@@ -294,7 +302,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3 }}
-                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-colors ${isDragOverSubjectSection ? 'bg-yellow-500/10 ring-2 ring-yellow-500/30' : ''}`}
+                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-colors ${
+                            isDragOverSubjectSection 
+                            ? (isProTheme ? 'bg-yellow-500/10 ring-2 ring-yellow-500/30' : 'bg-cyan-500/10 ring-2 ring-cyan-500/30') 
+                            : ''
+                        }`}
                         onClick={(e) => {
                             e.stopPropagation();
                             setActiveTarget('subject');
@@ -321,7 +333,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 className={`p-1.5 rounded-lg border transition-all ${
                                     currentState.subjects.length >= 5 
                                     ? 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed' 
-                                    : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-yellow-500 hover:border-yellow-500'
+                                    : `bg-zinc-900 border-zinc-700 text-zinc-300 ${accentHover}`
                                 }`}
                                 title={currentState.subjects.length >= 5 ? "Max 5 subjects" : "Add Subject"}
                             >
@@ -362,20 +374,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         onToggle={() => handleToggleSubject(subject.id)}
                                         onDelete={() => handleRemoveSubject(subject.id)}
                                         onFocus={() => setFocusedSubjectId(subject.id)}
+                                        isProTheme={isProTheme}
                                     />
                                 ))}
                             </AnimatePresence>
                         </div>
 
                         {currentState.subjects.length === 0 && (
-                            <div className={`text-center p-6 border-2 border-dashed rounded-xl transition-colors mx-1 ${isDragOverSubjectSection ? 'border-yellow-500 bg-yellow-500/5' : 'border-zinc-800 bg-zinc-900/30'}`}>
+                            <div className={`text-center p-6 border-2 border-dashed rounded-xl transition-colors mx-1 ${
+                                isDragOverSubjectSection 
+                                ? (isProTheme ? 'border-yellow-500 bg-yellow-500/5' : 'border-cyan-500 bg-cyan-500/5') 
+                                : 'border-zinc-800 bg-zinc-900/30'
+                            }`}>
                                 <p className="text-sm text-zinc-500">{isDragOverSubjectSection ? 'Drop to add subject' : 'Click + or drop image here'}</p>
                             </div>
                         )}
                         
                         {currentState.subjects.length > 0 && currentState.subjects.length < 5 && isDragOverSubjectSection && (
-                            <div className="absolute inset-0 bg-yellow-500/5 pointer-events-none rounded-xl border-2 border-yellow-500/30 z-10 flex items-center justify-center">
-                                <div className="bg-zinc-900/90 text-yellow-500 px-3 py-1.5 rounded-lg shadow-lg text-xs font-bold flex items-center gap-2">
+                            <div className={`absolute inset-0 pointer-events-none rounded-xl border-2 z-10 flex items-center justify-center ${
+                                isProTheme ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-cyan-500/5 border-cyan-500/30'
+                            }`}>
+                                <div className={`bg-zinc-900/90 px-3 py-1.5 rounded-lg shadow-lg text-xs font-bold flex items-center gap-2 ${accentText}`}>
                                     <Plus size={14} /> Add New Subject
                                 </div>
                             </div>
@@ -408,6 +427,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             className="mb-2"
                             isActive={activeTarget === 'subject'}
                             onActivate={() => setActiveTarget('subject')}
+                            isProTheme={isProTheme}
                         />
                     </motion.section>
                 )}
@@ -426,7 +446,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <motion.div 
                 layout
                 className={`bg-zinc-900/40 rounded-xl p-4 border transition-colors duration-500 space-y-4 ${
-                    isPro ? 'border-yellow-500/20' : 'border-cyan-500/20'
+                    isProTheme ? 'border-yellow-500/20' : 'border-cyan-500/20'
                 }`}
             >
                 
@@ -434,7 +454,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <div className="bg-zinc-950/50 rounded-lg p-1 flex relative mb-4">
                         <div 
                             className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
-                                isPro 
+                                isProTheme 
                                     ? 'left-1/2 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-yellow-900/20' 
                                     : 'left-0 bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-900/20'
                             }`}
@@ -442,19 +462,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <button
                             onClick={() => updateCurrentState({ selectedModel: MODELS.FLASH })}
                             className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                !isPro ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                                !isProTheme ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
                             }`}
                         >
-                            <Zap size={14} className={!isPro ? "fill-white" : ""} />
+                            <Zap size={14} className={!isProTheme ? "fill-white" : ""} />
                             Flash
                         </button>
                         <button
                             onClick={() => updateCurrentState({ selectedModel: MODELS.PRO })}
                             className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                isPro ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
+                                isProTheme ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
                             }`}
                         >
-                            <Sparkles size={14} className={isPro ? "fill-black/20" : ""} />
+                            <Sparkles size={14} className={isProTheme ? "fill-black/20" : ""} />
                             Pro
                         </button>
                     </div>
@@ -470,7 +490,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         <button 
                             onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${currentState.useFaceFeature ? 'bg-yellow-500' : 'bg-zinc-700'}`}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${currentState.useFaceFeature ? (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500') : 'bg-zinc-700'}`}
                         >
                             <motion.span 
                             className="absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow-sm"
@@ -508,6 +528,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 setActiveTarget('reference');
                                 setFocusedSubjectId(null);
                             }}
+                            isProTheme={isProTheme}
                         />
                         {currentState.isRefLowRes && (
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded border border-yellow-500/20 mb-2">
@@ -520,7 +541,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <div className="space-y-2 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
                             <div className="flex justify-between items-center">
                                 <label className="text-xs font-medium text-zinc-300">Reference Strength</label>
-                                <span className="text-xs text-yellow-500 font-bold">{currentState.refStrength}%</span>
+                                <span className={`text-xs font-bold ${accentText}`}>{currentState.refStrength}%</span>
                             </div>
                             <input 
                                 type="range" 
@@ -528,7 +549,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 max="100" 
                                 value={currentState.refStrength} 
                                 onChange={(e) => updateCurrentState({ refStrength: parseInt(e.target.value) })}
-                                className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500 focus:outline-none focus:ring-0"
+                                className={`w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-0 ${isProTheme ? 'accent-yellow-500' : 'accent-cyan-500'}`}
                             />
                             <div className="flex justify-between text-[10px] text-zinc-500">
                                 <span>Creative</span>
@@ -552,7 +573,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     onClick={(e) => { e.stopPropagation(); updateCurrentState({ refOperation: item.op }); }}
                                     className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
                                         currentState.refOperation === item.op
-                                        ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' 
+                                        ? (isProTheme ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' : 'bg-cyan-500/10 border-cyan-500/50 text-cyan-100')
                                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                                     }`}
                                 >
@@ -586,7 +607,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 mode === GenerationMode.IMG_TO_PROMPT ? "e.g. Focus on the vintage car in the background..." :
                                 "Describe the scene, lighting, style..."
                             }
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none min-h-[120px] transition-shadow"
+                            className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 outline-none resize-none min-h-[120px] transition-shadow ${focusRing}`}
                         />
                         <AnimatePresence>
                             {currentState.textPrompt && (
@@ -608,7 +629,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="pt-2">
                     <button 
                         onClick={() => setShowAdvanced(!showAdvanced)}
-                        className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-yellow-500 transition-colors w-full"
+                        className={`flex items-center gap-2 text-xs font-medium text-zinc-400 transition-colors w-full ${isProTheme ? 'hover:text-yellow-500' : 'hover:text-cyan-400'}`}
                     >
                         <Sliders size={14} />
                         <span>Advanced Settings</span>
@@ -629,7 +650,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         value={currentState.negativePrompt}
                                         onChange={(e) => updateCurrentState({ negativePrompt: e.target.value })}
                                         placeholder="e.g. blurry, distorted, bad hands, cartoon, text, watermark..."
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none min-h-[80px]"
+                                        className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 outline-none resize-none min-h-[80px] ${focusRing}`}
                                     />
                                 </div>
                             </motion.div>
@@ -660,7 +681,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <AspectRatioSelector 
                             value={currentState.aspectRatio}
                             onChange={(val) => updateCurrentState({ aspectRatio: val })}
-                            isPro={isPro}
+                            isPro={isProTheme}
                         />
                         </div>
                         <div className="space-y-1.5">
@@ -668,8 +689,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <ResolutionSelector 
                             value={currentState.resolution}
                             onChange={(val) => updateCurrentState({ resolution: val })}
-                            disabled={!isPro}
-                            isPro={isPro}
+                            disabled={!isPro} // Logic remains: disabled if not Pro MODEL
+                            isPro={isProTheme} // Visuals: follow theme
                         />
                         </div>
                     </div>
@@ -698,9 +719,10 @@ const Sidebar: React.FC<SidebarProps> = ({
          </AnimatePresence>
         
         <Button 
-          key={`${mode}-${btnVariant}`}
+          key={`${mode}-${btnVariant}-${isProTheme}`} // Force re-render on theme change
           onClick={handleGenerate} 
           variant={btnVariant}
+          isProTheme={isProTheme}
           className="w-full py-2.5 text-sm font-semibold relative overflow-hidden"
           title={`Generate ${shortcutLabel}`}
         >
@@ -727,6 +749,7 @@ const Sidebar: React.FC<SidebarProps> = ({
              >
                 <Button 
                     variant="outline"
+                    isProTheme={isProTheme}
                     onClick={handleRetry}
                     className="w-full py-2 text-sm border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500"
                 >
@@ -736,7 +759,7 @@ const Sidebar: React.FC<SidebarProps> = ({
              </motion.div>
         )}
 
-        <p className={`text-center text-[10px] mt-2 transition-colors ${isPro ? 'text-zinc-600' : 'text-cyan-600/70'}`}>
+        <p className={`text-center text-[10px] mt-2 transition-colors ${isProTheme ? 'text-zinc-600' : 'text-cyan-600/70'}`}>
           {isImageMode 
               ? `Uses: ${isPro ? 'NanoBanana Pro' : 'NanoBanana Flash'} (${currentState.selectedModel})`
               : 'Uses Gemini 2.5 Flash'
@@ -747,7 +770,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
+const BackgroundEffects = ({ isProTheme }: { isProTheme: boolean }) => {
     // Static set of particles
     const particles = [
         { id: 1, x: 20, delay: 0, size: 12 },
@@ -762,7 +785,7 @@ const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
     
     // Add key to force re-mount on prop change
     return (
-        <div key={isPro ? 'pro' : 'flash'} className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+        <div key={isProTheme ? 'pro' : 'flash'} className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
              {particles.map((p) => (
                  <motion.div
                     key={p.id}
@@ -775,18 +798,18 @@ const BackgroundEffects = ({ isPro }: { isPro: boolean }) => {
                     }}
                     animate={{ 
                         top: ['-5vh', '100vh'], // Fall full viewport height
-                        opacity: isPro ? [0, 0.85, 0] : [0, 0.6, 0], 
+                        opacity: isProTheme ? [0, 0.85, 0] : [0, 0.6, 0], 
                         rotate: 360
                     }}
                     transition={{
-                        duration: isPro ? 25 : 12, // Flash falls faster 
+                        duration: isProTheme ? 25 : 12, // Flash falls faster 
                         repeat: Infinity,
                         // Randomize delays slightly less to ensure some start immediately
                         delay: p.delay * 0.5, 
                         ease: "linear"
                     }}
                  >
-                     {isPro ? (
+                     {isProTheme ? (
                          <Sparkles 
                             size={p.size} 
                             className="text-yellow-500/30 fill-yellow-500/10" 
@@ -810,9 +833,10 @@ interface SubjectCardProps {
     onToggle: () => void;
     onDelete: () => void;
     onFocus: () => void;
+    isProTheme: boolean;
 }
 
-const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateFile, onToggle, onDelete, onFocus }) => {
+const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateFile, onToggle, onDelete, onFocus, isProTheme }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -844,6 +868,9 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
         }
     };
 
+    const ringClass = isProTheme ? 'ring-yellow-500/50 border-yellow-500' : 'ring-cyan-500/50 border-cyan-500';
+    const activeBtnClass = isProTheme ? 'bg-yellow-500 text-black' : 'bg-cyan-500 text-black';
+
     return (
         <motion.div
             layout
@@ -859,7 +886,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
             onDrop={handleDrop}
             className={`
                 aspect-square relative rounded-xl border-2 overflow-hidden group cursor-pointer transition-all
-                ${isFocused ? 'ring-2 ring-yellow-500/50 border-yellow-500' : 'border-zinc-800 hover:border-zinc-700'}
+                ${isFocused ? `ring-2 ${ringClass}` : 'border-zinc-800 hover:border-zinc-700'}
                 ${!subject.file ? 'bg-zinc-900 border-dashed' : 'bg-black'}
                 ${subject.file && !subject.isActive ? 'opacity-50 grayscale' : ''}
             `}
@@ -898,7 +925,7 @@ const SubjectCard: React.FC<SubjectCardProps> = ({ subject, isFocused, onUpdateF
                     disabled={!subject.file}
                     className={`p-1 rounded-md transition-colors ${
                         subject.isActive && subject.file 
-                        ? 'bg-yellow-500 text-black shadow-sm' 
+                        ? `${activeBtnClass} shadow-sm` 
                         : 'bg-black/40 text-white/50 hover:bg-black/60 hover:text-white backdrop-blur-sm'
                     }`}
                  >

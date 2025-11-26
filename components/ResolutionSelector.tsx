@@ -33,13 +33,17 @@ const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange
     return <Sparkles size={16} />;
   };
 
+  const activeBorder = isPro ? 'border-yellow-500' : 'border-cyan-500';
+  const activeBg = isPro ? 'bg-yellow-500/10' : 'bg-cyan-500/10';
+  const activeText = isPro ? 'text-yellow-500' : 'text-cyan-400';
+
   return (
     <div className={`relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full bg-zinc-900 border ${isOpen ? (isPro ? 'border-yellow-500' : 'border-cyan-500') : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
+        className={`w-full bg-zinc-900 border ${isOpen ? activeBorder : 'border-zinc-800'} rounded-lg px-3 py-2.5 text-sm flex items-center justify-between text-zinc-300 hover:bg-zinc-800/50 transition-colors`}
       >
         <div className="flex items-center gap-2 min-w-0">
             {selectedOption && <div className="shrink-0">{getIcon(selectedOption.value)}</div>}
@@ -75,12 +79,12 @@ const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
                                 isSelected 
-                                ? (isPro ? 'bg-yellow-500/10 text-yellow-500 font-medium' : 'bg-cyan-500/10 text-cyan-400 font-medium') 
+                                ? `${activeBg} ${activeText} font-medium`
                                 : 'text-zinc-300 hover:bg-zinc-800'
                             }`}
                         >
                             <div className="flex items-center gap-3">
-                                <span className={isSelected ? (isPro ? 'text-yellow-500' : 'text-cyan-400') : 'text-zinc-500'}>
+                                <span className={isSelected ? activeText : 'text-zinc-500'}>
                                     {getIcon(opt.value)}
                                 </span>
                                 <span>{opt.label}</span>

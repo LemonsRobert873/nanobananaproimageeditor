@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Upload, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +12,7 @@ interface FileUploadProps {
   className?: string;
   isActive?: boolean;
   onActivate?: () => void;
+  isProTheme?: boolean;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
@@ -23,7 +23,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   required,
   className = "",
   isActive,
-  onActivate
+  onActivate,
+  isProTheme = true
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -81,12 +82,17 @@ const FileUpload: React.FC<FileUploadProps> = ({
     inputRef.current?.click();
   };
 
+  const activeColor = isProTheme ? '#EAB308' : '#06b6d4'; // Yellow or Cyan
+  const activeText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
+  const activeBg = isProTheme ? 'rgba(234, 179, 8, 0.05)' : 'rgba(6, 182, 212, 0.05)';
+  const activeShadow = isProTheme ? '0 0 0 2px rgba(234, 179, 8, 0.2)' : '0 0 0 2px rgba(6, 182, 212, 0.2)';
+
   return (
     <div className={`w-full ${className}`}>
       {label && (
         <div className="flex justify-between items-baseline mb-2">
-          <label className={`block text-sm font-medium transition-colors ${isActive ? 'text-yellow-500' : 'text-zinc-200'}`}>
-            {label} {required && <span className="text-yellow-500">*</span>}
+          <label className={`block text-sm font-medium transition-colors ${isActive ? activeText : 'text-zinc-200'}`}>
+            {label} {required && <span className={activeText}>*</span>}
           </label>
         </div>
       )}
@@ -103,10 +109,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
         }}
         onDrop={handleDrop}
         animate={{
-          borderColor: isDragOver ? '#EAB308' : (isActive ? '#EAB308' : (previewUrl ? '#3f3f46' : '#27272a')),
-          backgroundColor: isDragOver ? 'rgba(234, 179, 8, 0.05)' : (previewUrl ? '#18181b' : '#18181b'),
+          borderColor: isDragOver ? activeColor : (isActive ? activeColor : (previewUrl ? '#3f3f46' : '#27272a')),
+          backgroundColor: isDragOver ? activeBg : (previewUrl ? '#18181b' : '#18181b'),
           scale: isDragOver ? 1.01 : 1,
-          boxShadow: isActive ? '0 0 0 2px rgba(234, 179, 8, 0.2)' : 'none'
+          boxShadow: isActive ? activeShadow : 'none'
         }}
         transition={{ duration: 0.2 }}
         className={`
@@ -168,13 +174,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 className="mx-auto w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center mb-2"
                 animate={{ 
                   scale: isDragOver || isActive ? 1.1 : 1,
-                  backgroundColor: isDragOver || isActive ? '#FACC15' : '#27272a',
+                  backgroundColor: isDragOver || isActive ? activeColor : '#27272a',
                   color: isDragOver || isActive ? '#000000' : '#a1a1aa'
                 }}
               >
                 <Upload className="w-5 h-5" />
               </motion.div>
-              <p className={`text-sm transition-colors ${isActive ? 'text-yellow-500' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+              <p className={`text-sm transition-colors ${isActive ? activeText : 'text-zinc-400 group-hover:text-zinc-200'}`}>
                  {isActive ? 'Paste or Drop Image' : 'Upload image'}
               </p>
               {helperText && (

@@ -6,9 +6,13 @@ import Button from './Button';
 interface GuideModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isProTheme?: boolean;
 }
 
-const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
+const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = true }) => {
+  const accentText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
+  const accentBg = isProTheme ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-cyan-500/10 border-cyan-500/20';
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -29,8 +33,8 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-zinc-900/50 shrink-0">
               <h3 className="text-xl text-zinc-100 font-semibold flex items-center gap-3">
-                <div className="p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                   <BookOpen size={20} className="text-yellow-500" />
+                <div className={`p-2 rounded-lg border ${accentBg}`}>
+                   <BookOpen size={20} className={accentText} />
                 </div>
                 NanoBanana Pro Studio Guide
               </h3>
@@ -147,7 +151,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                             { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes structure and recreates it featuring the Subject(s).' },
                          ].map((item, i) => (
                             <div key={i} className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg">
-                               <div className="flex items-center gap-2 mb-1 text-purple-400">
+                                <div className="flex items-center gap-2 mb-1 text-purple-400">
                                   <item.icon size={14} />
                                   <span className="font-medium text-xs">{item.title}</span>
                                </div>
@@ -189,7 +193,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                {/* 5. Workflow Tips */}
                <section>
                    <div className="flex items-center gap-2 mb-4 text-zinc-100">
-                       <Sliders className="text-yellow-500" size={20} />
+                       <Sliders className={accentText} size={20} />
                        <h4 className="text-lg font-semibold">Pro Workflow</h4>
                    </div>
                    <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
@@ -209,7 +213,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                                </span>
                            </li>
                            <li className="flex gap-3 items-start">
-                               <span className="bg-zinc-800 p-1 rounded text-yellow-500 mt-0.5"><Clock size={12} /></span>
+                               <span className={`bg-zinc-800 p-1 rounded ${accentText} mt-0.5`}><Clock size={12} /></span>
                                <span>
                                    <strong className="text-zinc-200 block mb-0.5">Daily Quota (Pro)</strong>
                                    The generation counter for Pro models resets daily at 12:00 AM PT. Flash generations are not counted.
@@ -230,7 +234,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
 
             {/* Footer */}
             <div className="p-5 border-t border-zinc-800 bg-zinc-900/30 shrink-0 flex justify-end">
-               <Button onClick={onClose} className="px-8">Close Guide</Button>
+               <Button onClick={onClose} isProTheme={isProTheme} className="px-8">Close Guide</Button>
             </div>
           </motion.div>
         </div>

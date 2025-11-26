@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Type, Layers } from 'lucide-react';
@@ -14,6 +12,7 @@ interface GalleryModalProps {
   onDeleteItems: (ids: string[]) => Promise<void>;
   onDownloadImage: (url: string, id: string) => void;
   onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
+  isProTheme: boolean;
 }
 
 type ContentFilter = 'all' | 'image' | 'text';
@@ -26,22 +25,28 @@ const GalleryItem = React.memo(({
   isFocused,
   domId,
   onToggle, 
-  onActivate 
+  onActivate,
+  isProTheme
 }: { 
   item: HistoryItem, 
   isSelected: boolean, 
   isFocused: boolean,
   domId: string,
   onToggle: (id: string) => void, 
-  onActivate: (item: HistoryItem) => void 
+  onActivate: (item: HistoryItem) => void,
+  isProTheme: boolean
 }) => {
+  const accentColor = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
+  const selectedBorder = isProTheme ? 'border-yellow-500 ring-yellow-500/50' : 'border-cyan-500 ring-cyan-500/50';
+  const selectedBg = isProTheme ? 'bg-yellow-500' : 'bg-cyan-500';
+
   return (
     <div 
         id={domId}
         className={`relative group rounded-xl overflow-hidden border-2 transition-all duration-200 aspect-video ${
             isFocused 
               ? 'border-zinc-200 ring-2 ring-white ring-inset z-10 scale-[1.02] shadow-xl' 
-              : (isSelected ? 'border-yellow-500 ring-1 ring-yellow-500/50' : 'border-zinc-800 hover:border-zinc-700')
+              : (isSelected ? `${selectedBorder} ring-1` : 'border-zinc-800 hover:border-zinc-700')
         } ${item.type === 'image' ? 'bg-black' : 'bg-zinc-900'}`}
         // Performance: contain-content isolates layout/paint. 
         style={{ contain: 'content' }}
@@ -55,7 +60,7 @@ const GalleryItem = React.memo(({
             }}
         >
             {isSelected ? (
-                <div className="bg-yellow-500 text-black rounded text-xs p-0.5 shadow-sm">
+                <div className={`${selectedBg} text-black rounded text-xs p-0.5 shadow-sm`}>
                     <CheckSquare size={16} />
                 </div>
             ) : (
@@ -121,7 +126,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   history, 
   onDeleteItems,
   onDownloadImage,
-  onSendPromptToMode
+  onSendPromptToMode,
+  isProTheme
 }) => {
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -175,7 +181,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
             setFocusedId(filteredHistory[0].id);
         }
     }
-  }, [isOpen]); // filteredHistory dependency removed to avoid reset on filter change, logic handled below
+  }, [isOpen]); 
 
   // Reset zoom when active item changes
   useEffect(() => {
@@ -408,6 +414,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
       }
   };
 
+  const themeIconColor = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -430,7 +438,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-950/80 shrink-0">
               <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
-                <Grid3X3 size={20} className="text-yellow-500" />
+                <Grid3X3 size={20} className={themeIconColor} />
                 Gallery
                 <span className="text-zinc-500 text-sm font-normal ml-2">
                     {filteredHistory.length} items
@@ -440,6 +448,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Button 
                         variant="ghost" 
+                        isProTheme={isProTheme}
                         disabled={selectedIds.size === 0}
                         onClick={handleBulkDownload}
                         className="h-8 text-xs"
@@ -449,6 +458,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                     </Button>
                     <Button 
                         variant="danger" 
+                        isProTheme={isProTheme}
                         disabled={selectedIds.size === 0}
                         onClick={() => setShowDeleteConfirm(true)}
                         className="h-8 text-xs bg-red-900/20 hover:bg-red-900/40 border-red-900/30"
@@ -493,7 +503,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                      <select 
                         value={modeFilter} 
                         onChange={(e) => setModeFilter(e.target.value as GenerationMode | 'all')}
-                        className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+                        className={`bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-1 ${isProTheme ? 'focus:ring-yellow-500/50' : 'focus:ring-cyan-500/50'}`}
                      >
                          <option value="all">All Modes</option>
                          <option value={GenerationMode.IMAGE_EDIT}>Image Edit</option>
@@ -531,7 +541,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                 className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors"
                             >
                                 {filteredHistory.every(item => selectedIds.has(item.id)) ? (
-                                    <CheckSquare className="text-yellow-500" size={18} />
+                                    <CheckSquare className={themeIconColor} size={18} />
                                 ) : (
                                     <Square className="text-zinc-600" size={18} />
                                 )}
@@ -553,6 +563,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                         setActiveItem(itm);
                                         setFocusedId(itm.id);
                                     }}
+                                    isProTheme={isProTheme}
                                 />
                             ))}
                         </div>
@@ -574,8 +585,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                 Are you sure you want to delete {selectedIds.size} items? This action cannot be undone.
                             </p>
                             <div className="flex justify-end gap-3 pt-2">
-                                <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-                                <Button variant="danger" onClick={handleBulkDelete} isLoading={isDeleting}>Delete Forever</Button>
+                                <Button variant="ghost" isProTheme={isProTheme} onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+                                <Button variant="danger" isProTheme={isProTheme} onClick={handleBulkDelete} isLoading={isDeleting}>Delete Forever</Button>
                             </div>
                         </div>
                     </motion.div>
@@ -596,6 +607,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                         onDelete={() => handleSingleDelete(activeItem.id)}
                         onDownload={() => handleSingleDownload(activeItem)}
                         onSendPromptToMode={onSendPromptToMode}
+                        isProTheme={isProTheme}
                     />
                 )}
             </AnimatePresence>
@@ -616,9 +628,10 @@ interface LightboxViewProps {
     onDelete: () => void;
     onDownload: () => void;
     onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
+    isProTheme: boolean;
 }
 
-const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, onClose, onDelete, onDownload, onSendPromptToMode }) => {
+const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, onClose, onDelete, onDownload, onSendPromptToMode, isProTheme }) => {
     const { addToast } = useToast();
     const viewportRef = useRef<HTMLDivElement>(null);
     const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
@@ -665,6 +678,8 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
             setZoomed(true);
         }
     };
+
+    const accentText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
 
     return (
         <motion.div 
@@ -724,7 +739,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
             {/* Right: Info Sidebar */}
             <div className="w-80 border-l border-zinc-800 bg-zinc-900/90 backdrop-blur-md flex flex-col shrink-0">
                 <div className="p-5 border-b border-zinc-800 flex items-center gap-2">
-                    <Info size={16} className="text-yellow-500" />
+                    <Info size={16} className={accentText} />
                     <h3 className="font-medium text-zinc-100">Metadata Inspector</h3>
                 </div>
 
@@ -786,7 +801,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                     {item.metadata?.mode === GenerationMode.IMAGE_TO_IMAGE && item.metadata?.refStrength !== undefined && (
                         <div className="space-y-1">
                             <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
-                            <div className="text-sm text-yellow-500 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                            <div className={`text-sm font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 ${accentText}`}>
                                 {item.metadata.refStrength}%
                             </div>
                         </div>
@@ -843,19 +858,19 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                 <div className="p-5 border-t border-zinc-800 bg-zinc-900/50 space-y-3">
                     {item.type === 'text' && onSendPromptToMode && (
                         <div className="grid grid-cols-2 gap-3 mb-2">
-                             <Button variant="secondary" onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_EDIT)} className="w-full text-xs h-8">
+                             <Button variant="secondary" isProTheme={isProTheme} onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_EDIT)} className="w-full text-xs h-8">
                                 <Type size={14} className="mr-2" /> To Edit
                             </Button>
-                             <Button variant="secondary" onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_TO_IMAGE)} className="w-full text-xs h-8">
+                             <Button variant="secondary" isProTheme={isProTheme} onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_TO_IMAGE)} className="w-full text-xs h-8">
                                 <Layers size={14} className="mr-2" /> To Img→Img
                             </Button>
                         </div>
                     )}
 
-                    <Button onClick={onDownload} className="w-full text-sm">
+                    <Button onClick={onDownload} isProTheme={isProTheme} className="w-full text-sm">
                         <Download size={16} className="mr-2" /> Download
                     </Button>
-                    <Button variant="danger" onClick={onDelete} className="w-full text-sm bg-red-900/20 hover:bg-red-900/40 border-red-900/30">
+                    <Button variant="danger" isProTheme={isProTheme} onClick={onDelete} className="w-full text-sm bg-red-900/20 hover:bg-red-900/40 border-red-900/30">
                         <Trash2 size={16} className="mr-2" /> Delete Item
                     </Button>
                 </div>

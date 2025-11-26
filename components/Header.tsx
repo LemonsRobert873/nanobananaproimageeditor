@@ -1,10 +1,7 @@
-
-
 import React from 'react';
-import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
-import { BookOpen, Key, Layers, Type, FileText, Wand2, RotateCcw, Sparkles } from 'lucide-react';
+import { motion, LayoutGroup } from 'framer-motion';
+import { BookOpen, Key, Layers, Type, FileText, Wand2, RotateCcw } from 'lucide-react';
 import { GenerationMode } from '../types';
-import { MODELS } from '../constants';
 
 interface HeaderProps {
   mode: GenerationMode;
@@ -15,6 +12,7 @@ interface HeaderProps {
   handleKeyClick: () => void;
   onResetClick: () => void;
   activeModel: string;
+  isProTheme: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -24,10 +22,8 @@ const Header: React.FC<HeaderProps> = ({
   hasKey, 
   handleKeyClick,
   onResetClick,
-  activeModel
+  isProTheme
 }) => {
-  const isPro = activeModel === MODELS.PRO;
-  
   return (
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
@@ -44,11 +40,11 @@ const Header: React.FC<HeaderProps> = ({
           >
             <div className="text-2xl transition-transform group-hover:rotate-12">🍌</div>
             <span className={`font-semibold tracking-tight hidden lg:inline whitespace-nowrap transition-all duration-300 ${
-                isPro 
+                isProTheme 
                 ? 'text-white drop-shadow-[0_0_20px_rgba(234,179,8,0.8)]' 
                 : 'text-white drop-shadow-[0_0_20px_rgba(34,211,238,0.9)]'
             }`}>
-              NanoBanana <span className={`transition-colors duration-300 ${isPro ? "text-yellow-500" : "text-cyan-400"}`}>{isPro ? "Pro" : "Flash"}</span> Studio
+              NanoBanana <span className={`transition-colors duration-300 ${isProTheme ? "text-yellow-500" : "text-cyan-400"}`}>{isProTheme ? "Pro" : "Flash"}</span> Studio
             </span>
           </motion.div>
         </div>
@@ -75,7 +71,7 @@ const Header: React.FC<HeaderProps> = ({
                               {isActive && (
                                   <motion.div
                                       layoutId="activeTab"
-                                      className="absolute inset-0 bg-yellow-500 rounded-full shadow-sm"
+                                      className={`absolute inset-0 rounded-full shadow-sm ${isProTheme ? 'bg-yellow-500' : 'bg-cyan-500'}`}
                                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                       style={{ zIndex: -1 }}
                                   />
@@ -113,11 +109,13 @@ const Header: React.FC<HeaderProps> = ({
             className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border transition-all hover:scale-105 ${
               hasKey 
                 ? 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200' 
-                : 'border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10'
+                : (isProTheme 
+                    ? 'border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10' 
+                    : 'border-cyan-500/50 text-cyan-500 hover:bg-cyan-500/10')
             }`}
           >
             <Key size={14} />
-            <span className="hidden sm:inline">{hasKey ? 'API Key Active' : 'Set API Key'}</span>
+            <span className="hidden sm:inline">{hasKey ? 'API Key: Active' : 'Set API Key'}</span>
             {hasKey && <div className="w-1.5 h-1.5 rounded-full bg-green-500 ml-1 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />}
           </button>
         </div>
