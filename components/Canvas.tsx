@@ -1,9 +1,11 @@
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2, Layers
 } from 'lucide-react';
 import { ModeState, HistoryItem, GenerationMode, ActiveGeneration } from '../types';
 import { MODELS } from '../constants';
@@ -27,6 +29,7 @@ interface CanvasProps {
   isModalOpen?: boolean;
   onDeleteCurrent?: (id: string) => void;
   isGenerating?: boolean;
+  onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -46,6 +49,7 @@ const Canvas: React.FC<CanvasProps> = ({
   isModalOpen = false,
   onDeleteCurrent,
   isGenerating,
+  onSendPromptToMode,
 }) => {
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
@@ -161,14 +165,21 @@ const Canvas: React.FC<CanvasProps> = ({
         </div>
         
         <div className="flex items-center gap-3">
-          {currentState.generatedText ? (
+          {currentState.generatedText && onSendPromptToMode ? (
              <>
                <Button 
                   variant="ghost"
-                  onClick={handleSendToImageEdit}
-                  className="h-8 px-3 text-xs gap-2 text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 border border-yellow-500/20"
+                  onClick={() => onSendPromptToMode(currentState.generatedText!, GenerationMode.IMAGE_EDIT)}
+                  className="h-8 px-3 text-xs gap-2 text-zinc-400 hover:text-white"
                >
-                  <Type size={14} /> Use in Image Edit
+                  <Type size={14} /> To Img Edit
+               </Button>
+               <Button 
+                  variant="ghost"
+                  onClick={() => onSendPromptToMode(currentState.generatedText!, GenerationMode.IMAGE_TO_IMAGE)}
+                  className="h-8 px-3 text-xs gap-2 text-zinc-400 hover:text-white"
+               >
+                  <Layers size={14} /> To Img→Img
                </Button>
                <div className="w-px h-4 bg-zinc-800" />
                <Button 
@@ -480,6 +491,22 @@ const Canvas: React.FC<CanvasProps> = ({
                                     <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap">
                                         {currentHistoryItem.metadata.textPrompt}
                                     </div>
+                                    {onSendPromptToMode && (
+                                         <div className="flex gap-2 mt-2">
+                                            <button 
+                                                onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_EDIT)}
+                                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
+                                            >
+                                                <Type size={12} /> To Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_TO_IMAGE)}
+                                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
+                                            >
+                                                <Layers size={12} /> To Img→Img
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -898,6 +900,13 @@ function AppContent() {
     }
   };
 
+  const handleSendPromptToMode = (text: string, targetMode: GenerationMode) => {
+      updateModeState(targetMode, { textPrompt: text });
+      handleSetMode(targetMode);
+      const label = targetMode === GenerationMode.IMAGE_EDIT ? 'Image Edit' : 'Image to Image';
+      addToast(`Prompt sent to ${label}`, 'success');
+  };
+
   const handleUseAsSubject = (url: string) => {
     if (currentState.subjects.length >= 5) {
         addToast('Max 5 subjects allowed. Remove one to add new.', 'warning');
@@ -939,6 +948,7 @@ function AppContent() {
         history={history}
         onDeleteItems={handleDeleteHistoryItems}
         onDownloadImage={(url) => handleDownload(url)}
+        onSendPromptToMode={handleSendPromptToMode}
       />
       
       <Header 
@@ -987,6 +997,7 @@ function AppContent() {
           isGalleryOpen={showGallery}
           isModalOpen={showGuide || showKeySettings || showResetModal}
           onDeleteCurrent={(id) => handleDeleteHistoryItem(null, id)}
+          onSendPromptToMode={handleSendPromptToMode}
         />
         
         {isResizing && (

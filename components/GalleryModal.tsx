@@ -2,9 +2,11 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Type, Layers } from 'lucide-react';
 import { HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
@@ -15,6 +17,7 @@ interface GalleryModalProps {
   history: HistoryItem[];
   onDeleteItems: (ids: string[]) => Promise<void>;
   onDownloadImage: (url: string, id: string) => void;
+  onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
 }
 
 type ContentFilter = 'all' | 'image' | 'text';
@@ -121,7 +124,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   onClose, 
   history, 
   onDeleteItems,
-  onDownloadImage 
+  onDownloadImage,
+  onSendPromptToMode
 }) => {
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -595,6 +599,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                         }} 
                         onDelete={() => handleSingleDelete(activeItem.id)}
                         onDownload={() => handleSingleDownload(activeItem)}
+                        onSendPromptToMode={onSendPromptToMode}
                     />
                 )}
             </AnimatePresence>
@@ -614,9 +619,10 @@ interface LightboxViewProps {
     onClose: () => void;
     onDelete: () => void;
     onDownload: () => void;
+    onSendPromptToMode?: (text: string, targetMode: GenerationMode) => void;
 }
 
-const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, onClose, onDelete, onDownload }) => {
+const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, onClose, onDelete, onDownload, onSendPromptToMode }) => {
     const { addToast } = useToast();
     const viewportRef = useRef<HTMLDivElement>(null);
     const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
@@ -798,6 +804,22 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                             <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
                                 {item.metadata.textPrompt}
                             </div>
+                            {onSendPromptToMode && (
+                                <div className="flex gap-2 mt-2">
+                                    <button 
+                                        onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_EDIT)}
+                                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
+                                    >
+                                        <Type size={12} /> To Edit
+                                    </button>
+                                    <button 
+                                        onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_TO_IMAGE)}
+                                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
+                                    >
+                                        <Layers size={12} /> To Img→Img
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -813,6 +835,17 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
 
                 {/* Actions Footer */}
                 <div className="p-5 border-t border-zinc-800 bg-zinc-900/50 space-y-3">
+                    {item.type === 'text' && onSendPromptToMode && (
+                        <div className="grid grid-cols-2 gap-3 mb-2">
+                             <Button variant="secondary" onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_EDIT)} className="w-full text-xs h-8">
+                                <Type size={14} className="mr-2" /> To Edit
+                            </Button>
+                             <Button variant="secondary" onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_TO_IMAGE)} className="w-full text-xs h-8">
+                                <Layers size={14} className="mr-2" /> To Img→Img
+                            </Button>
+                        </div>
+                    )}
+
                     <Button onClick={onDownload} className="w-full text-sm">
                         <Download size={16} className="mr-2" /> Download
                     </Button>
