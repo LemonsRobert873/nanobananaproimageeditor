@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -55,7 +55,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                     <div>
                        <h4 className="text-zinc-200 font-medium mb-1">Privacy & Security</h4>
                        <p className="text-zinc-400 text-sm leading-relaxed">
-                          <strong>Client-Side Only:</strong> This application runs entirely in your browser. Your API key and images are transmitted directly to the Google Gemini API. No data is stored on our servers or third-party intermediaries.
+                          <strong>Client-Side Only:</strong> This application runs entirely in your browser. Your API key is stored securely in your browser's Local Storage and is transmitted directly to the Google Gemini API. No data is ever stored on our servers or third-party intermediaries.
                        </p>
                     </div>
                   </div>
@@ -79,7 +79,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                The powerhouse. Delivers unmatched photorealism, complex instruction following, and high-fidelity textures.
                            </p>
                            <ul className="space-y-1 text-xs text-zinc-500 relative z-10">
-                               <li className="flex items-center gap-2"><div className="w-1 h-1 bg-yellow-500 rounded-full"/> Supports 4K Resolution</li>
+                               <li className="flex items-center gap-2"><div className="w-1 h-1 bg-yellow-500 rounded-full"/> <strong>Exclusive:</strong> Supports 2K & 4K Resolution</li>
                                <li className="flex items-center gap-2"><div className="w-1 h-1 bg-yellow-500 rounded-full"/> Best for Final Productions</li>
                                <li className="flex items-center gap-2"><div className="w-1 h-1 bg-yellow-500 rounded-full"/> Counts towards Daily Quota</li>
                            </ul>
@@ -97,7 +97,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                            </p>
                            <ul className="space-y-1 text-xs text-zinc-500 relative z-10">
                                <li className="flex items-center gap-2"><div className="w-1 h-1 bg-cyan-400 rounded-full"/> Lightning Fast Generation</li>
-                               <li className="flex items-center gap-2"><div className="w-1 h-1 bg-cyan-400 rounded-full"/> Standard Resolution (1K)</li>
+                               <li className="flex items-center gap-2"><div className="w-1 h-1 bg-cyan-400 rounded-full"/> Fixed Standard Resolution (1K)</li>
                                <li className="flex items-center gap-2"><div className="w-1 h-1 bg-cyan-400 rounded-full"/> Does NOT impact Daily Quota</li>
                            </ul>
                        </div>
@@ -171,7 +171,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                       <div>
                           <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 3: Img to Prompt</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
-                            Reverse-engineers a prompt from an image. Useful for extracting style, lighting, and camera settings.
+                            Reverse-engineers a prompt from an image. Useful for extracting style, lighting, and camera settings from any reference.
                           </p>
                       </div>
                    </div>
@@ -182,7 +182,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                       <div>
                           <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 4: Text Prompt Gen</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
-                            Expands simple ideas into professional, paragraph-long prompts. Includes an option for "Face Feature" tuning.
+                            Expands simple ideas into professional, paragraph-long prompts. Toggle "Face Feature" to focus on portrait details.
                           </p>
                       </div>
                    </div>
@@ -194,7 +194,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                <section>
                    <div className="flex items-center gap-2 mb-4 text-zinc-100">
                        <Sliders className={accentText} size={20} />
-                       <h4 className="text-lg font-semibold">Pro Workflow</h4>
+                       <h4 className="text-lg font-semibold">Pro Workflow Tips</h4>
                    </div>
                    <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
                        <ul className="grid md:grid-cols-2 gap-x-8 gap-y-4 text-sm text-zinc-400">
@@ -203,6 +203,13 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                <span>
                                    <strong className="text-zinc-200 block mb-0.5">Quick Generate</strong>
                                    Use <code className="bg-zinc-800 px-1 rounded text-xs">Cmd/Ctrl + Enter</code> to run the current configuration instantly.
+                               </span>
+                           </li>
+                           <li className="flex gap-3 items-start">
+                               <span className="bg-zinc-800 p-1 rounded text-red-400 mt-0.5"><AlertCircle size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Negative Prompting</strong>
+                                   Open the <strong>Advanced Settings</strong> dropdown to add negative prompts (e.g. "blurry", "text") to refine your output.
                                </span>
                            </li>
                            <li className="flex gap-3 items-start">
@@ -215,8 +222,8 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                            <li className="flex gap-3 items-start">
                                <span className={`bg-zinc-800 p-1 rounded ${accentText} mt-0.5`}><Clock size={12} /></span>
                                <span>
-                                   <strong className="text-zinc-200 block mb-0.5">Daily Quota (Pro)</strong>
-                                   The generation counter for Pro models resets daily at 12:00 AM PT. Flash generations are not counted.
+                                   <strong className="text-zinc-200 block mb-0.5">Daily Quota (Pro Only)</strong>
+                                   The generation counter for Pro models resets daily at 12:00 AM PT. Flash generations are unlimited.
                                </span>
                            </li>
                            <li className="flex gap-3 items-start">
