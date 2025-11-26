@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -7,6 +8,7 @@ import { ModeState, HistoryItem, GenerationMode, ActiveGeneration } from '../typ
 import { MODELS } from '../constants';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
+import { dataURLtoBlob } from '../utils/imageUtils';
 
 interface CanvasProps {
   currentState: ModeState;
@@ -83,6 +85,7 @@ const Canvas: React.FC<CanvasProps> = ({
   const { addToast } = useToast();
   const [isZoomed, setIsZoomed] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
 
@@ -94,6 +97,30 @@ const Canvas: React.FC<CanvasProps> = ({
   useEffect(() => {
     setIsZoomed(false);
     clickTargetRef.current = null;
+  }, [currentState.generatedImage]);
+
+  // Convert Base64 to Blob URL for proper browser handling (Open in New Tab)
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    if (currentState.generatedImage) {
+        if (currentState.generatedImage.startsWith('data:')) {
+            try {
+                const blob = dataURLtoBlob(currentState.generatedImage);
+                objectUrl = URL.createObjectURL(blob);
+                setDisplayUrl(objectUrl);
+            } catch (e) {
+                console.error("Failed to create blob URL", e);
+                setDisplayUrl(currentState.generatedImage);
+            }
+        } else {
+            setDisplayUrl(currentState.generatedImage);
+        }
+    } else {
+        setDisplayUrl(null);
+    }
+    return () => {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [currentState.generatedImage]);
 
   useEffect(() => {
@@ -410,7 +437,7 @@ const Canvas: React.FC<CanvasProps> = ({
                         {currentState.generatedImage && (
                             <img 
                                 onClick={handleZoomClick}
-                                src={currentState.generatedImage} 
+                                src={displayUrl || currentState.generatedImage} 
                                 alt="Generated result" 
                                 draggable={!isZoomed}
                                 onDragStart={(e) => {

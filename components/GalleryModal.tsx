@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Type, Layers } from 'lucide-react';
 import { HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
+import { dataURLtoBlob } from '../utils/imageUtils';
 
 interface GalleryModalProps {
   isOpen: boolean;
@@ -633,6 +635,7 @@ interface LightboxViewProps {
 
 const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, onClose, onDelete, onDownload, onSendPromptToMode, isProTheme }) => {
     const { addToast } = useToast();
+    const [displayUrl, setDisplayUrl] = useState<string | null>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
     const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
 
@@ -665,6 +668,29 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
              viewportRef.current.scrollTo({ left: 0, top: 0, behavior: 'instant' });
         }
     }, [isZoomed]);
+
+    // Blob URL Conversion
+    useEffect(() => {
+        let objectUrl: string | null = null;
+        if (item.type === 'image' && item.url) {
+             if (item.url.startsWith('data:')) {
+                try {
+                    const blob = dataURLtoBlob(item.url);
+                    objectUrl = URL.createObjectURL(blob);
+                    setDisplayUrl(objectUrl);
+                } catch (e) {
+                     setDisplayUrl(item.url);
+                }
+             } else {
+                 setDisplayUrl(item.url);
+             }
+        } else {
+            setDisplayUrl(null);
+        }
+        return () => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [item]);
 
     const handleZoomClick = (e: React.MouseEvent<HTMLImageElement>) => {
         if (isZoomed) {
@@ -705,7 +731,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                         className="w-full h-full overflow-auto flex custom-scrollbar"
                     >
                         <img 
-                            src={item.url} 
+                            src={displayUrl || item.url} 
                             alt="Detail" 
                             draggable="false"
                             onClick={handleZoomClick}
