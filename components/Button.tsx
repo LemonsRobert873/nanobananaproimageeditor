@@ -44,7 +44,6 @@ const Button: React.FC<ButtonProps> = ({
       whileHover={!disabled && !isLoading ? hoverVariants[variant] : undefined}
       whileTap={!disabled && !isLoading ? tapVariants : undefined}
       initial={false}
-      layout
       {...(props as any)}
     >
       {isLoading ? (

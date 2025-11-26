@@ -1,14 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -841,26 +830,45 @@ function AppContent() {
   const handleDeleteHistoryItem = async (e: React.MouseEvent | null, itemId: string) => {
     if (e) e.stopPropagation();
     
-    // Find item to check if it's currently displayed
+    // 1. Identify item
     const itemToDelete = history.find(item => item.id === itemId);
     if (!itemToDelete) return;
 
-    // Check if displayed in ANY mode, clear if so
-    const impactedMode = itemToDelete.metadata?.mode;
-    if (impactedMode) {
-        const state = modeStates[impactedMode];
+    // 2. Optimistically update history
+    const newHistory = history.filter(item => item.id !== itemId);
+    setHistory(newHistory);
+
+    // 3. Handle Fallback Logic
+    const targetMode = itemToDelete.metadata?.mode;
+    if (targetMode) {
+        const state = modeStates[targetMode];
+        // Check if the deleted item was actively displayed in the canvas for this mode
         const isDisplayed = 
             (itemToDelete.type === 'image' && itemToDelete.url === state.generatedImage) ||
             (itemToDelete.type === 'text' && itemToDelete.text === state.generatedText);
         
+        // If the item deleted was active, or if we want to ensure latest is always shown if empty
         if (isDisplayed) {
-            updateModeState(impactedMode, { generatedImage: null, generatedText: null });
+            // Find the most recent remaining item for this mode
+            // History is typically ordered newest first, so find() gets the latest
+            const fallbackItem = newHistory.find(item => item.metadata?.mode === targetMode);
+            
+            if (fallbackItem) {
+                // Switch to fallback
+                updateModeState(targetMode, { 
+                    generatedImage: fallbackItem.type === 'image' ? fallbackItem.url : null, 
+                    generatedText: fallbackItem.type === 'text' ? fallbackItem.text : null
+                });
+            } else {
+                // No items left, clear canvas
+                updateModeState(targetMode, { generatedImage: null, generatedText: null });
+            }
         }
     }
 
+    // 4. Persistence
     try {
       await deleteHistoryItem(itemId);
-      setHistory(prev => prev.filter(item => item.id !== itemId));
       addToast('Item deleted', 'success');
     } catch (err) {
       addToast('Failed to delete item', 'error');
@@ -868,13 +876,47 @@ function AppContent() {
   };
 
   const handleDeleteHistoryItems = async (ids: string[]) => {
+      const deletedSet = new Set(ids);
+
+      // 1. Determine affected modes before filtering
+      // We check if any currently displayed item is in the deletion set
+      const affectedModes = new Set<GenerationMode>();
+      Object.entries(modeStates).forEach(([m, s]) => {
+          const mode = m as GenerationMode;
+          const state = s as ModeState;
+          // Find if the currently displayed item for this mode is being deleted
+          const displayedItem = history.find(item => 
+              item.metadata?.mode === mode &&
+              ((item.type === 'image' && item.url === state.generatedImage) ||
+               (item.type === 'text' && item.text === state.generatedText))
+          );
+          
+          if (displayedItem && deletedSet.has(displayedItem.id)) {
+              affectedModes.add(mode);
+          }
+      });
+
+      // 2. Optimistic Update
+      const newHistory = history.filter(item => !deletedSet.has(item.id));
+      setHistory(newHistory);
+
+      // 3. Apply Fallbacks for Affected Modes
+      affectedModes.forEach(mode => {
+          const fallback = newHistory.find(item => item.metadata?.mode === mode);
+          if (fallback) {
+              updateModeState(mode, {
+                  generatedImage: fallback.type === 'image' ? fallback.url : null,
+                  generatedText: fallback.type === 'text' ? fallback.text : null
+              });
+          } else {
+              updateModeState(mode, { generatedImage: null, generatedText: null });
+          }
+      });
+
+      // 4. Persistence
       for (const id of ids) {
           await deleteHistoryItem(id);
       }
-      
-      const deletedSet = new Set(ids);
-      const remainingHistory = history.filter(item => !deletedSet.has(item.id));
-      setHistory(remainingHistory);
   };
 
   const handleDownload = (url: string) => {

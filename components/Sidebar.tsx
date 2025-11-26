@@ -220,6 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   
   const btnLabelBase = mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image';
   const btnLabel = queueCount > 0 ? `${btnLabelBase} (${queueCount})` : btnLabelBase;
+  const btnVariant = isImageMode && !isPro ? 'cyan' : 'primary';
 
   return (
     <aside 
@@ -697,8 +698,9 @@ const Sidebar: React.FC<SidebarProps> = ({
          </AnimatePresence>
         
         <Button 
+          key={`${mode}-${btnVariant}`}
           onClick={handleGenerate} 
-          variant={isImageMode && !isPro ? 'cyan' : 'primary'}
+          variant={btnVariant}
           className="w-full py-2.5 text-sm font-semibold relative overflow-hidden"
           title={`Generate ${shortcutLabel}`}
         >
