@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -697,6 +698,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         
         <Button 
           onClick={handleGenerate} 
+          variant={isImageMode && !isPro ? 'cyan' : 'primary'}
           className="w-full py-2.5 text-sm font-semibold relative overflow-hidden"
           title={`Generate ${shortcutLabel}`}
         >
@@ -709,7 +711,7 @@ const Sidebar: React.FC<SidebarProps> = ({
              />
           )}
           <div className="relative flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4" />
+            {isImageMode && !isPro ? <Zap className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
             <span>{btnLabel}</span>
           </div>
         </Button>

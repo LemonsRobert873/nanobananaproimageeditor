@@ -172,6 +172,9 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
                     { inlineData: { mimeType: referenceImage.type, data: refB64 } },
                     { text: `Analyze this image structure and generate a detailed prompt template using this structure: ${PROMPT_TEMPLATE_WITH_FACE}` }
                 ]
+            },
+            config: {
+                systemInstruction: "You are an expert image analyst. Output only the prompt blueprint based on the template. No introduction."
             }
         });
 
@@ -322,6 +325,16 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
     const negativeCondition = negativePrompt ? `\nNEGATIVE CONDITIONS:\n${negativePrompt}` : "";
 
     const activeSubjects = subjects.filter(s => s.isActive && s.file !== null);
+    
+    // Config to enforce strict output
+    const systemInstruction = `You are an expert prompt engineer. Your goal is to write high-quality, detailed image generation prompts based on the provided structure. 
+    
+    CRITICAL INSTRUCTIONS:
+    1. Output ONLY the raw prompt text. 
+    2. Do NOT include any introductory text (e.g., "Here is the prompt", "Sure", "Based on your request").
+    3. Do NOT include any closing text or explanations.
+    4. Do NOT use markdown code blocks (\`\`\`).
+    5. Start the response IMMEDIATELY with the prompt content.`;
 
     if (mode === GenerationMode.IMG_TO_PROMPT && activeSubjects.length > 0) {
       for (const s of activeSubjects) {
@@ -331,11 +344,25 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
           }
       }
       parts.push({
-        text: `Analyze the uploaded reference image(s) and generate a detailed image generation prompt... ${textPrompt ? `CONTEXT: ${textPrompt}` : ''} ${negativeCondition} STRUCTURE: ${baseTemplate}`
+        text: `Analyze the uploaded reference image(s) and generate a detailed image generation prompt following the structure below.
+        
+        CONTEXT/ADDITIONAL INSTRUCTIONS: ${textPrompt || "None"}
+        ${negativeCondition}
+        
+        REQUIRED STRUCTURE (Fill in the brackets):
+        ${baseTemplate}
+        
+        STRICT OUTPUT RULE: Output ONLY the filled template. Do NOT add "Here is the prompt" or any conversational preamble. Start directly with the content.`
       });
     } else {
       parts.push({
-        text: `Create a detailed image generation prompt... Concept: "${textPrompt}". ${negativeCondition} STRUCTURE: ${baseTemplate}`
+        text: `Create a detailed image generation prompt for the concept: "${textPrompt}".
+        ${negativeCondition}
+        
+        REQUIRED STRUCTURE (Fill in the brackets):
+        ${baseTemplate}
+        
+        STRICT OUTPUT RULE: Output ONLY the filled template. Do NOT add "Here is the prompt" or any conversational preamble. Start directly with the content.`
       });
     }
 
@@ -346,14 +373,28 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
 
     const response = await ai.models.generateContent({
       model: ANALYSIS_MODEL,
-      contents: { parts }
+      contents: { parts },
+      config: {
+        systemInstruction: systemInstruction
+      }
     });
 
     stopSim();
     updateProgress("Finalizing text...", 95);
 
     if (response.text) {
-      return response.text;
+      let cleaned = response.text.trim();
+      // Remove markdown code blocks if present
+      cleaned = cleaned.replace(/^```(?:markdown|text)?\n/, '').replace(/\n```$/, '');
+      
+      // Remove conversational preambles (aggressive cleanup)
+      // Matches pattern like "Here is the prompt:" or "Sure, here is..." at start of string
+      const preambleRegex = /^(Here is|Here's|Sure,|Okay,|This is|Below is)[\s\S]*?:\s*/i;
+      if (preambleRegex.test(cleaned)) {
+          cleaned = cleaned.replace(preambleRegex, '');
+      }
+
+      return cleaned.trim();
     }
     
     throw new Error("No prompt generated.");

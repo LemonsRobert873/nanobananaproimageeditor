@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'cyan';
   isLoading?: boolean;
 }
 
@@ -21,7 +22,8 @@ const Button: React.FC<ButtonProps> = ({
     secondary: "bg-zinc-800 text-zinc-100",
     outline: "border border-zinc-700 text-zinc-300 bg-transparent",
     ghost: "text-zinc-400 hover:bg-zinc-800",
-    danger: "bg-red-900/50 text-red-200 border border-red-800"
+    danger: "bg-red-900/50 text-red-200 border border-red-800",
+    cyan: "bg-cyan-500 text-black shadow-lg shadow-cyan-900/20"
   };
 
   const hoverVariants = {
@@ -29,7 +31,8 @@ const Button: React.FC<ButtonProps> = ({
     secondary: { scale: 1.02, backgroundColor: '#3f3f46' }, // zinc-700
     outline: { scale: 1.02, borderColor: '#EAB308', color: '#EAB308' },
     ghost: { scale: 1.02, color: '#F4F4F5' }, // zinc-100
-    danger: { scale: 1.02, backgroundColor: '#7f1d1d' } // red-900
+    danger: { scale: 1.02, backgroundColor: '#7f1d1d' }, // red-900
+    cyan: { scale: 1.02, backgroundColor: '#22d3ee' } // cyan-400
   };
 
   const tapVariants = { scale: 0.96 };
