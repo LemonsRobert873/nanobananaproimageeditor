@@ -687,7 +687,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
                         animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
                         exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                        className="space-y-4"
+                        className="space-y-4 pb-8"
                     >
                     <div className="flex items-center gap-2 text-zinc-100 font-medium">
                         <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
