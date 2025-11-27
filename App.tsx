@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -133,11 +134,19 @@ function AppContent() {
             // Use visual progress if processing, otherwise 0
             progress: j.status === 'processing' ? (visualProgressMap[m] || j.progress) : 0,
             step: j.status === 'processing' ? j.progressStep : 'Waiting in queue...',
-            startedAt: j.startedAt || j.createdAt, // Fallback to creation time for sorting
+            startedAt: j.startedAt || j.createdAt, // For timer
+            createdAt: j.createdAt, // For stable sorting
             model: (j.params as any).modelName // Hacky cast, but safe in context
         }))
     )
-    .sort((a, b) => a.startedAt - b.startedAt);
+    // Sort Descending by createdAt (Newest First)
+    // When rendered in flex-col (Top to Bottom), Newest is Top, Oldest is Bottom.
+    // justify-end pushes the stack to the bottom of the container.
+    // Result: 
+    // ...
+    // Newest
+    // Oldest (Bottom)
+    .sort((a, b) => b.createdAt - a.createdAt);
 
   // Helper to get current mode data
   const currentState = modeStates[mode];

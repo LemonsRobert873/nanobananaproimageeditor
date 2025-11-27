@@ -131,6 +131,7 @@ export interface ActiveGeneration {
     step: string;
     startedAt: number;
     model?: string;
+    createdAt: number;
 }
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
