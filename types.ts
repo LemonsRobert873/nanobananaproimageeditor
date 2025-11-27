@@ -107,6 +107,7 @@ export interface ModeState {
   referenceImage: File | null;
   generatedImage: string | null;
   generatedText: string | null;
+  activeHistoryId: string | null;
   useFaceFeature: boolean;
   refOperation: ReferenceOperation;
   aspectRatio: AspectRatio;

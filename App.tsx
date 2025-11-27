@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import KeySettings from './components/KeySettings';
@@ -44,6 +45,7 @@ const DEFAULT_MODE_STATE: ModeState = {
   referenceImage: null,
   generatedImage: null,
   generatedText: null,
+  activeHistoryId: null,
   useFaceFeature: true,
   refOperation: ReferenceOperation.APPLY_CLOTHING,
   aspectRatio: AspectRatio.PORTRAIT_9_16,
@@ -139,21 +141,12 @@ function AppContent() {
             model: (j.params as any).modelName // Hacky cast, but safe in context
         }))
     )
-    // Sort Descending by createdAt (Newest First)
-    // When rendered in flex-col (Top to Bottom), Newest is Top, Oldest is Bottom.
-    // justify-end pushes the stack to the bottom of the container.
-    // Result: 
-    // ...
-    // Newest
-    // Oldest (Bottom)
     .sort((a, b) => b.createdAt - a.createdAt);
 
   // Helper to get current mode data
   const currentState = modeStates[mode];
 
   // --- Theme Logic ---
-  // Image Modes: Theme based on Model (Pro=Yellow, Flash=Blue)
-  // Text Modes: Always Blue
   const isImageMode = mode === GenerationMode.IMAGE_EDIT || mode === GenerationMode.IMAGE_TO_IMAGE;
   const isProTheme = isImageMode && currentState.selectedModel === MODELS.PRO;
 
@@ -356,6 +349,7 @@ function AppContent() {
       delete (stateToSave as any).referenceImage;
       delete (stateToSave as any).generatedImage;
       delete (stateToSave as any).generatedText;
+      delete (stateToSave as any).activeHistoryId;
       delete (stateToSave as any).lastParams;
       delete (stateToSave as any).hasError;
       delete (stateToSave as any).errorMessage;
@@ -626,8 +620,8 @@ function AppContent() {
 
           if (isImageGen) {
               const imageUrl = await generateImage(paramsToUse as GenerateParams);
-              
               const duration = Date.now() - startTime;
+              const newItemId = Date.now().toString();
 
               // Complete 100%
               setModeStates(prev => {
@@ -638,17 +632,6 @@ function AppContent() {
               });
               
               await new Promise(resolve => setTimeout(resolve, 300));
-
-              // Store result
-              setModeStates(prev => ({
-                  ...prev,
-                  [mode]: {
-                      ...prev[mode],
-                      generatedImage: imageUrl,
-                      // Remove job from queue
-                      queue: prev[mode].queue.filter(j => j.id !== job.id)
-                  }
-              }));
 
               // Quota Update - Only for Pro Model (accessing params directly safely here)
               if ((job.params as GenerateParams).modelName === MODELS.PRO) {
@@ -670,7 +653,7 @@ function AppContent() {
               
               const newHistoryItem: GeneratedImage = {
                 type: 'image',
-                id: Date.now().toString(),
+                id: newItemId,
                 url: imageUrl,
                 timestamp: Date.now(),
                 prompt: (job.params as GenerateParams).textPrompt || "Reference based generation",
@@ -689,12 +672,24 @@ function AppContent() {
               
               await saveHistoryItem(newHistoryItem);
               setHistory(prev => [newHistoryItem, ...prev]);
+
+              // Update Mode State with new image and active ID
+              setModeStates(prev => ({
+                  ...prev,
+                  [mode]: {
+                      ...prev[mode],
+                      generatedImage: imageUrl,
+                      activeHistoryId: newItemId,
+                      queue: prev[mode].queue.filter(j => j.id !== job.id)
+                  }
+              }));
+
               addToast("Image generated successfully", 'success');
 
           } else {
               const promptText = await generatePrompt(paramsToUse as PromptGenParams);
-              
               const duration = Date.now() - startTime;
+              const newItemId = Date.now().toString();
 
               setModeStates(prev => {
                   const queue = prev[mode].queue.map(j => 
@@ -705,18 +700,9 @@ function AppContent() {
 
               await new Promise(resolve => setTimeout(resolve, 300));
 
-              setModeStates(prev => ({
-                  ...prev,
-                  [mode]: {
-                      ...prev[mode],
-                      generatedText: promptText,
-                      queue: prev[mode].queue.filter(j => j.id !== job.id)
-                  }
-              }));
-              
               const newHistoryItem: GeneratedText = {
                 type: 'text',
-                id: Date.now().toString(),
+                id: newItemId,
                 text: promptText,
                 timestamp: Date.now(),
                 sourcePrompt: (job.params as PromptGenParams).textPrompt || "Image analysis",
@@ -731,6 +717,17 @@ function AppContent() {
               
               await saveHistoryItem(newHistoryItem);
               setHistory(prev => [newHistoryItem, ...prev]);
+
+              setModeStates(prev => ({
+                  ...prev,
+                  [mode]: {
+                      ...prev[mode],
+                      generatedText: promptText,
+                      activeHistoryId: newItemId,
+                      queue: prev[mode].queue.filter(j => j.id !== job.id)
+                  }
+              }));
+              
               addToast("Prompt generated successfully", 'success');
           }
           
@@ -914,7 +911,8 @@ function AppContent() {
           [targetMode]: {
               ...prev[targetMode],
               generatedImage: item.type === 'image' ? item.url : null,
-              generatedText: item.type === 'text' ? item.text : null
+              generatedText: item.type === 'text' ? item.text : null,
+              activeHistoryId: item.id
           }
       }));
 
@@ -938,26 +936,25 @@ function AppContent() {
     const targetMode = itemToDelete.metadata?.mode;
     if (targetMode) {
         const state = modeStates[targetMode];
-        // Check if the deleted item was actively displayed in the canvas for this mode
-        const isDisplayed = 
-            (itemToDelete.type === 'image' && itemToDelete.url === state.generatedImage) ||
-            (itemToDelete.type === 'text' && itemToDelete.text === state.generatedText);
-        
-        // If the item deleted was active, or if we want to ensure latest is always shown if empty
-        if (isDisplayed) {
+        // Check if the deleted item was actively selected for this mode
+        if (state.activeHistoryId === itemId) {
             // Find the most recent remaining item for this mode
-            // History is typically ordered newest first, so find() gets the latest
             const fallbackItem = newHistory.find(item => item.metadata?.mode === targetMode);
             
             if (fallbackItem) {
                 // Switch to fallback
                 updateModeState(targetMode, { 
                     generatedImage: fallbackItem.type === 'image' ? fallbackItem.url : null, 
-                    generatedText: fallbackItem.type === 'text' ? fallbackItem.text : null
+                    generatedText: fallbackItem.type === 'text' ? fallbackItem.text : null,
+                    activeHistoryId: fallbackItem.id
                 });
             } else {
                 // No items left, clear canvas
-                updateModeState(targetMode, { generatedImage: null, generatedText: null });
+                updateModeState(targetMode, { 
+                    generatedImage: null, 
+                    generatedText: null,
+                    activeHistoryId: null
+                });
             }
         }
     }
@@ -975,19 +972,11 @@ function AppContent() {
       const deletedSet = new Set(ids);
 
       // 1. Determine affected modes before filtering
-      // We check if any currently displayed item is in the deletion set
       const affectedModes = new Set<GenerationMode>();
       Object.entries(modeStates).forEach(([m, s]) => {
           const mode = m as GenerationMode;
-          const state = s as ModeState;
-          // Find if the currently displayed item for this mode is being deleted
-          const displayedItem = history.find(item => 
-              item.metadata?.mode === mode &&
-              ((item.type === 'image' && item.url === state.generatedImage) ||
-               (item.type === 'text' && item.text === state.generatedText))
-          );
-          
-          if (displayedItem && deletedSet.has(displayedItem.id)) {
+          // Check if active item is being deleted
+          if (s.activeHistoryId && deletedSet.has(s.activeHistoryId)) {
               affectedModes.add(mode);
           }
       });
@@ -1002,10 +991,15 @@ function AppContent() {
           if (fallback) {
               updateModeState(mode, {
                   generatedImage: fallback.type === 'image' ? fallback.url : null,
-                  generatedText: fallback.type === 'text' ? fallback.text : null
+                  generatedText: fallback.type === 'text' ? fallback.text : null,
+                  activeHistoryId: fallback.id
               });
           } else {
-              updateModeState(mode, { generatedImage: null, generatedText: null });
+              updateModeState(mode, { 
+                  generatedImage: null, 
+                  generatedText: null,
+                  activeHistoryId: null
+              });
           }
       });
 

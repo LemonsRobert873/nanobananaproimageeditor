@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -99,10 +100,7 @@ const Canvas: React.FC<CanvasProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null);
   const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
 
-  const currentHistoryItem = history.find(item => 
-    (item.type === 'image' && item.url === currentState.generatedImage) ||
-    (item.type === 'text' && item.text === currentState.generatedText)
-  );
+  const currentHistoryItem = history.find(item => item.id === currentState.activeHistoryId);
 
   // Compact Mode Logic for Active Generations
   const isCompact = activeGenerations.length > 4;
@@ -449,7 +447,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             className="w-full max-w-3xl bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl h-fit relative group"
                         >
                             <button 
-                                onClick={() => updateCurrentState({ generatedText: null })}
+                                onClick={() => updateCurrentState({ generatedText: null, activeHistoryId: null })}
                                 className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1"
                                 title="Clear Result"
                             >
@@ -669,7 +667,10 @@ const Canvas: React.FC<CanvasProps> = ({
                     {currentState.generatedImage && !currentState.generatedText && !showInfo && (
                         <motion.button 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                            onClick={(e) => { e.stopPropagation(); updateCurrentState({ generatedImage: null }); }}
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                updateCurrentState({ generatedImage: null, generatedText: null, activeHistoryId: null }); 
+                            }}
                             className="pointer-events-auto bg-black/50 hover:bg-red-500/90 text-white p-2 rounded-full backdrop-blur-sm transition-all shadow-lg hover:scale-105 active:scale-95"
                             title="Close Image"
                         >
@@ -724,10 +725,8 @@ const Canvas: React.FC<CanvasProps> = ({
                     key={item.id}
                     onClick={() => handleHistorySelect(item)}
                     className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
-                        (
-                        (item.type === 'image' && currentState.generatedImage === item.url) || 
-                        (item.type === 'text' && currentState.generatedText === item.text)
-                        ) ? `${selectedBorder} opacity-100` : 'border-zinc-800 opacity-60 hover:opacity-100'
+                        item.id === currentState.activeHistoryId
+                        ? `${selectedBorder} opacity-100` : 'border-zinc-800 opacity-60 hover:opacity-100'
                     }`}
                     title={`View in ${item.metadata?.mode}`}
                     draggable={item.type === 'image'}
