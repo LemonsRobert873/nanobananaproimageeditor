@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState, useRef } from 'react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { BookOpen, Key, Layers, Type, FileText, Wand2, RotateCcw } from 'lucide-react';
 import { GenerationMode } from '../types';
@@ -13,6 +14,7 @@ interface HeaderProps {
   onResetClick: () => void;
   activeModel: string;
   isProTheme: boolean;
+  onTabDrop: (e: React.DragEvent, mode: GenerationMode) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -22,8 +24,56 @@ const Header: React.FC<HeaderProps> = ({
   hasKey, 
   handleKeyClick,
   onResetClick,
-  isProTheme
+  isProTheme,
+  onTabDrop
 }) => {
+  const [dragOverMode, setDragOverMode] = useState<GenerationMode | null>(null);
+  const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDragEnter = (targetMode: GenerationMode) => {
+      if (mode === targetMode) return;
+      
+      setDragOverMode(targetMode);
+      
+      if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+      
+      // Start timer to switch mode
+      dragTimeoutRef.current = setTimeout(() => {
+          setMode(targetMode);
+          setDragOverMode(null);
+      }, 500); // 500ms delay for intentional hover
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+      const currentTarget = e.currentTarget as HTMLElement;
+      const relatedTarget = e.relatedTarget as HTMLElement;
+      
+      // Prevent cancelling if simply moving into a child element (like the icon or span)
+      if (currentTarget.contains(relatedTarget)) return;
+
+      if (dragTimeoutRef.current) {
+          clearTimeout(dragTimeoutRef.current);
+          dragTimeoutRef.current = null;
+      }
+      setDragOverMode(null);
+  };
+  
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault(); // Necessary to allow dropping and detect dragover
+      e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const onDrop = (e: React.DragEvent, targetMode: GenerationMode) => {
+      e.preventDefault();
+      // Clear timer if dropping directly
+      if (dragTimeoutRef.current) {
+          clearTimeout(dragTimeoutRef.current);
+          dragTimeoutRef.current = null;
+      }
+      setDragOverMode(null);
+      onTabDrop(e, targetMode);
+  };
+
   return (
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
@@ -55,17 +105,27 @@ const Header: React.FC<HeaderProps> = ({
               <nav className="flex items-center bg-zinc-900/80 p-1 rounded-full border border-zinc-800 w-max mx-auto relative">
                   {[
                       { id: GenerationMode.IMAGE_EDIT, label: 'Image Edit', icon: Type },
-                      { id: GenerationMode.IMAGE_TO_IMAGE, label: 'Image to Image', icon: Layers },
-                      { id: GenerationMode.IMG_TO_PROMPT, label: 'Img to Prompt', icon: FileText },
-                      { id: GenerationMode.TEXT_TO_PROMPT, label: 'Text Prompt Gen', icon: Wand2 },
+                      { id: GenerationMode.IMAGE_TO_IMAGE, label: 'Image → Image', icon: Layers },
+                      { id: GenerationMode.IMG_TO_PROMPT, label: 'Image → Text Prompt', icon: FileText },
+                      { id: GenerationMode.TEXT_TO_PROMPT, label: 'Text Prompt', icon: Wand2 },
                   ].map((tab) => {
                       const isActive = mode === tab.id;
+                      const isDragTarget = dragOverMode === tab.id;
+                      
                       return (
                           <button
                               key={tab.id}
                               onClick={() => setMode(tab.id as GenerationMode)}
-                              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap z-10 ${
+                              onDragEnter={() => handleDragEnter(tab.id as GenerationMode)}
+                              onDragLeave={handleDragLeave}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => onDrop(e, tab.id as GenerationMode)}
+                              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap z-10 ${
                                   isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-200'
+                              } ${
+                                  isDragTarget 
+                                  ? (isProTheme ? 'bg-yellow-500/20 ring-2 ring-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)] text-yellow-500' : 'bg-cyan-500/20 ring-2 ring-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)] text-cyan-400') 
+                                  : ''
                               }`}
                           >
                               {isActive && (

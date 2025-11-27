@@ -20,6 +20,13 @@ interface GalleryModalProps {
 type ContentFilter = 'all' | 'image' | 'text';
 type SortOrder = 'newest' | 'oldest';
 
+const MODE_LABELS: Record<string, string> = {
+  [GenerationMode.IMAGE_EDIT]: 'Image Edit',
+  [GenerationMode.IMAGE_TO_IMAGE]: 'Image → Image',
+  [GenerationMode.IMG_TO_PROMPT]: 'Image → Text Prompt',
+  [GenerationMode.TEXT_TO_PROMPT]: 'Text Prompt'
+};
+
 // --- Optimized Gallery Item Component ---
 const GalleryItem = React.memo(({ 
   item, 
@@ -108,7 +115,7 @@ const GalleryItem = React.memo(({
                         <div className="flex items-center gap-1.5 text-zinc-300">
                         {item.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
                         <span className="text-[10px] font-medium uppercase tracking-wide">
-                            {item.metadata?.mode?.replace(/_/g, ' ') || 'Generated'}
+                            {MODE_LABELS[item.metadata?.mode || ''] || item.metadata?.mode || 'Generated'}
                         </span>
                     </div>
                     <span className="text-[10px] text-zinc-500 font-mono">
@@ -568,8 +575,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                      >
                          <option value="all">All Modes</option>
                          <option value={GenerationMode.IMAGE_EDIT}>Image Edit</option>
-                         <option value={GenerationMode.IMAGE_TO_IMAGE}>Image to Image</option>
-                         <option value={GenerationMode.IMG_TO_PROMPT}>Img to Prompt</option>
+                         <option value={GenerationMode.IMAGE_TO_IMAGE}>Image → Image</option>
+                         <option value={GenerationMode.IMG_TO_PROMPT}>Image → Text Prompt</option>
                          <option value={GenerationMode.TEXT_TO_PROMPT}>Text Prompt</option>
                      </select>
                 </div>
@@ -833,7 +840,7 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                     <div className="space-y-1">
                         <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Mode</label>
                         <div className="text-sm text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
-                            {item.metadata?.mode}
+                            {MODE_LABELS[item.metadata?.mode || ''] || item.metadata?.mode}
                         </div>
                     </div>
 
@@ -916,13 +923,13 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                                         onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_EDIT)}
                                         className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
                                     >
-                                        <Type size={12} /> To Edit
+                                        <Type size={12} /> To Image Edit
                                     </button>
                                     <button 
                                         onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_TO_IMAGE)}
                                         className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
                                     >
-                                        <Layers size={12} /> To Img→Img
+                                        <Layers size={12} /> To Image → Image
                                     </button>
                                 </div>
                             )}
@@ -944,10 +951,10 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                     {item.type === 'text' && onSendPromptToMode && (
                         <div className="grid grid-cols-2 gap-3 mb-2">
                              <Button variant="secondary" isProTheme={isProTheme} onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_EDIT)} className="w-full text-xs h-8">
-                                <Type size={14} className="mr-2" /> To Edit
+                                <Type size={14} className="mr-2" /> To Image Edit
                             </Button>
                              <Button variant="secondary" isProTheme={isProTheme} onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_TO_IMAGE)} className="w-full text-xs h-8">
-                                <Layers size={14} className="mr-2" /> To Img→Img
+                                <Layers size={14} className="mr-2" /> To Image → Image
                             </Button>
                         </div>
                     )}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -115,7 +116,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                   
                   {/* Mode 1 */}
                   <div className="mb-8">
-                      <h5 className="text-sm font-medium text-zinc-300 mb-3 border-l-2 border-blue-500 pl-3">Mode 1: Image Edit & Generation</h5>
+                      <h5 className="text-sm font-medium text-zinc-300 mb-3 border-l-2 border-blue-500 pl-3">Mode 1: Image Edit</h5>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
                             <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -138,7 +139,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
 
                   {/* Mode 2 */}
                   <div>
-                      <h5 className="text-sm font-medium text-zinc-300 mb-3 border-l-2 border-purple-500 pl-3">Mode 2: Image to Image</h5>
+                      <h5 className="text-sm font-medium text-zinc-300 mb-3 border-l-2 border-purple-500 pl-3">Mode 2: Image → Image</h5>
                       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 mb-3">
                          <p className="text-xs text-zinc-400">
                             Combines <strong>Subject(s)</strong> with a <strong>Reference Image</strong>. Use the <strong>Reference Strength</strong> slider to control adherence.
@@ -169,7 +170,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                           <FileText size={20} />
                       </div>
                       <div>
-                          <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 3: Img to Prompt</h5>
+                          <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 3: Image → Text Prompt</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
                             Reverse-engineers a prompt from an image. Useful for extracting style, lighting, and camera settings from any reference.
                           </p>
@@ -180,7 +181,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                           <Wand2 size={20} />
                       </div>
                       <div>
-                          <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 4: Text Prompt Gen</h5>
+                          <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 4: Text Prompt</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
                             Expands simple ideas into professional, paragraph-long prompts. Toggle "Face Feature" to focus on portrait details.
                           </p>

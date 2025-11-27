@@ -212,8 +212,8 @@ const Canvas: React.FC<CanvasProps> = ({
   const getModeLabel = (mode: GenerationMode) => {
       switch(mode) {
           case GenerationMode.IMAGE_EDIT: return 'IMAGE EDIT';
-          case GenerationMode.IMAGE_TO_IMAGE: return 'IMG TO IMG';
-          case GenerationMode.IMG_TO_PROMPT: return 'IMG TO PROMPT';
+          case GenerationMode.IMAGE_TO_IMAGE: return 'IMAGE → IMAGE';
+          case GenerationMode.IMG_TO_PROMPT: return 'IMAGE → TEXT PROMPT';
           case GenerationMode.TEXT_TO_PROMPT: return 'TEXT PROMPT';
           default: return 'GENERATING...';
       }
@@ -245,7 +245,7 @@ const Canvas: React.FC<CanvasProps> = ({
                   onClick={() => onSendPromptToMode(currentState.generatedText!, GenerationMode.IMAGE_EDIT)}
                   className="h-8 px-3 text-xs gap-2 text-zinc-400 hover:text-white"
                >
-                  <Type size={14} /> To Img Edit
+                  <Type size={14} /> To Image Edit
                </Button>
                <Button 
                   variant="ghost"
@@ -253,7 +253,7 @@ const Canvas: React.FC<CanvasProps> = ({
                   onClick={() => onSendPromptToMode(currentState.generatedText!, GenerationMode.IMAGE_TO_IMAGE)}
                   className="h-8 px-3 text-xs gap-2 text-zinc-400 hover:text-white"
                >
-                  <Layers size={14} /> To Img→Img
+                  <Layers size={14} /> To Image → Image
                </Button>
                <div className="w-px h-4 bg-zinc-800" />
                <Button 
@@ -629,13 +629,13 @@ const Canvas: React.FC<CanvasProps> = ({
                                                 onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_EDIT)}
                                                 className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
                                             >
-                                                <Type size={12} /> To Edit
+                                                <Type size={12} /> To Image Edit
                                             </button>
                                             <button 
                                                 onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_TO_IMAGE)}
                                                 className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
                                             >
-                                                <Layers size={12} /> To Img→Img
+                                                <Layers size={12} /> To Image → Image
                                             </button>
                                         </div>
                                     )}

@@ -213,7 +213,9 @@ function AppContent() {
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
             keyFound = true;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error(e)
+      }
 
       if (!keyFound && (window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
         const has = await (window as any).aistudio.hasSelectedApiKey();
@@ -516,6 +518,77 @@ function AppContent() {
       }
       
       window.location.reload();
+  };
+  
+  // --- DRAG TO SWITCH MODE HANDLER ---
+  const handleTabDrop = async (e: React.DragEvent, targetMode: GenerationMode) => {
+      e.preventDefault();
+      
+      // 1. Switch Mode immediately
+      if (mode !== targetMode) {
+          setMode(targetMode);
+      }
+
+      // 2. Extract File
+      let file: File | null = null;
+      const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
+      
+      if (internalUrl) {
+           file = dataURLtoFile(internalUrl, `dropped-tab-${Date.now()}.png`);
+      } else if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+           file = e.dataTransfer.files[0];
+      }
+
+      // If no file (just hover switch without drop, or invalid drag), we are done.
+      if (!file || !file.type.startsWith('image/')) return;
+      
+      // 3. Update Target Mode State with "Default" logic
+      // We use setModeStates function update to ensure we have latest state
+      setModeStates(prev => {
+          const state = prev[targetMode];
+          const updates: Partial<ModeState> = {};
+          let message = "";
+          
+          if (targetMode === GenerationMode.IMAGE_EDIT) {
+               if (state.subjects.length < 5) {
+                   const newSub = { id: Date.now().toString(), file, isActive: true };
+                   updates.subjects = [...state.subjects, newSub];
+                   message = "Image added to Subjects";
+               } else {
+                   addToast("Max 5 subjects allowed", 'warning');
+                   return prev; // No changes
+               }
+          } else if (targetMode === GenerationMode.IMAGE_TO_IMAGE) {
+               // Async check for resolution would require side effect.
+               // For drag-to-switch speed, we just set the file.
+               // Check resolution asynchronously:
+               const img = new Image();
+               img.onload = () => {
+                   const isLow = img.width < 512 || img.height < 512;
+                   updateModeState(targetMode, { isRefLowRes: isLow });
+                   URL.revokeObjectURL(img.src);
+               };
+               img.src = URL.createObjectURL(file);
+               
+               updates.referenceImage = file;
+               message = "Image set as Reference";
+
+          } else if (targetMode === GenerationMode.IMG_TO_PROMPT) {
+               const newSub = { id: '0', file, isActive: true };
+               updates.subjects = [newSub];
+               message = "Image set as Source";
+          } else {
+               addToast("This mode does not accept images", 'info');
+               return prev;
+          }
+
+          if (message) addToast(message, 'success');
+
+          return {
+              ...prev,
+              [targetMode]: { ...state, ...updates }
+          };
+      });
   };
 
   // --- JOB PROCESSING LOGIC ---
@@ -968,7 +1041,7 @@ function AppContent() {
   const handleSendPromptToMode = (text: string, targetMode: GenerationMode) => {
       updateModeState(targetMode, { textPrompt: text });
       handleSetMode(targetMode);
-      const label = targetMode === GenerationMode.IMAGE_EDIT ? 'Image Edit' : 'Image to Image';
+      const label = targetMode === GenerationMode.IMAGE_EDIT ? 'Image Edit' : 'Image → Image';
       addToast(`Prompt sent to ${label}`, 'success');
   };
 
@@ -1030,6 +1103,7 @@ function AppContent() {
         onResetClick={() => setShowResetModal(true)}
         activeModel={currentState.selectedModel}
         isProTheme={isProTheme}
+        onTabDrop={handleTabDrop}
       />
 
       <main className="flex-1 flex overflow-hidden max-w-[1800px] mx-auto w-full relative">
