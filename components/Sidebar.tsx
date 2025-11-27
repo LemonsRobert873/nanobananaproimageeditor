@@ -52,6 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [activeTarget, setActiveTarget] = useState<'reference' | 'subject' | null>(null);
   const [focusedSubjectId, setFocusedSubjectId] = useState<string | null>(null);
   const [isDragOverSubjectSection, setIsDragOverSubjectSection] = useState(false);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
       const saved = localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
@@ -64,6 +65,23 @@ const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
       localStorage.setItem(`nanobanana_advanced_${mode}`, showAdvanced.toString());
   }, [showAdvanced, mode]);
+
+  // Auto-resize Textarea
+  useEffect(() => {
+    const textarea = textAreaRef.current;
+    if (textarea) {
+        textarea.style.height = 'auto';
+        const scrollHeight = textarea.scrollHeight;
+        const newHeight = Math.max(200, Math.min(scrollHeight, 350));
+        textarea.style.height = `${newHeight}px`;
+        
+        if (scrollHeight > 350) {
+             textarea.style.overflowY = 'auto';
+        } else {
+             textarea.style.overflowY = 'hidden';
+        }
+    }
+  }, [currentState.textPrompt, mode]);
   
   const handleReferenceSelect = (file: File | null) => {
     let isLowRes = false;
@@ -600,6 +618,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <div className="relative group">
                         <textarea
+                            ref={textAreaRef}
                             value={currentState.textPrompt}
                             onChange={(e) => updateCurrentState({ textPrompt: e.target.value })}
                             placeholder={
@@ -607,7 +626,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 mode === GenerationMode.IMG_TO_PROMPT ? "e.g. Focus on the vintage car in the background..." :
                                 "Describe the scene, lighting, style..."
                             }
-                            className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 outline-none resize-none min-h-[120px] transition-shadow ${focusRing}`}
+                            className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 outline-none resize-none transition-shadow ${focusRing}`}
+                            style={{ minHeight: '200px' }}
                         />
                         <AnimatePresence>
                             {currentState.textPrompt && (
