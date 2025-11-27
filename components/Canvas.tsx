@@ -31,7 +31,7 @@ interface CanvasProps {
   isProTheme?: boolean;
 }
 
-const JobTimer = ({ startedAt, isComplete }: { startedAt: number, isComplete: boolean }) => {
+const JobTimer = ({ startedAt, isComplete, className }: { startedAt: number, isComplete: boolean, className?: string }) => {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -56,10 +56,20 @@ const JobTimer = ({ startedAt, isComplete }: { startedAt: number, isComplete: bo
   const ms = centiseconds.toString().padStart(2, '0');
 
   return (
-    <span className="text-[10px] font-mono text-zinc-400 tabular-nums shrink-0 ml-auto pl-2">
+    <span className={className || "text-[10px] font-mono text-zinc-400 tabular-nums shrink-0 ml-auto pl-2"}>
       {ss}:{ms}s
     </span>
   );
+};
+
+const getModeShortLabel = (mode: GenerationMode) => {
+    switch(mode) {
+        case GenerationMode.IMAGE_EDIT: return 'IE';
+        case GenerationMode.IMAGE_TO_IMAGE: return 'I2I';
+        case GenerationMode.IMG_TO_PROMPT: return 'I2P';
+        case GenerationMode.TEXT_TO_PROMPT: return 'TXT';
+        default: return 'GEN';
+    }
 };
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -93,6 +103,9 @@ const Canvas: React.FC<CanvasProps> = ({
     (item.type === 'image' && item.url === currentState.generatedImage) ||
     (item.type === 'text' && item.text === currentState.generatedText)
   );
+
+  // Compact Mode Logic for Active Generations
+  const isCompact = activeGenerations.length > 4;
 
   useEffect(() => {
     setIsZoomed(false);
@@ -308,8 +321,9 @@ const Canvas: React.FC<CanvasProps> = ({
 
          <div className="relative w-full h-full overflow-hidden flex">
             
-            <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none gap-4 max-h-[50%] overflow-visible">
-                 <AnimatePresence>
+            {/* Global Progress Pills - Dynamic Compact/Large Mode */}
+            <div className={`absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none ${isCompact ? 'gap-2' : 'gap-4'} max-h-[60%] overflow-visible`}>
+                 <AnimatePresence initial={false}>
                     {activeGenerations.map((gen) => {
                          const isTextGen = gen.mode === GenerationMode.IMG_TO_PROMPT || gen.mode === GenerationMode.TEXT_TO_PROMPT;
                          const isProModel = gen.model === MODELS.PRO;
@@ -337,50 +351,89 @@ const Canvas: React.FC<CanvasProps> = ({
 
                          return (
                              <motion.div 
-                                key={gen.id} // Use ID to track specific jobs
+                                key={gen.id}
                                 layout
                                 initial={{ opacity: 0, x: 20, y: 20 }}
                                 animate={{ opacity: isQueued ? 0.7 : 1, x: 0, y: 0 }}
                                 exit={{ opacity: 0, x: 20, y: 20 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                className={`bg-zinc-900/95 border ${borderColor} p-4 rounded-xl shadow-2xl backdrop-blur-md w-64 pointer-events-auto`}
+                                className={`bg-zinc-900/95 border ${borderColor} shadow-2xl backdrop-blur-md pointer-events-auto transition-all duration-300 origin-bottom-right
+                                    ${isCompact ? 'p-2.5 rounded-lg w-60' : 'p-4 rounded-xl w-64'}
+                                `}
                              >
-                                  <div className="flex items-center justify-between mb-2">
-                                      <div className={`flex items-center gap-2 ${accentColor}`}>
-                                          {isQueued ? (
-                                             <span className="animate-pulse">⏳</span>
-                                          ) : (
-                                             <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
-                                          )}
-                                          <span className="text-xs font-bold tracking-wide uppercase">{getModeLabel(gen.mode)}</span>
-                                      </div>
-                                      <span className="text-xs text-zinc-400 font-mono">
-                                          {isQueued ? 'WAIT' : `${Math.round(gen.progress)}%`}
-                                      </span>
-                                  </div>
-                                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
-                                      {isQueued ? (
-                                         <div className="w-full h-full bg-zinc-800" />
-                                      ) : (
-                                        <motion.div 
-                                            className={`absolute h-full ${barColor}`} 
-                                            style={{width: `${gen.progress}%`}} 
-                                        >
-                                            <motion.div 
-                                                className="absolute inset-0 bg-white/30"
-                                                animate={{ x: ['-100%', '100%'] }}
-                                                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                            />
-                                        </motion.div>
-                                      )}
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between gap-3">
-                                      <p className="text-[10px] text-zinc-500 truncate font-medium flex-1">
-                                          {isQueued ? 'Waiting in queue...' : gen.step}
-                                      </p>
-                                      {!isQueued && <JobTimer startedAt={gen.startedAt} isComplete={isComplete} />}
-                                  </div>
+                                  {isCompact ? (
+                                    // Compact Layout
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={`shrink-0 flex items-center justify-center w-6 h-6 rounded bg-zinc-800/50 ${accentColor} font-bold text-[9px] tracking-wider border border-white/5`}>
+                                            {getModeShortLabel(gen.mode)}
+                                        </div>
+                                        
+                                        <div className="flex-1 min-w-0 flex flex-col justify-center h-full gap-0.5">
+                                            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden relative">
+                                                {isQueued ? (
+                                                    <div className="w-full h-full bg-zinc-800 animate-pulse" />
+                                                ) : (
+                                                    <motion.div 
+                                                        className={`absolute h-full ${barColor}`} 
+                                                        style={{width: `${gen.progress}%`}} 
+                                                        layout
+                                                    >
+                                                        <motion.div 
+                                                            className="absolute inset-0 bg-white/30"
+                                                            animate={{ x: ['-100%', '100%'] }}
+                                                            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                                        />
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="shrink-0 flex flex-col items-end justify-center min-w-[40px] leading-none gap-0.5">
+                                            <span className="text-[10px] font-bold text-zinc-300">{Math.round(gen.progress)}%</span>
+                                            {!isQueued && <JobTimer startedAt={gen.startedAt} isComplete={isComplete} className="text-[9px] font-mono text-zinc-500" />}
+                                        </div>
+                                    </div>
+                                  ) : (
+                                    // Large Layout
+                                    <>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className={`flex items-center gap-2 ${accentColor}`}>
+                                                {isQueued ? (
+                                                    <span className="animate-pulse">⏳</span>
+                                                ) : (
+                                                    <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}><Sparkles size={14}/></motion.span>
+                                                )}
+                                                <span className="text-xs font-bold tracking-wide uppercase">{getModeLabel(gen.mode)}</span>
+                                            </div>
+                                            <span className="text-xs text-zinc-400 font-mono">
+                                                {isQueued ? 'WAIT' : `${Math.round(gen.progress)}%`}
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
+                                            {isQueued ? (
+                                                <div className="w-full h-full bg-zinc-800" />
+                                            ) : (
+                                                <motion.div 
+                                                    className={`absolute h-full ${barColor}`} 
+                                                    style={{width: `${gen.progress}%`}} 
+                                                >
+                                                    <motion.div 
+                                                        className="absolute inset-0 bg-white/30"
+                                                        animate={{ x: ['-100%', '100%'] }}
+                                                        transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                                    />
+                                                </motion.div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-[10px] text-zinc-500 truncate font-medium flex-1">
+                                                {isQueued ? 'Waiting in queue...' : gen.step}
+                                            </p>
+                                            {!isQueued && <JobTimer startedAt={gen.startedAt} isComplete={isComplete} />}
+                                        </div>
+                                    </>
+                                  )}
                              </motion.div>
                          );
                     })}
@@ -624,12 +677,8 @@ const Canvas: React.FC<CanvasProps> = ({
                         </motion.button>
                     )}
                  </div>
-
-                 {/* Bottom Actions Area */}
                  <div className="flex items-end justify-between w-full">
-                     <div className="pointer-events-auto">
-                        {/* Comparison Image Removed */}
-                     </div>
+                     <div className="pointer-events-auto"></div>
                  </div>
             </div>
          </div>

@@ -5,7 +5,7 @@ import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon,
 import { HistoryItem, GenerationMode } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
-import { dataURLtoBlob } from '../utils/imageUtils';
+import { dataURLtoBlob, createZip, formatDateForFilename } from '../utils/imageUtils';
 
 interface GalleryModalProps {
   isOpen: boolean;
@@ -134,6 +134,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   const { addToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeItem, setActiveItem] = useState<HistoryItem | null>(null);
   const [lightboxZoomed, setLightboxZoomed] = useState(false);
@@ -351,40 +352,83 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
     }
   };
 
+  // --- Bulk Download Logic ---
   const handleBulkDownload = async () => {
-    if (selectedIds.size === 0) return;
-
-    const itemsToDownload = history.filter(item => selectedIds.has(item.id));
-    let downloadedCount = 0;
-    
-    addToast('Starting downloads...', 'info');
-
-    for (const item of itemsToDownload) {
-      if (item.type === 'image') {
-         const link = document.createElement('a');
-         link.href = item.url;
-         link.download = `nanobanana-${item.id}.png`;
-         document.body.appendChild(link);
-         link.click();
-         document.body.removeChild(link);
-         downloadedCount++;
-         await new Promise(r => setTimeout(r, 200));
-      } else if (item.type === 'text') {
-         const blob = new Blob([item.text], { type: 'text/plain' });
-         const url = URL.createObjectURL(blob);
-         const link = document.createElement('a');
-         link.href = url;
-         link.download = `prompt-${item.id}.txt`;
-         document.body.appendChild(link);
-         link.click();
-         document.body.removeChild(link);
-         URL.revokeObjectURL(url);
-         downloadedCount++;
-         await new Promise(r => setTimeout(r, 100));
-      }
+    if (selectedIds.size === 0) {
+        addToast("No items selected.", 'warning');
+        return;
     }
-    
-    addToast(`Downloaded ${downloadedCount} items`, 'success');
+
+    setIsDownloading(true);
+    addToast(selectedIds.size > 5 ? 'Preparing ZIP download...' : 'Starting downloads...', 'info');
+
+    try {
+        const itemsToDownload = history.filter(item => selectedIds.has(item.id));
+        const processedFiles: { name: string, blob: Blob | string }[] = [];
+
+        // 1. Process all files
+        for (const item of itemsToDownload) {
+            if (item.type === 'image') {
+                const rawBlob = dataURLtoBlob(item.url);
+                processedFiles.push({
+                    name: `nanobanana-${item.id}.png`,
+                    blob: rawBlob
+                });
+            } else if (item.type === 'text') {
+                const blob = new Blob([item.text], { type: 'text/plain' });
+                processedFiles.push({
+                    name: `text-${item.timestamp}.txt`,
+                    blob: blob
+                });
+            }
+        }
+
+        // 2. Decide: Individual or ZIP
+        if (selectedIds.size <= 5) {
+            // Individual Downloads
+            let index = 0;
+            for (const file of processedFiles) {
+                const url = URL.createObjectURL(file.blob as Blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                // Small delay to prevent browser throttling
+                if (index < processedFiles.length - 1) {
+                    await new Promise(r => setTimeout(r, 300));
+                }
+                index++;
+            }
+            addToast(`Downloaded ${selectedIds.size} items`, 'success');
+
+        } else {
+            // ZIP Download
+            const zipBlob = await createZip(processedFiles);
+            const now = Date.now();
+            const filename = `nanobanana - ${formatDateForFilename(now)}.zip`;
+            
+            const url = URL.createObjectURL(zipBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            addToast('ZIP download complete', 'success');
+        }
+
+    } catch (e) {
+        console.error(e);
+        addToast('Download failed', 'error');
+    } finally {
+        setIsDownloading(false);
+    }
   };
 
   const handleSingleDelete = async (id: string) => {
@@ -398,21 +442,32 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
       }
   };
 
-  const handleSingleDownload = (item: HistoryItem) => {
-      if (item.type === 'image') {
-          onDownloadImage(item.url, item.id);
+  const handleSingleDownload = async (item: HistoryItem) => {
+      try {
+          if (item.type === 'image') {
+            const rawBlob = dataURLtoBlob(item.url);
+            const url = URL.createObjectURL(rawBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `nanobanana-${item.id}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          } else {
+            const blob = new Blob([item.text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `text-${item.timestamp}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }
           addToast('Download started', 'info');
-      } else {
-          const blob = new Blob([item.text], { type: 'text/plain' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `prompt-${item.id}.txt`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          addToast('Download started', 'info');
+      } catch (e) {
+          addToast('Download failed', 'error');
       }
   };
 
@@ -451,11 +506,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                     <Button 
                         variant="ghost" 
                         isProTheme={isProTheme}
-                        disabled={selectedIds.size === 0}
+                        disabled={selectedIds.size === 0 || isDownloading}
                         onClick={handleBulkDownload}
                         className="h-8 text-xs"
                     >
-                        <Download size={14} className="mr-2" />
+                        {isDownloading ? (
+                           <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                        ) : (
+                           <Download size={14} className="mr-2" />
+                        )}
                         Download ({selectedIds.size})
                     </Button>
                     <Button 
