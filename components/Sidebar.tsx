@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -255,6 +256,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const accentText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
   const accentHover = isProTheme ? 'hover:text-yellow-500 hover:border-yellow-500' : 'hover:text-cyan-400 hover:border-cyan-400';
 
+  // Section Styling Helper
+  const activeSectionClass = isProTheme 
+    ? 'bg-yellow-500/5 ring-1 ring-yellow-500/50' 
+    : 'bg-cyan-500/5 ring-1 ring-cyan-500/50';
+
   return (
     <aside 
       style={{ width }}
@@ -327,14 +333,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3 }}
-                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-colors ${
-                            isDragOverSubjectSection 
-                            ? (isProTheme ? 'bg-yellow-500/10 ring-2 ring-yellow-500/30' : 'bg-cyan-500/10 ring-2 ring-cyan-500/30') 
-                            : ''
+                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-all duration-200 ${
+                            (activeTarget === 'subject' || isDragOverSubjectSection) 
+                            ? activeSectionClass 
+                            : 'hover:bg-zinc-800/30'
                         }`}
                         onClick={(e) => {
                             e.stopPropagation();
                             setActiveTarget('subject');
+                            setFocusedSubjectId(null);
                         }}
                         onDragOver={handleSectionDragOver}
                         onDragLeave={handleSectionDragLeave}
@@ -434,7 +441,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="space-y-2"
+                        className={`space-y-2 rounded-xl p-2 -m-2 transition-all duration-200 ${
+                            activeTarget === 'imageToText' ? activeSectionClass : 'hover:bg-zinc-800/30'
+                        }`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTarget('imageToText');
+                        }}
                     >
                         <div className="flex items-center gap-2 text-zinc-100 font-medium">
                             <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
@@ -533,7 +546,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="space-y-4 overflow-hidden"
+                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-all duration-200 ${
+                            activeTarget === 'reference' ? activeSectionClass : ''
+                        }`}
                         onClick={(e) => {
                             e.stopPropagation();
                             setActiveTarget('reference');
