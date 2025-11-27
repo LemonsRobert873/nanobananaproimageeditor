@@ -49,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({
      return false;
   });
   
-  const [activeTarget, setActiveTarget] = useState<'reference' | 'subject' | null>(null);
+  const [activeTarget, setActiveTarget] = useState<'reference' | 'subject' | 'imageToText' | null>(null);
   const [focusedSubjectId, setFocusedSubjectId] = useState<string | null>(null);
   const [isDragOverSubjectSection, setIsDragOverSubjectSection] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -204,6 +204,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         if (file) {
              e.preventDefault();
+
+             // Handle Image -> Text Prompt Source Paste
+             if (activeTarget === 'imageToText') {
+                 const newSub = { id: '0', file, isActive: true };
+                 updateCurrentState({ subjects: [newSub] });
+                 addToast("Source image set", 'success');
+                 return;
+             }
+
              if (focusedSubjectId) {
                  const subjectExists = currentState.subjects.find(s => s.id === focusedSubjectId);
                  if (subjectExists) {
@@ -229,7 +238,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [activeTarget, focusedSubjectId, currentState]);
+  }, [activeTarget, focusedSubjectId, currentState, mode]);
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
@@ -239,14 +248,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   
   const btnLabelBase = mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT ? 'Generate Prompt' : 'Generate Image';
   const btnLabel = queueCount > 0 ? `${btnLabelBase} (${queueCount})` : btnLabelBase;
-  // Use primary variant which now respects isProTheme prop
   const btnVariant = 'primary'; 
 
   // Colors helpers
   const focusRing = isProTheme ? 'focus:ring-yellow-500 focus:border-yellow-500' : 'focus:ring-cyan-500 focus:border-cyan-500';
   const accentText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
   const accentHover = isProTheme ? 'hover:text-yellow-500 hover:border-yellow-500' : 'hover:text-cyan-400 hover:border-cyan-400';
-  const accentBg = isProTheme ? 'bg-yellow-500' : 'bg-cyan-500';
 
   return (
     <aside 
@@ -443,8 +450,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                             }}
                             required
                             className="mb-2"
-                            isActive={activeTarget === 'subject'}
-                            onActivate={() => setActiveTarget('subject')}
+                            isActive={activeTarget === 'imageToText'}
+                            onActivate={() => setActiveTarget('imageToText')}
                             isProTheme={isProTheme}
                         />
                     </motion.section>

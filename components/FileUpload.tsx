@@ -42,6 +42,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Stop drop from bubbling
     setIsDragOver(false);
 
     // 1. Check for internal drag (from history)
@@ -77,7 +78,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
     // We don't necessarily clear active state here to allow pasting a new one immediately
   };
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Critical: Prevent parent (Sidebar) from catching click and resetting active state
     if (onActivate) onActivate();
     inputRef.current?.click();
   };
@@ -101,10 +103,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
         onClick={handleClick}
         onDragOver={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setIsDragOver(true);
         }}
         onDragLeave={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setIsDragOver(false);
         }}
         onDrop={handleDrop}
