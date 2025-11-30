@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, AlertCircle, User, ImagePlus, Copy, X, 
-  ChevronDown, ChevronUp, Sliders, RotateCw, Plus, Trash2, CheckSquare, Square, Upload, Zap
+  ChevronRight, Sliders, RotateCw, Plus, Trash2, CheckSquare, Square, Upload, Zap, ChevronDown
 } from 'lucide-react';
 import { 
   GenerationMode, 
@@ -31,6 +31,8 @@ interface SidebarProps {
   isProTheme: boolean;
 }
 
+type SectionKey = 'subject' | 'source' | 'reference' | 'prompt' | 'config';
+
 const Sidebar: React.FC<SidebarProps> = ({ 
   mode, 
   currentState, 
@@ -43,6 +45,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   isProTheme
 }) => {
   const { addToast } = useToast();
+  
+  // Collapsible State
+  const [collapsedSections, setCollapsedSections] = useState<Record<SectionKey, boolean>>({
+    subject: false,
+    source: false,
+    reference: false,
+    prompt: false,
+    config: false
+  });
+
   const [showAdvanced, setShowAdvanced] = useState(() => {
      if (typeof window !== 'undefined') {
          return localStorage.getItem(`nanobanana_advanced_${mode}`) === 'true';
@@ -73,17 +85,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (textarea) {
         textarea.style.height = 'auto';
         const scrollHeight = textarea.scrollHeight;
-        const newHeight = Math.max(200, Math.min(scrollHeight, 350));
+        const newHeight = Math.max(120, Math.min(scrollHeight, 350));
         textarea.style.height = `${newHeight}px`;
-        
-        if (scrollHeight > 350) {
-             textarea.style.overflowY = 'auto';
-        } else {
-             textarea.style.overflowY = 'hidden';
-        }
+        textarea.style.overflowY = scrollHeight > 350 ? 'auto' : 'hidden';
     }
-  }, [currentState.textPrompt, mode]);
+  }, [currentState.textPrompt, mode, collapsedSections.prompt]);
   
+  const toggleSection = (key: SectionKey) => {
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleReferenceSelect = (file: File | null) => {
     let isLowRes = false;
     if (file) {
@@ -137,6 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       });
   };
 
+  // Section Drag Handlers
   const handleSectionDragOver = (e: React.DragEvent) => {
       if (currentState.subjects.length < 5) {
           e.preventDefault();
@@ -183,6 +195,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
   };
 
+  // Paste Logic
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
         const target = document.activeElement as HTMLElement;
@@ -251,15 +264,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const btnLabel = queueCount > 0 ? `${btnLabelBase} (${queueCount})` : btnLabelBase;
   const btnVariant = 'primary'; 
 
-  // Colors helpers
   const focusRing = isProTheme ? 'focus:ring-yellow-500 focus:border-yellow-500' : 'focus:ring-cyan-500 focus:border-cyan-500';
   const accentText = isProTheme ? 'text-yellow-500' : 'text-cyan-400';
   const accentHover = isProTheme ? 'hover:text-yellow-500 hover:border-yellow-500' : 'hover:text-cyan-400 hover:border-cyan-400';
-
-  // Section Styling Helper
-  const activeSectionClass = isProTheme 
-    ? 'bg-yellow-500/5 ring-1 ring-yellow-500/50' 
-    : 'bg-cyan-500/5 ring-1 ring-cyan-500/50';
+  const activeSectionClass = isProTheme ? 'bg-yellow-500/5 ring-1 ring-yellow-500/50' : 'bg-cyan-500/5 ring-1 ring-cyan-500/50';
 
   return (
     <aside 
@@ -270,132 +278,68 @@ const Sidebar: React.FC<SidebarProps> = ({
           setActiveTarget(null);
       }}
     >
-      {/* ==========================================
-          VISUAL EFFECTS LAYER (Image Modes Only)
-         ========================================== */}
-      {isImageMode && (
-          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-              {/* Main Glow Pulse (Full Area) */}
-              <motion.div 
-                 className={`absolute inset-0 transition-colors duration-700 ${
-                     isProTheme ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
-                 }`}
-                 animate={{
-                     boxShadow: isProTheme 
-                        ? [
-                            'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
-                            'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
-                            'inset 0 0 30px -5px rgba(234,179,8,0.1)'
-                          ]
-                        : [
-                            'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
-                            'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
-                            'inset 0 0 40px -5px rgba(6,182,212,0.15)'
-                          ]
-                 }}
-                 transition={{
-                     duration: isProTheme ? 4 : 1.5, // Flash is faster
-                     repeat: Infinity,
-                     ease: "easeInOut"
-                 }}
-              />
+      {/* Background Effects */}
+      {isImageMode && <BackgroundEffects isProTheme={isProTheme} />}
 
-              {/* Right Border Accent (Extends to right side as requested) */}
-              <motion.div
-                className="absolute inset-y-0 right-0 w-[1px]"
-                animate={{
-                    boxShadow: isProTheme 
-                        ? ['-2px 0 10px 1px rgba(234,179,8,0.3)', '-4px 0 20px 2px rgba(234,179,8,0.6)', '-2px 0 10px 1px rgba(234,179,8,0.3)']
-                        : ['-2px 0 15px 1px rgba(6,182,212,0.2)', '-4px 0 30px 2px rgba(6,182,212,0.4)', '-2px 0 15px 1px rgba(6,182,212,0.2)']
-                }}
-                transition={{
-                    duration: isProTheme ? 3 : 1,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                }}
-              />
-              
-              {/* Falling Particles */}
-              <BackgroundEffects isProTheme={isProTheme} />
-          </div>
-      )}
-
-      {/* ==========================================
-          SCROLLABLE CONTENT LAYER
-         ========================================== */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto relative z-10 custom-scrollbar flex flex-col">
-        <div className="p-6 space-y-8 min-h-full">
-            <AnimatePresence mode="popLayout">
-                {isImageMode && (
-                    <motion.section 
-                        key="subject-input"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-all duration-200 ${
-                            (activeTarget === 'subject' || isDragOverSubjectSection) 
-                            ? activeSectionClass 
-                            : 'hover:bg-zinc-800/30'
-                        }`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveTarget('subject');
-                            setFocusedSubjectId(null);
-                        }}
-                        onDragOver={handleSectionDragOver}
-                        onDragLeave={handleSectionDragLeave}
-                        onDrop={handleSectionDrop}
-                    >
-                        <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                                <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
-                                <div className="flex items-center">
-                                    Subject
-                                    <span className="text-zinc-500 text-xs ml-1 font-normal">(Subject Face)</span>
-                                </div>
+        <div className="p-4 space-y-4 min-h-full">
+            
+            {/* 1. SUBJECT SECTION */}
+            {isImageMode && (
+                <CollapsibleSection
+                    title="Subject"
+                    isOpen={!collapsedSections.subject}
+                    onToggle={() => toggleSection('subject')}
+                    onHeaderClick={() => {
+                        setActiveTarget('subject');
+                        setFocusedSubjectId(null);
+                    }}
+                    isActiveDropTarget={activeTarget === 'subject' || isDragOverSubjectSection}
+                    isProTheme={isProTheme}
+                    onDrop={handleSectionDrop}
+                    onDragOver={handleSectionDragOver}
+                    onDragLeave={handleSectionDragLeave}
+                    thumbnails={
+                        collapsedSections.subject && (
+                            <div className="flex items-center gap-1.5 mr-3">
+                                {currentState.subjects.length === 0 ? (
+                                    <div className="w-5 h-5 rounded bg-zinc-800/50 border border-zinc-800 border-dashed" />
+                                ) : (
+                                    currentState.subjects.map(s => (
+                                        <MiniThumbnail 
+                                            key={s.id} 
+                                            file={s.file} 
+                                            isGrayscale={!s.isActive} 
+                                        />
+                                    ))
+                                )}
                             </div>
-                            
-                            <button 
+                        )
+                    }
+                >
+                    <div className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between px-1">
+                             <div className="text-xs text-zinc-500">
+                                {currentState.subjects.length} / 5 Subjects
+                             </div>
+                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleAddEmptySubject();
                                 }}
                                 disabled={currentState.subjects.length >= 5}
-                                className={`p-1.5 rounded-lg border transition-all ${
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all ${
                                     currentState.subjects.length >= 5 
                                     ? 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed' 
                                     : `bg-zinc-900 border-zinc-700 text-zinc-300 ${accentHover}`
                                 }`}
-                                title={currentState.subjects.length >= 5 ? "Max 5 subjects" : "Add Subject"}
                             >
-                                <Plus size={16} />
+                                <Plus size={12} /> Add
                             </button>
                         </div>
 
-                        {mode === GenerationMode.IMAGE_EDIT && (
-                            <motion.div 
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mb-2 px-1"
-                            >
-                                {currentState.subjects.filter(s => s.isActive && s.file !== null).length > 0 ? (
-                                    <div className="flex items-center gap-2 text-xs text-green-400 bg-green-950/20 px-3 py-2 rounded-lg border border-green-900/50">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
-                                        <span className="font-medium">
-                                            {currentState.subjects.filter(s => s.isActive && s.file !== null).length} Subject(s) Active
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-950/20 px-3 py-2 rounded-lg border border-blue-900/50">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>
-                                        <span className="font-medium">Prompt-only generation mode</span>
-                                    </div>
-                                )}
-                            </motion.div>
-                        )}
-
-                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 px-1">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 px-1">
                             <AnimatePresence>
                                 {currentState.subjects.map((subject) => (
                                     <SubjectCard 
@@ -411,48 +355,39 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 ))}
                             </AnimatePresence>
                         </div>
-
+                        
                         {currentState.subjects.length === 0 && (
-                            <div className={`text-center p-6 border-2 border-dashed rounded-xl transition-colors mx-1 ${
+                            <div className={`text-center p-4 border-2 border-dashed rounded-xl transition-colors mx-1 ${
                                 isDragOverSubjectSection 
                                 ? (isProTheme ? 'border-yellow-500 bg-yellow-500/5' : 'border-cyan-500 bg-cyan-500/5') 
                                 : 'border-zinc-800 bg-zinc-900/30'
                             }`}>
-                                <p className="text-sm text-zinc-500">{isDragOverSubjectSection ? 'Drop to add subject' : 'Click + or drop image here'}</p>
+                                <p className="text-xs text-zinc-500">Drop images here</p>
                             </div>
                         )}
-                        
-                        {currentState.subjects.length > 0 && currentState.subjects.length < 5 && isDragOverSubjectSection && (
-                            <div className={`absolute inset-0 pointer-events-none rounded-xl border-2 z-10 flex items-center justify-center ${
-                                isProTheme ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-cyan-500/5 border-cyan-500/30'
-                            }`}>
-                                <div className={`bg-zinc-900/90 px-3 py-1.5 rounded-lg shadow-lg text-xs font-bold flex items-center gap-2 ${accentText}`}>
-                                    <Plus size={14} /> Add New Subject
-                                </div>
-                            </div>
-                        )}
+                    </div>
+                </CollapsibleSection>
+            )}
 
-                    </motion.section>
-                )}
-                
-                {mode === GenerationMode.IMG_TO_PROMPT && (
-                    <motion.section 
-                        key="single-subject"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className={`space-y-2 rounded-xl p-2 -m-2 transition-all duration-200 ${
-                            activeTarget === 'imageToText' ? activeSectionClass : 'hover:bg-zinc-800/30'
-                        }`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveTarget('imageToText');
-                        }}
-                    >
-                        <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                            <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">1</div>
-                            Source Image
-                        </div>
+            {/* 2. SOURCE IMAGE (Img to Prompt) */}
+            {mode === GenerationMode.IMG_TO_PROMPT && (
+                <CollapsibleSection
+                    title="Source Image"
+                    isOpen={!collapsedSections.source}
+                    onToggle={() => toggleSection('source')}
+                    onHeaderClick={() => setActiveTarget('imageToText')}
+                    isActiveDropTarget={activeTarget === 'imageToText'}
+                    isProTheme={isProTheme}
+                    thumbnails={
+                        collapsedSections.source && (
+                             <MiniThumbnail 
+                                file={currentState.subjects[0]?.file || null} 
+                                isGrayscale={false} 
+                             />
+                        )
+                    }
+                >
+                    <div className="pt-2">
                         <FileUpload 
                             label=""
                             helperText="Image to analyze"
@@ -467,98 +402,35 @@ const Sidebar: React.FC<SidebarProps> = ({
                             onActivate={() => setActiveTarget('imageToText')}
                             isProTheme={isProTheme}
                         />
-                    </motion.section>
-                )}
-            </AnimatePresence>
-
-            <section className="space-y-4">
-            <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
-                    {isImageMode || mode === GenerationMode.IMG_TO_PROMPT ? '2' : '1'}
-                </div>
-                {mode === GenerationMode.IMAGE_EDIT ? 'Prompt Instructions' : 
-                mode === GenerationMode.IMAGE_TO_IMAGE ? 'Reference & Operation' : 
-                'Configuration'}
-            </div>
-
-            <motion.div 
-                layout
-                className={`bg-zinc-900/40 rounded-xl p-4 border transition-colors duration-500 space-y-4 ${
-                    isProTheme ? 'border-yellow-500/20' : 'border-cyan-500/20'
-                }`}
-            >
-                
-                {isImageMode && (
-                    <div className="bg-zinc-950/50 rounded-lg p-1 flex relative mb-4">
-                        <div 
-                            className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
-                                isProTheme 
-                                    ? 'left-1/2 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-yellow-900/20' 
-                                    : 'left-0 bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-900/20'
-                            }`}
-                        />
-                        <button
-                            onClick={() => updateCurrentState({ selectedModel: MODELS.FLASH })}
-                            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                !isProTheme ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                            }`}
-                        >
-                            <Zap size={14} className={!isProTheme ? "fill-white" : ""} />
-                            Flash
-                        </button>
-                        <button
-                            onClick={() => updateCurrentState({ selectedModel: MODELS.PRO })}
-                            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                isProTheme ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
-                            }`}
-                        >
-                            <Sparkles size={14} className={isProTheme ? "fill-black/20" : ""} />
-                            Pro
-                        </button>
                     </div>
-                )}
+                </CollapsibleSection>
+            )}
 
-                {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) && (
-                    <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg border border-zinc-800">
-                        <div className="space-y-0.5">
-                            <span className="text-sm font-medium text-zinc-200 block">Use Face Feature in Prompt</span>
-                            <span className="text-xs text-zinc-500 block">
-                                {currentState.useFaceFeature ? 'Strictly maintain face identity' : 'General portrait description'}
-                            </span>
-                        </div>
-                        <button 
-                            onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${currentState.useFaceFeature ? (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500') : 'bg-zinc-700'}`}
-                        >
-                            <motion.span 
-                            className="absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow-sm"
-                            initial={false}
-                            animate={{ x: currentState.useFaceFeature ? 20 : 0 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            {/* 3. REFERENCE & OPERATION (Image to Image) */}
+            {mode === GenerationMode.IMAGE_TO_IMAGE && (
+                <CollapsibleSection
+                    title="Reference & Operation"
+                    isOpen={!collapsedSections.reference}
+                    onToggle={() => toggleSection('reference')}
+                    onHeaderClick={() => {
+                        setActiveTarget('reference');
+                        setFocusedSubjectId(null);
+                    }}
+                    isActiveDropTarget={activeTarget === 'reference'}
+                    isProTheme={isProTheme}
+                    thumbnails={
+                        collapsedSections.reference && (
+                            <MiniThumbnail 
+                                file={currentState.referenceImage} 
+                                isGrayscale={!currentState.referenceImage} 
                             />
-                        </button>
-                    </div>
-                )}
-
-                <AnimatePresence>
-                    {mode === GenerationMode.IMAGE_TO_IMAGE && (
-                    <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className={`space-y-4 overflow-hidden rounded-xl p-2 -m-2 transition-all duration-200 ${
-                            activeTarget === 'reference' ? activeSectionClass : ''
-                        }`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveTarget('reference');
-                            setFocusedSubjectId(null);
-                        }}
-                    >
-                        <div>
-                        <FileUpload 
-                            label="Reference Image"
-                            helperText="Clothing style or scene composition."
+                        )
+                    }
+                >
+                    <div className="space-y-4 pt-2">
+                         <FileUpload 
+                            label=""
+                            helperText="Scene composition or style source"
                             selectedFile={currentState.referenceImage}
                             onFileSelect={handleReferenceSelect}
                             required
@@ -570,17 +442,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                             }}
                             isProTheme={isProTheme}
                         />
+                        
                         {currentState.isRefLowRes && (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded border border-yellow-500/20 mb-2">
-                            <AlertCircle size={12} />
-                            <span>Low resolution reference. Results may vary.</span>
-                            </motion.div>
+                            <div className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded border border-yellow-500/20">
+                                <AlertCircle size={12} />
+                                <span>Low resolution reference</span>
+                            </div>
                         )}
-                        </div>
 
-                        <div className="space-y-2 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
+                        <div className="space-y-2 p-3 bg-zinc-950/50 rounded-lg border border-zinc-800">
                             <div className="flex justify-between items-center">
-                                <label className="text-xs font-medium text-zinc-300">Reference Strength</label>
+                                <label className="text-xs font-medium text-zinc-400">Strength</label>
                                 <span className={`text-xs font-bold ${accentText}`}>{currentState.refStrength}%</span>
                             </div>
                             <input 
@@ -591,160 +463,183 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 onChange={(e) => updateCurrentState({ refStrength: parseInt(e.target.value) })}
                                 className={`w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-0 ${isProTheme ? 'accent-yellow-500' : 'accent-cyan-500'}`}
                             />
-                            <div className="flex justify-between text-[10px] text-zinc-500">
-                                <span>Creative</span>
-                                <span>Balanced</span>
-                                <span>Strict</span>
-                            </div>
                         </div>
-                        
-                        <div className="space-y-2">
-                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Operation</label>
+
                         <div className="grid grid-cols-1 gap-2">
                             {[
-                                { op: ReferenceOperation.APPLY_CLOTHING, label: 'Apply Clothing', desc: 'Put subject(s) in reference outfit', icon: User },
-                                { op: ReferenceOperation.REPLACE_FACE, label: 'Replace Face', desc: 'Swap face in reference scene', icon: ImagePlus },
-                                { op: ReferenceOperation.REPLICATE_REFERENCE, label: 'Replicate Reference Image', desc: 'Recreate full scene with subject(s)', icon: Copy },
+                                { op: ReferenceOperation.APPLY_CLOTHING, label: 'Apply Clothing', desc: 'Transfer outfit to subject', icon: User },
+                                { op: ReferenceOperation.REPLACE_FACE, label: 'Replace Face', desc: 'Swap face in scene', icon: ImagePlus },
+                                { op: ReferenceOperation.REPLICATE_REFERENCE, label: 'Replicate Reference', desc: 'Recreate scene structure', icon: Copy },
                             ].map(item => (
-                                <motion.button
+                                <button
                                     key={item.op}
-                                    whileHover={{ scale: 1.01 }}
-                                    whileTap={{ scale: 0.99 }}
                                     onClick={(e) => { e.stopPropagation(); updateCurrentState({ refOperation: item.op }); }}
-                                    className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
+                                    className={`flex items-start gap-3 p-2.5 rounded-lg border text-left transition-colors ${
                                         currentState.refOperation === item.op
                                         ? (isProTheme ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' : 'bg-cyan-500/10 border-cyan-500/50 text-cyan-100')
                                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                                     }`}
                                 >
-                                    <item.icon size={18} className="mt-0.5 shrink-0" />
+                                    <item.icon size={16} className="mt-0.5 shrink-0" />
                                     <div>
-                                        <span className="block text-sm font-medium">{item.label}</span>
-                                        <span className="block text-xs opacity-70 mt-0.5">{item.desc}</span>
+                                        <span className="block text-xs font-bold">{item.label}</span>
+                                        <span className="block text-[10px] opacity-70">{item.desc}</span>
                                     </div>
-                                </motion.button>
+                                </button>
                             ))}
                         </div>
-                        </div>
-                    </motion.div>
-                    )}
-                </AnimatePresence>
+                    </div>
+                </CollapsibleSection>
+            )}
 
-                <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                            {mode === GenerationMode.TEXT_TO_PROMPT ? 'Concept Description' : 
-                            mode === GenerationMode.IMG_TO_PROMPT ? 'Additional Context (Optional)' : 
-                            mode === GenerationMode.IMAGE_EDIT ? 'Description' : 'Refinement'}
-                        </label>
-                </div>
-                <div className="relative group">
+            {/* 4. PROMPT INSTRUCTIONS (Always Visible) */}
+            <CollapsibleSection
+                title="Prompt Instructions"
+                isOpen={!collapsedSections.prompt}
+                onToggle={() => toggleSection('prompt')}
+                isProTheme={isProTheme}
+                hasContentDot={!!currentState.textPrompt.trim()}
+            >
+                <div className="space-y-4 pt-2">
+                    {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) && (
+                         <div className="flex items-center justify-between p-2.5 bg-zinc-950/50 rounded-lg border border-zinc-800">
+                            <span className="text-xs font-medium text-zinc-300">Use Face Feature</span>
+                            <button 
+                                onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${currentState.useFaceFeature ? (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500') : 'bg-zinc-700'}`}
+                            >
+                                <motion.span 
+                                className="absolute top-1 left-1 bg-white w-3 h-3 rounded-full shadow-sm"
+                                initial={false}
+                                animate={{ x: currentState.useFaceFeature ? 16 : 0 }}
+                                />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="relative group">
                         <textarea
                             ref={textAreaRef}
                             value={currentState.textPrompt}
                             onChange={(e) => updateCurrentState({ textPrompt: e.target.value })}
                             placeholder={
-                                mode === GenerationMode.TEXT_TO_PROMPT ? "e.g. A futuristic samurai in a neon city..." :
-                                mode === GenerationMode.IMG_TO_PROMPT ? "e.g. Focus on the vintage car in the background..." :
-                                "Describe the scene, lighting, style..."
+                                mode === GenerationMode.TEXT_TO_PROMPT ? "e.g. A futuristic samurai..." :
+                                mode === GenerationMode.IMG_TO_PROMPT ? "Context (Optional)..." :
+                                "Describe the scene..."
                             }
-                            className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 outline-none resize-none transition-shadow ${focusRing}`}
-                            style={{ minHeight: '200px' }}
+                            className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:ring-1 outline-none resize-none transition-shadow ${focusRing}`}
+                            style={{ minHeight: '120px' }}
                         />
+                        {currentState.textPrompt && (
+                            <button 
+                                onClick={() => updateCurrentState({ textPrompt: '' })}
+                                className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div>
+                        <button 
+                            onClick={() => setShowAdvanced(!showAdvanced)}
+                            className={`flex items-center gap-2 text-xs font-medium text-zinc-500 transition-colors ${isProTheme ? 'hover:text-yellow-500' : 'hover:text-cyan-400'}`}
+                        >
+                            <Sliders size={12} />
+                            <span>Advanced Settings</span>
+                            {showAdvanced ? <ChevronDown size={12} className="rotate-180" /> : <ChevronDown size={12} />}
+                        </button>
+                        
                         <AnimatePresence>
-                            {currentState.textPrompt && (
-                                <motion.button 
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    onClick={() => updateCurrentState({ textPrompt: '' })}
-                                    className="absolute top-3 right-3 p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
-                                    title="Clear Text"
+                            {showAdvanced && (
+                                <motion.div 
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="overflow-hidden"
                                 >
-                                    <X size={14} />
-                                </motion.button>
+                                    <div className="pt-3 space-y-1">
+                                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Negative Prompt</label>
+                                        <textarea
+                                            value={currentState.negativePrompt}
+                                            onChange={(e) => updateCurrentState({ negativePrompt: e.target.value })}
+                                            placeholder="blurry, distorted, bad hands..."
+                                            className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 outline-none resize-none min-h-[60px] ${focusRing}`}
+                                        />
+                                    </div>
+                                </motion.div>
                             )}
                         </AnimatePresence>
+                    </div>
                 </div>
-                </div>
+            </CollapsibleSection>
 
-                <div className="pt-2">
-                    <button 
-                        onClick={() => setShowAdvanced(!showAdvanced)}
-                        className={`flex items-center gap-2 text-xs font-medium text-zinc-400 transition-colors w-full ${isProTheme ? 'hover:text-yellow-500' : 'hover:text-cyan-400'}`}
-                    >
-                        <Sliders size={14} />
-                        <span>Advanced Settings</span>
-                        {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-                    
-                    <AnimatePresence>
-                        {showAdvanced && (
-                            <motion.div 
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="overflow-hidden"
+            {/* 5. CONFIGURATION (Image Modes) */}
+            {isImageMode && (
+                <CollapsibleSection
+                    title="Configuration"
+                    isOpen={!collapsedSections.config}
+                    onToggle={() => toggleSection('config')}
+                    isProTheme={isProTheme}
+                    summary={collapsedSections.config ? `${currentState.aspectRatio} · ${currentState.selectedModel === MODELS.PRO ? 'Pro' : 'Flash'}` : undefined}
+                >
+                    <div className="space-y-4 pt-2">
+                        {/* Model Toggle */}
+                        <div className="bg-zinc-950/50 rounded-lg p-1 flex relative">
+                            <div 
+                                className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
+                                    isProTheme 
+                                        ? 'left-1/2 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-yellow-900/20' 
+                                        : 'left-0 bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-900/20'
+                                }`}
+                            />
+                            <button
+                                onClick={() => updateCurrentState({ selectedModel: MODELS.FLASH })}
+                                className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                    !isProTheme ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                                }`}
                             >
-                                <div className="pt-3 pb-1 space-y-2">
-                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Negative Prompt</label>
-                                    <textarea
-                                        value={currentState.negativePrompt}
-                                        onChange={(e) => updateCurrentState({ negativePrompt: e.target.value })}
-                                        placeholder="e.g. blurry, distorted, bad hands, cartoon, text, watermark..."
-                                        className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 outline-none resize-none min-h-[80px] ${focusRing}`}
-                                    />
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-
-            </motion.div>
-            </section>
-
-            <AnimatePresence>
-                {isImageMode && (
-                    <motion.section 
-                        initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                        animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
-                        exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                        className="space-y-4 pb-4"
-                    >
-                    <div className="flex items-center gap-2 text-zinc-100 font-medium">
-                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs">
-                            3
+                                <Zap size={14} className={!isProTheme ? "fill-white" : ""} />
+                                Flash
+                            </button>
+                            <button
+                                onClick={() => updateCurrentState({ selectedModel: MODELS.PRO })}
+                                className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                    isProTheme ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
+                                }`}
+                            >
+                                <Sparkles size={14} className={isProTheme ? "fill-black/20" : ""} />
+                                Pro
+                            </button>
                         </div>
-                        Image Settings
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                        <label className="text-xs text-zinc-500 font-medium ml-1">Aspect Ratio</label>
-                        <AspectRatioSelector 
-                            value={currentState.aspectRatio}
-                            onChange={(val) => updateCurrentState({ aspectRatio: val })}
-                            isPro={isProTheme}
-                        />
-                        </div>
-                        <div className="space-y-1.5">
-                        <label className="text-xs text-zinc-500 font-medium ml-1">Resolution</label>
-                        <ResolutionSelector 
-                            value={currentState.resolution}
-                            onChange={(val) => updateCurrentState({ resolution: val })}
-                            disabled={!isPro} // Logic remains: disabled if not Pro MODEL
-                            isPro={isProTheme} // Visuals: follow theme
-                        />
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Aspect Ratio</label>
+                                <AspectRatioSelector 
+                                    value={currentState.aspectRatio}
+                                    onChange={(val) => updateCurrentState({ aspectRatio: val })}
+                                    isPro={isProTheme}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Resolution</label>
+                                <ResolutionSelector 
+                                    value={currentState.resolution}
+                                    onChange={(val) => updateCurrentState({ resolution: val })}
+                                    disabled={!isPro} 
+                                    isPro={isProTheme}
+                                />
+                            </div>
                         </div>
                     </div>
-                    </motion.section>
-                )}
-            </AnimatePresence>
+                </CollapsibleSection>
+            )}
+
         </div>
       </div>
 
-      {/* ==========================================
-          FOOTER LAYER
-         ========================================== */}
+      {/* Footer */}
       <div className="flex-none p-4 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-md z-20">
          <AnimatePresence>
             {displayError && (
@@ -761,7 +656,7 @@ const Sidebar: React.FC<SidebarProps> = ({
          </AnimatePresence>
         
         <Button 
-          key={`${mode}-${btnVariant}-${isProTheme}`} // Force re-render on theme change
+          key={`${mode}-${btnVariant}-${isProTheme}`} 
           onClick={handleGenerate} 
           variant={btnVariant}
           isProTheme={isProTheme}
@@ -812,6 +707,113 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
+// --- Sub-Components ---
+
+const CollapsibleSection: React.FC<{
+    title: string;
+    isOpen: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+    onHeaderClick?: () => void;
+    thumbnails?: React.ReactNode;
+    isActiveDropTarget?: boolean;
+    isProTheme: boolean;
+    onDrop?: (e: React.DragEvent) => void;
+    onDragOver?: (e: React.DragEvent) => void;
+    onDragLeave?: (e: React.DragEvent) => void;
+    hasContentDot?: boolean;
+    summary?: string;
+}> = ({ 
+    title, isOpen, onToggle, children, onHeaderClick, thumbnails, 
+    isActiveDropTarget, isProTheme, onDrop, onDragOver, onDragLeave, hasContentDot, summary 
+}) => {
+    
+    const activeClass = isProTheme ? 'bg-yellow-500/5 ring-1 ring-yellow-500/50' : 'bg-cyan-500/5 ring-1 ring-cyan-500/50';
+    const dotColor = isProTheme ? 'bg-yellow-500' : 'bg-cyan-500';
+
+    return (
+        <motion.div
+            layout
+            className={`rounded-xl border transition-all duration-200 overflow-hidden ${
+                isActiveDropTarget 
+                ? `${activeClass} border-transparent` 
+                : 'bg-zinc-900/40 border-zinc-800 hover:border-zinc-700'
+            }`}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+        >
+            <div 
+                className="flex items-center justify-between p-3 cursor-pointer select-none group"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onToggle();
+                    if(onHeaderClick) onHeaderClick();
+                }}
+            >
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className={`text-xs font-semibold uppercase tracking-wide transition-colors ${
+                        isActiveDropTarget 
+                        ? (isProTheme ? 'text-yellow-500' : 'text-cyan-400') 
+                        : 'text-zinc-400 group-hover:text-zinc-200'
+                    }`}>
+                        {title}
+                    </span>
+                    {hasContentDot && !isOpen && (
+                         <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                    )}
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    {summary && !isOpen && (
+                        <span className="text-[10px] text-zinc-600 font-medium">{summary}</span>
+                    )}
+                    {thumbnails}
+                    <ChevronRight 
+                        size={14} 
+                        className={`text-zinc-600 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} 
+                    />
+                </div>
+            </div>
+            
+            <AnimatePresence initial={false}>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <div className="px-3 pb-3 pt-0">
+                            {children}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+};
+
+const MiniThumbnail: React.FC<{ file: File | null, isGrayscale: boolean }> = ({ file, isGrayscale }) => {
+    const [src, setSrc] = useState<string | null>(null);
+    useEffect(() => {
+        if(!file) { setSrc(null); return; }
+        const url = URL.createObjectURL(file);
+        setSrc(url);
+        return () => URL.revokeObjectURL(url);
+    }, [file]);
+
+    if (!src) return <div className="w-5 h-5 rounded bg-zinc-800 border border-zinc-700 border-dashed" />;
+
+    return (
+        <img 
+            src={src} 
+            alt="thumb" 
+            className={`w-5 h-5 rounded object-cover border border-zinc-700 bg-black ${isGrayscale ? 'grayscale opacity-50' : ''}`} 
+        />
+    );
+};
+
 const BackgroundEffects = ({ isProTheme }: { isProTheme: boolean }) => {
     // Static set of particles
     const particles = [
@@ -828,6 +830,31 @@ const BackgroundEffects = ({ isProTheme }: { isProTheme: boolean }) => {
     // Add key to force re-mount on prop change
     return (
         <div key={isProTheme ? 'pro' : 'flash'} className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+             {/* Main Glow Pulse */}
+             <motion.div 
+                 className={`absolute inset-0 transition-colors duration-700 ${
+                     isProTheme ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
+                 }`}
+                 animate={{
+                     boxShadow: isProTheme 
+                        ? [
+                            'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
+                            'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
+                            'inset 0 0 30px -5px rgba(234,179,8,0.1)'
+                          ]
+                        : [
+                            'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
+                            'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
+                            'inset 0 0 40px -5px rgba(6,182,212,0.15)'
+                          ]
+                 }}
+                 transition={{
+                     duration: isProTheme ? 4 : 1.5,
+                     repeat: Infinity,
+                     ease: "easeInOut"
+                 }}
+              />
+
              {particles.map((p) => (
                  <motion.div
                     key={p.id}
@@ -836,17 +863,16 @@ const BackgroundEffects = ({ isProTheme }: { isProTheme: boolean }) => {
                     initial={{ 
                         opacity: 0,
                         rotate: 0,
-                        top: '-5vh' // Start slightly closer for immediate effect
+                        top: '-5vh'
                     }}
                     animate={{ 
-                        top: ['-5vh', '100vh'], // Fall full viewport height
+                        top: ['-5vh', '100vh'], 
                         opacity: isProTheme ? [0, 0.85, 0] : [0, 0.6, 0], 
                         rotate: 360
                     }}
                     transition={{
-                        duration: isProTheme ? 25 : 12, // Flash falls faster 
+                        duration: isProTheme ? 25 : 12, 
                         repeat: Infinity,
-                        // Randomize delays slightly less to ensure some start immediately
                         delay: p.delay * 0.5, 
                         ease: "linear"
                     }}
