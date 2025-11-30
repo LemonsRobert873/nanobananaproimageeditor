@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -366,6 +364,40 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       <div className="flex-1 overflow-y-auto relative z-10 custom-scrollbar flex flex-col">
         <div className="p-4 space-y-4 min-h-full">
             
+            {/* 0. MODEL SELECTOR */}
+            {isImageMode && (
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Model Engine</label>
+                    <div className="bg-zinc-950/50 rounded-lg p-1 flex relative border border-zinc-800">
+                        <div 
+                            className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
+                                isProTheme 
+                                    ? 'left-1/2 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-yellow-900/20' 
+                                    : 'left-0 bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-900/20'
+                            }`}
+                        />
+                        <button
+                            onClick={() => updateCurrentState({ selectedModel: MODELS.FLASH })}
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-colors ${
+                                !isProTheme ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                        >
+                            <Zap size={14} className={!isProTheme ? "fill-white" : ""} />
+                            Flash
+                        </button>
+                        <button
+                            onClick={() => updateCurrentState({ selectedModel: MODELS.PRO })}
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-colors ${
+                                isProTheme ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                        >
+                            <Sparkles size={14} className={isProTheme ? "fill-black/20" : ""} />
+                            Pro
+                        </button>
+                    </div>
+                </div>
+            )}
+            
             {/* 1. SUBJECT SECTION */}
             {isImageMode && (
                 <CollapsibleSection
@@ -662,38 +694,9 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                     isOpen={!collapsedSections.config}
                     onToggle={() => toggleSection('config')}
                     isProTheme={isProTheme}
-                    summary={collapsedSections.config ? `${currentState.aspectRatio} · ${currentState.selectedModel === MODELS.PRO ? 'Pro' : 'Flash'}` : undefined}
+                    summary={collapsedSections.config ? `${currentState.aspectRatio}` : undefined}
                 >
                     <div className="space-y-4 pt-2">
-                        {/* Model Toggle */}
-                        <div className="bg-zinc-950/50 rounded-lg p-1 flex relative">
-                            <div 
-                                className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
-                                    isProTheme 
-                                        ? 'left-1/2 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-yellow-900/20' 
-                                        : 'left-0 bg-gradient-to-br from-cyan-500 to-blue-500 shadow-cyan-900/20'
-                                }`}
-                            />
-                            <button
-                                onClick={() => updateCurrentState({ selectedModel: MODELS.FLASH })}
-                                className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                    !isProTheme ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                                }`}
-                            >
-                                <Zap size={14} className={!isProTheme ? "fill-white" : ""} />
-                                Flash
-                            </button>
-                            <button
-                                onClick={() => updateCurrentState({ selectedModel: MODELS.PRO })}
-                                className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                    isProTheme ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
-                                }`}
-                            >
-                                <Sparkles size={14} className={isProTheme ? "fill-black/20" : ""} />
-                                Pro
-                            </button>
-                        </div>
-
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Aspect Ratio</label>
