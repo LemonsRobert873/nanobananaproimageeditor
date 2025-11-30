@@ -973,11 +973,10 @@ function AppContent() {
 
       // 1. Determine affected modes before filtering
       const affectedModes = new Set<GenerationMode>();
-      Object.entries(modeStates).forEach(([m, s]) => {
-          const mode = m as GenerationMode;
+      (Object.entries(modeStates) as [GenerationMode, ModeState][]).forEach(([m, s]) => {
           // Check if active item is being deleted
           if (s.activeHistoryId && deletedSet.has(s.activeHistoryId)) {
-              affectedModes.add(mode);
+              affectedModes.add(m);
           }
       });
 

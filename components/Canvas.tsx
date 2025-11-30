@@ -1,9 +1,7 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2, Layers
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2, Layers, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { ModeState, HistoryItem, GenerationMode, ActiveGeneration } from '../types';
 import { MODELS } from '../constants';
@@ -191,6 +189,43 @@ const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
+  // --- History Navigation Logic ---
+  
+  const handleNavigateHistory = (direction: 'prev' | 'next') => {
+      if (history.length === 0) return;
+
+      const currentIndex = history.findIndex(item => item.id === currentState.activeHistoryId);
+      let nextIndex = 0;
+
+      if (currentIndex === -1) {
+          // No active selection, default to newest
+          nextIndex = 0;
+      } else {
+          if (direction === 'prev') {
+              // Left arrow -> Newer items (lower index)
+              if (currentIndex === 0) return; // Already at newest
+              nextIndex = currentIndex - 1;
+          } else {
+              // Right arrow -> Older items (higher index)
+              if (currentIndex === history.length - 1) return; // Already at oldest
+              nextIndex = currentIndex + 1;
+          }
+      }
+
+      const targetItem = history[nextIndex];
+      handleHistorySelect(targetItem);
+  };
+
+  // Auto-scroll active item into view
+  useEffect(() => {
+      if (currentState.activeHistoryId) {
+          const el = document.getElementById(`history-thumb-${currentState.activeHistoryId}`);
+          if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+      }
+  }, [currentState.activeHistoryId]);
+
   const onCopyText = () => {
     handleCopyText();
     addToast('Prompt copied to clipboard', 'success');
@@ -319,7 +354,7 @@ const Canvas: React.FC<CanvasProps> = ({
 
          <div className="relative w-full h-full overflow-hidden flex">
             
-            {/* Global Progress Pills - Dynamic Compact/Large Mode */}
+            {/* Global Progress Pills */}
             <div className={`absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none ${isCompact ? 'gap-2' : 'gap-4'} max-h-[60%] overflow-visible`}>
                  <AnimatePresence initial={false}>
                     {activeGenerations.map((gen) => {
@@ -534,6 +569,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             </button>
                          </div>
                          <div className="flex-1 overflow-y-auto p-4 space-y-6 w-[320px] custom-scrollbar">
+                            {/* ... Metadata content ... */}
                             <div className="space-y-1">
                                 <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Mode</label>
                                 <div className="text-sm text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
@@ -541,7 +577,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             </div>
 
-                            {/* Model Version - New Field */}
+                            {/* Model Version */}
                             {currentHistoryItem.metadata.model && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Model Version</label>
@@ -551,7 +587,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             )}
 
-                            {/* Generation Duration - New Field */}
+                            {/* Generation Duration */}
                             {currentHistoryItem.metadata.duration && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
@@ -702,6 +738,26 @@ const Canvas: React.FC<CanvasProps> = ({
             </button>
          </div>
 
+         {/* Navigation Arrows */}
+         <div className="shrink-0 h-full flex items-center px-2 gap-1 border-r border-zinc-800/30">
+            <button 
+               onClick={() => handleNavigateHistory('prev')}
+               disabled={history.length === 0 || (currentState.activeHistoryId !== null && history[0]?.id === currentState.activeHistoryId)}
+               className="p-2 rounded-lg bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+               title="Newer (Previous)"
+            >
+                <ChevronLeft size={18} />
+            </button>
+            <button 
+               onClick={() => handleNavigateHistory('next')}
+               disabled={history.length === 0 || (currentState.activeHistoryId !== null && history[history.length - 1]?.id === currentState.activeHistoryId)}
+               className="p-2 rounded-lg bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+               title="Older (Next)"
+            >
+                <ChevronRight size={18} />
+            </button>
+         </div>
+
          <div className="flex-1 overflow-x-auto h-full flex items-center px-4 gap-4 custom-scrollbar">
             {isHistoryLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
@@ -716,48 +772,57 @@ const Canvas: React.FC<CanvasProps> = ({
             ) : history.length === 0 ? (
                 <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
             ) : (
-                history.map(item => (
-                    <motion.button 
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ scale: 1.05, borderColor: isProTheme ? '#EAB308' : '#22d3ee' }}
-                    key={item.id}
-                    onClick={() => handleHistorySelect(item)}
-                    className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors relative group flex flex-col items-center justify-center ${
-                        item.id === currentState.activeHistoryId
-                        ? `${selectedBorder} opacity-100` : 'border-zinc-800 opacity-60 hover:opacity-100'
-                    }`}
-                    title={`View in ${item.metadata?.mode}`}
-                    draggable={item.type === 'image'}
-                    onDragStart={(e) => {
-                        if (item.type === 'image') {
-                        const dragEvent = e as unknown as React.DragEvent;
-                        dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
-                        dragEvent.dataTransfer.effectAllowed = 'copy';
-                        }
-                    }}
-                    >
-                    {item.type === 'image' ? (
-                        <img src={item.url} draggable="false" className="w-full h-full object-cover" alt="History" />
-                    ) : (
-                        <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
-                            <MessageSquare size={20} className={`mb-1 text-zinc-600 transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'}`} />
-                            <div className="w-full space-y-1">
-                                <div className="h-1 w-full bg-zinc-800 rounded-full" />
-                                <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
-                            </div>
-                        </div>
-                    )}
-                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        {item.type === 'text' && (
-                            <div className={`bg-zinc-950/80 p-1 rounded shadow-sm flex items-center justify-center ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
-                                <Type size={10} />
+                history.map(item => {
+                    const isActive = item.id === currentState.activeHistoryId;
+                    // Strong active styling
+                    const activeClass = isProTheme 
+                        ? 'ring-2 ring-yellow-500 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)] scale-105 z-10 opacity-100'
+                        : 'ring-2 ring-cyan-500 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105 z-10 opacity-100';
+                    const inactiveClass = 'border-zinc-800 opacity-60 hover:opacity-100 hover:scale-105 hover:border-zinc-600 hover:z-10';
+
+                    return (
+                        <motion.button 
+                            layout
+                            key={item.id}
+                            id={`history-thumb-${item.id}`}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: isActive ? 1 : 0.6, scale: isActive ? 1.05 : 1 }}
+                            whileHover={{ scale: 1.05 }}
+                            onClick={() => handleHistorySelect(item)}
+                            className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-300 relative group flex flex-col items-center justify-center cursor-pointer ${
+                                isActive ? activeClass : inactiveClass
+                            }`}
+                            title={`View in ${item.metadata?.mode}`}
+                            draggable={item.type === 'image'}
+                            onDragStart={(e) => {
+                                if (item.type === 'image') {
+                                const dragEvent = e as unknown as React.DragEvent;
+                                dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
+                                dragEvent.dataTransfer.effectAllowed = 'copy';
+                                }
+                            }}
+                        >
+                        {item.type === 'image' ? (
+                            <img src={item.url} draggable="false" className="w-full h-full object-cover" alt="History" />
+                        ) : (
+                            <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
+                                <MessageSquare size={20} className={`mb-1 text-zinc-600 transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'} ${isActive ? (isProTheme ? 'text-yellow-500' : 'text-cyan-400') : ''}`} />
+                                <div className="w-full space-y-1">
+                                    <div className="h-1 w-full bg-zinc-800 rounded-full" />
+                                    <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
+                                </div>
                             </div>
                         )}
-                    </div>
-                    </motion.button>
-                ))
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            {item.type === 'text' && (
+                                <div className={`bg-zinc-950/80 p-1 rounded shadow-sm flex items-center justify-center ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
+                                    <Type size={10} />
+                                </div>
+                            )}
+                        </div>
+                        </motion.button>
+                    );
+                })
             )}
          </div>
 
