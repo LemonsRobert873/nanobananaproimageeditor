@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+
 
 export function dataURLtoFile(dataurl: string, filename: string): File {
     let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)?.[1];
@@ -21,6 +21,10 @@ export function dataURLtoBlob(dataurl: string): Blob {
 // --- ZIP Creation ---
 
 export async function createZip(files: { name: string, blob: Blob | string }[]): Promise<Blob> {
+    // Dynamic import to avoid loading JSZip library on initial page load
+    const module = await import('jszip');
+    const JSZip = module.default;
+    
     const zip = new JSZip();
     for (const file of files) {
         zip.file(file.name, file.blob);

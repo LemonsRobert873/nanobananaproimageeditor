@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -33,7 +34,87 @@ interface SidebarProps {
 
 type SectionKey = 'subject' | 'source' | 'reference' | 'prompt' | 'config';
 
-const Sidebar: React.FC<SidebarProps> = ({ 
+const BackgroundEffects = React.memo(({ isProTheme }: { isProTheme: boolean }) => {
+    // Static set of particles
+    const particles = [
+        { id: 1, x: 20, delay: 0, size: 12 },
+        { id: 2, x: 50, delay: 5, size: 16 },
+        { id: 3, x: 80, delay: 2, size: 10 },
+        { id: 4, x: 10, delay: 8, size: 14 },
+        { id: 5, x: 70, delay: 12, size: 11 },
+        { id: 6, x: 40, delay: 15, size: 13 },
+        { id: 7, x: 90, delay: 18, size: 15 },
+        { id: 8, x: 30, delay: 20, size: 12 },
+    ];
+    
+    // Add key to force re-mount on prop change
+    return (
+        <div key={isProTheme ? 'pro' : 'flash'} className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+             {/* Main Glow Pulse */}
+             <motion.div 
+                 className={`absolute inset-0 transition-colors duration-700 ${
+                     isProTheme ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
+                 }`}
+                 animate={{
+                     boxShadow: isProTheme 
+                        ? [
+                            'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
+                            'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
+                            'inset 0 0 30px -5px rgba(234,179,8,0.1)'
+                          ]
+                        : [
+                            'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
+                            'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
+                            'inset 0 0 40px -5px rgba(6,182,212,0.15)'
+                          ]
+                 }}
+                 transition={{
+                     duration: isProTheme ? 4 : 1.5,
+                     repeat: Infinity,
+                     ease: "easeInOut"
+                 }}
+              />
+
+             {particles.map((p) => (
+                 <motion.div
+                    key={p.id}
+                    className="absolute"
+                    style={{ left: `${p.x}%`, top: -30 }} // Start slightly above viewport
+                    initial={{ 
+                        opacity: 0,
+                        rotate: 0,
+                        top: '-5vh'
+                    }}
+                    animate={{ 
+                        top: ['-5vh', '100vh'], 
+                        opacity: isProTheme ? [0, 0.85, 0] : [0, 0.6, 0], 
+                        rotate: 360
+                    }}
+                    transition={{
+                        duration: isProTheme ? 25 : 12, 
+                        repeat: Infinity,
+                        delay: p.delay * 0.5, 
+                        ease: "linear"
+                    }}
+                 >
+                     {isProTheme ? (
+                         <Sparkles 
+                            size={p.size} 
+                            className="text-yellow-500/30 fill-yellow-500/10" 
+                         />
+                     ) : (
+                         <Zap 
+                            size={p.size} 
+                            className="text-cyan-400/50 fill-cyan-400/20" 
+                         />
+                     )}
+                 </motion.div>
+             ))}
+        </div>
+    );
+});
+
+const Sidebar: React.FC<SidebarProps> = React.memo(({ 
   mode, 
   currentState, 
   updateCurrentState, 
@@ -705,7 +786,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
     </aside>
   );
-};
+});
 
 // --- Sub-Components ---
 
@@ -811,86 +892,6 @@ const MiniThumbnail: React.FC<{ file: File | null, isGrayscale: boolean }> = ({ 
             alt="thumb" 
             className={`w-5 h-5 rounded object-cover border border-zinc-700 bg-black ${isGrayscale ? 'grayscale opacity-50' : ''}`} 
         />
-    );
-};
-
-const BackgroundEffects = ({ isProTheme }: { isProTheme: boolean }) => {
-    // Static set of particles
-    const particles = [
-        { id: 1, x: 20, delay: 0, size: 12 },
-        { id: 2, x: 50, delay: 5, size: 16 },
-        { id: 3, x: 80, delay: 2, size: 10 },
-        { id: 4, x: 10, delay: 8, size: 14 },
-        { id: 5, x: 70, delay: 12, size: 11 },
-        { id: 6, x: 40, delay: 15, size: 13 },
-        { id: 7, x: 90, delay: 18, size: 15 },
-        { id: 8, x: 30, delay: 20, size: 12 },
-    ];
-    
-    // Add key to force re-mount on prop change
-    return (
-        <div key={isProTheme ? 'pro' : 'flash'} className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
-             {/* Main Glow Pulse */}
-             <motion.div 
-                 className={`absolute inset-0 transition-colors duration-700 ${
-                     isProTheme ? 'bg-yellow-950/5' : 'bg-cyan-950/5'
-                 }`}
-                 animate={{
-                     boxShadow: isProTheme 
-                        ? [
-                            'inset 0 0 30px -5px rgba(234,179,8,0.1)', 
-                            'inset 0 0 60px -5px rgba(234,179,8,0.25)', 
-                            'inset 0 0 30px -5px rgba(234,179,8,0.1)'
-                          ]
-                        : [
-                            'inset 0 0 40px -5px rgba(6,182,212,0.15)', 
-                            'inset 0 0 80px -5px rgba(6,182,212,0.25)', 
-                            'inset 0 0 40px -5px rgba(6,182,212,0.15)'
-                          ]
-                 }}
-                 transition={{
-                     duration: isProTheme ? 4 : 1.5,
-                     repeat: Infinity,
-                     ease: "easeInOut"
-                 }}
-              />
-
-             {particles.map((p) => (
-                 <motion.div
-                    key={p.id}
-                    className="absolute"
-                    style={{ left: `${p.x}%`, top: -30 }} // Start slightly above viewport
-                    initial={{ 
-                        opacity: 0,
-                        rotate: 0,
-                        top: '-5vh'
-                    }}
-                    animate={{ 
-                        top: ['-5vh', '100vh'], 
-                        opacity: isProTheme ? [0, 0.85, 0] : [0, 0.6, 0], 
-                        rotate: 360
-                    }}
-                    transition={{
-                        duration: isProTheme ? 25 : 12, 
-                        repeat: Infinity,
-                        delay: p.delay * 0.5, 
-                        ease: "linear"
-                    }}
-                 >
-                     {isProTheme ? (
-                         <Sparkles 
-                            size={p.size} 
-                            className="text-yellow-500/30 fill-yellow-500/10" 
-                         />
-                     ) : (
-                         <Zap 
-                            size={p.size} 
-                            className="text-cyan-400/50 fill-cyan-400/20" 
-                         />
-                     )}
-                 </motion.div>
-             ))}
-        </div>
     );
 };
 

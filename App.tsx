@@ -1,14 +1,8 @@
-
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import KeySettings from './components/KeySettings';
-import GuideModal from './components/GuideModal';
-import ResetModal from './components/ResetModal';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
-import GalleryModal from './components/GalleryModal';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { 
   GenerationMode, 
@@ -37,6 +31,12 @@ import {
   clearAllStateImages
 } from './utils/indexedDB';
 import { dataURLtoFile } from './utils/imageUtils';
+
+// Lazy Load Heavy Modals
+const KeySettings = lazy(() => import('./components/KeySettings'));
+const GuideModal = lazy(() => import('./components/GuideModal'));
+const ResetModal = lazy(() => import('./components/ResetModal'));
+const GalleryModal = lazy(() => import('./components/GalleryModal'));
 
 // Default state template for a mode
 const DEFAULT_MODE_STATE: ModeState = {
@@ -100,6 +100,20 @@ function AppContent() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [isStateRestoring, setIsStateRestoring] = useState(true);
   
+  // Lazy load trackers to prevent fetching until needed
+  const [modalsLoaded, setModalsLoaded] = useState({
+    key: false,
+    guide: false,
+    reset: false,
+    gallery: false
+  });
+
+  // Load tracker effects
+  useEffect(() => { if(showKeySettings) setModalsLoaded(p => ({...p, key: true})); }, [showKeySettings]);
+  useEffect(() => { if(showGuide) setModalsLoaded(p => ({...p, guide: true})); }, [showGuide]);
+  useEffect(() => { if(showResetModal) setModalsLoaded(p => ({...p, reset: true})); }, [showResetModal]);
+  useEffect(() => { if(showGallery) setModalsLoaded(p => ({...p, gallery: true})); }, [showGallery]);
+
   // --- Daily Quota (PT) ---
   const [dailyImageCount, setDailyImageCount] = useState<number>(0);
 
@@ -1055,36 +1069,38 @@ function AppContent() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-200 overflow-hidden font-sans">
-      <KeySettings 
-        isOpen={showKeySettings} 
-        onClose={() => setShowKeySettings(false)} 
-        onSave={handleSaveKey}
-        currentKey={apiKey}
-        isProTheme={isProTheme}
-      />
-      
-      <GuideModal 
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        isProTheme={isProTheme}
-      />
+      <Suspense fallback={null}>
+         {modalsLoaded.key && <KeySettings 
+            isOpen={showKeySettings} 
+            onClose={() => setShowKeySettings(false)} 
+            onSave={handleSaveKey}
+            currentKey={apiKey}
+            isProTheme={isProTheme}
+          />}
+          
+          {modalsLoaded.guide && <GuideModal 
+            isOpen={showGuide}
+            onClose={() => setShowGuide(false)}
+            isProTheme={isProTheme}
+          />}
 
-      <ResetModal 
-        isOpen={showResetModal}
-        onClose={() => setShowResetModal(false)}
-        onConfirm={handleResetApp}
-        isProTheme={isProTheme}
-      />
+          {modalsLoaded.reset && <ResetModal 
+            isOpen={showResetModal}
+            onClose={() => setShowResetModal(false)}
+            onConfirm={handleResetApp}
+            isProTheme={isProTheme}
+          />}
 
-      <GalleryModal
-        isOpen={showGallery}
-        onClose={() => setShowGallery(false)}
-        history={history}
-        onDeleteItems={handleDeleteHistoryItems}
-        onDownloadImage={(url) => handleDownload(url)}
-        onSendPromptToMode={handleSendPromptToMode}
-        isProTheme={isProTheme}
-      />
+          {modalsLoaded.gallery && <GalleryModal
+            isOpen={showGallery}
+            onClose={() => setShowGallery(false)}
+            history={history}
+            onDeleteItems={handleDeleteHistoryItems}
+            onDownloadImage={(url) => handleDownload(url)}
+            onSendPromptToMode={handleSendPromptToMode}
+            isProTheme={isProTheme}
+          />}
+      </Suspense>
       
       <Header 
         mode={mode}
