@@ -1,7 +1,16 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation, SubjectItem } from '../types';
-import { MODELS, ANALYSIS_MODEL, ERRORS, PROMPT_TEMPLATE_NO_FACE, PROMPT_TEMPLATE_WITH_FACE } from '../constants';
+import { 
+    MODELS, 
+    ANALYSIS_MODEL, 
+    ERRORS, 
+    PROMPT_TEMPLATE_NO_FACE_V1, 
+    PROMPT_TEMPLATE_WITH_FACE_V1,
+    PROMPT_TEMPLATE_NO_FACE_V2,
+    PROMPT_TEMPLATE_WITH_FACE_V2
+} from '../constants';
 
 // --- Helpers ---
 
@@ -91,7 +100,8 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
     apiKey,
     refStrength,
     negativePrompt,
-    modelName
+    modelName,
+    templateVersion
   } = params;
 
   const updateProgress = (msg: string, val: number) => {
@@ -165,12 +175,17 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
             ["Analyzing scene structure...", "Detecting lighting...", "Extracting composition...", "Building prompt blueprint..."]
         );
 
+        // SELECT TEMPLATE VERSION FOR REPLICATE REFERENCE
+        const templateToUse = (templateVersion === 'V2') 
+            ? PROMPT_TEMPLATE_WITH_FACE_V2 
+            : PROMPT_TEMPLATE_WITH_FACE_V1;
+
         const analysisResponse = await ai.models.generateContent({
             model: ANALYSIS_MODEL,
             contents: {
                 parts: [
                     { inlineData: { mimeType: referenceImage.type, data: refB64 } },
-                    { text: `Analyze this image structure and generate a detailed prompt template using this structure: ${PROMPT_TEMPLATE_WITH_FACE}` }
+                    { text: `Analyze this image structure and generate a detailed prompt template using this structure: ${templateToUse}` }
                 ]
             },
             config: {
@@ -308,7 +323,7 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
 };
 
 export const generatePrompt = async (params: PromptGenParams): Promise<string> => {
-  const { mode, subjects, textPrompt, useFaceFeature, onProgress, apiKey, negativePrompt } = params;
+  const { mode, subjects, textPrompt, useFaceFeature, onProgress, apiKey, negativePrompt, templateVersion } = params;
   
   const updateProgress = (msg: string, val: number) => {
     if (onProgress) onProgress(msg, val);
@@ -320,7 +335,14 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
   const ai = new GoogleGenAI({ apiKey: effectiveKey });
   
   try {
-    const baseTemplate = useFaceFeature ? PROMPT_TEMPLATE_WITH_FACE : PROMPT_TEMPLATE_NO_FACE;
+    // SELECT BASE TEMPLATE BASED ON FEATURE TOGGLE AND VERSION
+    let baseTemplate;
+    if (useFaceFeature) {
+        baseTemplate = (templateVersion === 'V2') ? PROMPT_TEMPLATE_WITH_FACE_V2 : PROMPT_TEMPLATE_WITH_FACE_V1;
+    } else {
+        baseTemplate = (templateVersion === 'V2') ? PROMPT_TEMPLATE_NO_FACE_V2 : PROMPT_TEMPLATE_NO_FACE_V1;
+    }
+
     const parts: any[] = [];
     const negativeCondition = negativePrompt ? `\nNEGATIVE CONDITIONS:\n${negativePrompt}` : "";
 
@@ -385,7 +407,7 @@ export const generatePrompt = async (params: PromptGenParams): Promise<string> =
     if (response.text) {
       let cleaned = response.text.trim();
       // Remove markdown code blocks if present
-      cleaned = cleaned.replace(/^```(?:markdown|text)?\n/, '').replace(/\n```$/, '');
+      cleaned = cleaned.replace(/^```(?:markdown|text|json)?\n/, '').replace(/\n```$/, '');
       
       // Remove conversational preambles (aggressive cleanup)
       // Matches pattern like "Here is the prompt:" or "Sure, here is..." at start of string

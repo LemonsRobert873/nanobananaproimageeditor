@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import Header from './components/Header';
@@ -54,6 +56,10 @@ const DEFAULT_MODE_STATE: ModeState = {
   refStrength: 100,
   negativePrompt: '',
   selectedModel: MODELS.PRO, // Default to Pro
+  // Template Versions Defaults
+  templateVersionImageToText: 'V2',
+  templateVersionTextPrompt: 'V2',
+  templateVersionReplicateReference: 'V2',
   lastParams: null,
   hasError: false,
   errorMessage: null,
@@ -302,6 +308,10 @@ function AppContent() {
                             ...restoredModes[m], 
                             ...parsed,
                             selectedModel: parsed.selectedModel || MODELS.PRO, // Restore model
+                            // Ensure template versions are restored or default to V2
+                            templateVersionImageToText: parsed.templateVersionImageToText || 'V2',
+                            templateVersionTextPrompt: parsed.templateVersionTextPrompt || 'V2',
+                            templateVersionReplicateReference: parsed.templateVersionReplicateReference || 'V2',
                             queue: [] // Reset queue
                         };
                     } catch (e) {
@@ -680,7 +690,8 @@ function AppContent() {
                   refStrength: mode === GenerationMode.IMAGE_TO_IMAGE ? (job.params as GenerateParams).refStrength : undefined,
                   negativePrompt: (job.params as GenerateParams).negativePrompt,
                   model: (job.params as GenerateParams).modelName,
-                  duration: duration
+                  duration: duration,
+                  templateVersion: (job.params as GenerateParams).templateVersion // Store version used
                 }
               };
               
@@ -725,7 +736,8 @@ function AppContent() {
                   textPrompt: (job.params as PromptGenParams).textPrompt,
                   useFaceFeature: (job.params as PromptGenParams).useFaceFeature,
                   negativePrompt: (job.params as PromptGenParams).negativePrompt,
-                  duration: duration
+                  duration: duration,
+                  templateVersion: (job.params as PromptGenParams).templateVersion // Store version
                 }
               };
               
@@ -860,16 +872,27 @@ function AppContent() {
                 apiKey: apiKey || undefined,
                 refStrength: activeState.refStrength,
                 negativePrompt: activeState.negativePrompt,
-                modelName: activeState.selectedModel // Pass active model
+                modelName: activeState.selectedModel, // Pass active model
+                // Pass template version for replicate reference
+                templateVersion: activeMode === GenerationMode.IMAGE_TO_IMAGE 
+                    ? activeState.templateVersionReplicateReference 
+                    : undefined 
               };
           } else {
+              // Determine template version based on mode
+              let tVersion = activeState.templateVersionTextPrompt;
+              if (activeMode === GenerationMode.IMG_TO_PROMPT) {
+                  tVersion = activeState.templateVersionImageToText;
+              }
+
               paramsToUse = {
                   mode: activeMode,
                   subjects: activeState.subjects,
                   textPrompt: activeState.textPrompt,
                   useFaceFeature: activeState.useFaceFeature,
                   apiKey: apiKey || undefined,
-                  negativePrompt: activeState.negativePrompt
+                  negativePrompt: activeState.negativePrompt,
+                  templateVersion: tVersion
               };
           }
     }

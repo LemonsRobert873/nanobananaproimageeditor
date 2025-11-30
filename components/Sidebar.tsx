@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -8,7 +10,8 @@ import {
   GenerationMode, 
   ReferenceOperation, 
   ModeState,
-  SubjectItem
+  SubjectItem,
+  TemplateVersion
 } from '../types';
 import { MODELS } from '../constants';
 import Button from './Button';
@@ -31,6 +34,69 @@ interface SidebarProps {
 }
 
 type SectionKey = 'subject' | 'source' | 'reference' | 'prompt' | 'config';
+
+// --- Switcher Components ---
+
+const TopTemplateSwitcher = ({ version, onChange, isProTheme }: { version: TemplateVersion, onChange: (v: TemplateVersion) => void, isProTheme: boolean }) => {
+    return (
+        <div className="space-y-2">
+            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Prompt Template</label>
+            <div className="bg-zinc-950/50 rounded-lg p-1 flex relative border border-zinc-800">
+                <div 
+                    className={`absolute inset-y-1 w-1/2 rounded-md shadow-sm transition-all duration-300 ease-out ${
+                         version === 'V2'
+                            ? 'left-1/2 ' + (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500')
+                            : 'left-0 ' + (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500')
+                    }`}
+                />
+                <button
+                    onClick={() => onChange('V1')}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-colors ${
+                        version === 'V1' ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                >
+                    Template V1
+                </button>
+                <button
+                    onClick={() => onChange('V2')}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-colors ${
+                        version === 'V2' ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                >
+                    Template V2
+                </button>
+            </div>
+        </div>
+    )
+}
+
+const CompactButtonSwitcher = ({ version, onChange, isProTheme }: { version: TemplateVersion, onChange: (v: TemplateVersion) => void, isProTheme: boolean }) => {
+    return (
+        <div 
+            className="flex bg-zinc-950/50 rounded p-0.5 border border-zinc-700/50 ml-auto shrink-0 z-20"
+            onClick={(e) => e.stopPropagation()} 
+        >
+             {(['V1', 'V2'] as TemplateVersion[]).map(v => {
+                 const isActive = version === v;
+                 const activeClass = isProTheme ? 'bg-yellow-500 text-black' : 'bg-cyan-500 text-black';
+                 return (
+                     <button
+                        key={v}
+                        onClick={(e) => { e.stopPropagation(); onChange(v); }}
+                        className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all ${
+                            isActive 
+                            ? activeClass 
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                     >
+                         {v}
+                     </button>
+                 );
+             })}
+        </div>
+    );
+};
+
 
 const BackgroundEffects = React.memo(({ isProTheme }: { isProTheme: boolean }) => {
     // Static set of particles
@@ -364,8 +430,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       <div className="flex-1 overflow-y-auto relative z-10 custom-scrollbar flex flex-col">
         <div className="p-4 space-y-4 min-h-full">
             
-            {/* 0. MODEL SELECTOR */}
-            {isImageMode && (
+            {/* 0. CONFIGURATION SELECTOR (Model or Template) */}
+            {isImageMode ? (
                 <div className="space-y-2">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Model Engine</label>
                     <div className="bg-zinc-950/50 rounded-lg p-1 flex relative border border-zinc-800">
@@ -396,6 +462,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                         </button>
                     </div>
                 </div>
+            ) : (
+                <TopTemplateSwitcher
+                    version={mode === GenerationMode.IMG_TO_PROMPT ? currentState.templateVersionImageToText : currentState.templateVersionTextPrompt}
+                    onChange={(v) => {
+                        if (mode === GenerationMode.IMG_TO_PROMPT) updateCurrentState({ templateVersionImageToText: v });
+                        else updateCurrentState({ templateVersionTextPrompt: v });
+                    }}
+                    isProTheme={isProTheme}
+                />
             )}
             
             {/* 1. SUBJECT SECTION */}
@@ -583,23 +658,36 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                                 { op: ReferenceOperation.APPLY_CLOTHING, label: 'Apply Clothing', desc: 'Transfer outfit to subject', icon: User },
                                 { op: ReferenceOperation.REPLACE_FACE, label: 'Replace Face', desc: 'Swap face in scene', icon: ImagePlus },
                                 { op: ReferenceOperation.REPLICATE_REFERENCE, label: 'Replicate Reference', desc: 'Recreate scene structure', icon: Copy },
-                            ].map(item => (
+                            ].map(item => {
+                                const isSelected = currentState.refOperation === item.op;
+                                const isReplicate = item.op === ReferenceOperation.REPLICATE_REFERENCE;
+
+                                return (
                                 <button
                                     key={item.op}
                                     onClick={(e) => { e.stopPropagation(); updateCurrentState({ refOperation: item.op }); }}
-                                    className={`flex items-start gap-3 p-2.5 rounded-lg border text-left transition-colors ${
-                                        currentState.refOperation === item.op
+                                    className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-colors relative group ${
+                                        isSelected
                                         ? (isProTheme ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-100' : 'bg-cyan-500/10 border-cyan-500/50 text-cyan-100')
                                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                                     }`}
                                 >
-                                    <item.icon size={16} className="mt-0.5 shrink-0" />
-                                    <div>
+                                    <item.icon size={16} className="shrink-0" />
+                                    <div className="flex-1 min-w-0">
                                         <span className="block text-xs font-bold">{item.label}</span>
-                                        <span className="block text-[10px] opacity-70">{item.desc}</span>
+                                        <span className="block text-[10px] opacity-70 truncate">{item.desc}</span>
                                     </div>
+                                    
+                                    {isReplicate && isSelected && (
+                                        <CompactButtonSwitcher 
+                                            version={currentState.templateVersionReplicateReference}
+                                            onChange={(v) => updateCurrentState({ templateVersionReplicateReference: v })}
+                                            isProTheme={isProTheme}
+                                        />
+                                    )}
                                 </button>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
                 </CollapsibleSection>
@@ -615,18 +703,20 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
             >
                 <div className="space-y-4 pt-2">
                     {(mode === GenerationMode.IMG_TO_PROMPT || mode === GenerationMode.TEXT_TO_PROMPT) && (
-                         <div className="flex items-center justify-between p-2.5 bg-zinc-950/50 rounded-lg border border-zinc-800">
-                            <span className="text-xs font-medium text-zinc-300">Use Face Feature</span>
-                            <button 
-                                onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${currentState.useFaceFeature ? (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500') : 'bg-zinc-700'}`}
-                            >
-                                <motion.span 
-                                className="absolute top-1 left-1 bg-white w-3 h-3 rounded-full shadow-sm"
-                                initial={false}
-                                animate={{ x: currentState.useFaceFeature ? 16 : 0 }}
-                                />
-                            </button>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between p-2.5 bg-zinc-950/50 rounded-lg border border-zinc-800">
+                                <span className="text-xs font-medium text-zinc-300">Use Face Feature</span>
+                                <button 
+                                    onClick={() => updateCurrentState({ useFaceFeature: !currentState.useFaceFeature })}
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${currentState.useFaceFeature ? (isProTheme ? 'bg-yellow-500' : 'bg-cyan-500') : 'bg-zinc-700'}`}
+                                >
+                                    <motion.span 
+                                    className="absolute top-1 left-1 bg-white w-3 h-3 rounded-full shadow-sm"
+                                    initial={false}
+                                    animate={{ x: currentState.useFaceFeature ? 16 : 0 }}
+                                    />
+                                </button>
+                            </div>
                         </div>
                     )}
 

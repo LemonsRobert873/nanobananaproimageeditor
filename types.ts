@@ -27,6 +27,8 @@ export enum Resolution {
   RES_4K = '4K'
 }
 
+export type TemplateVersion = 'V1' | 'V2';
+
 export interface HistoryItemMetadata {
   mode: GenerationMode;
   aspectRatio?: AspectRatio;
@@ -38,6 +40,7 @@ export interface HistoryItemMetadata {
   negativePrompt?: string;
   model?: string;
   duration?: number;
+  templateVersion?: TemplateVersion;
 }
 
 export interface GeneratedImage {
@@ -79,6 +82,7 @@ export interface GenerateParams {
   refStrength?: number;
   negativePrompt?: string;
   modelName: string;
+  templateVersion?: TemplateVersion;
 }
 
 export interface PromptGenParams {
@@ -89,6 +93,7 @@ export interface PromptGenParams {
   onProgress?: (message: string, progress: number) => void;
   apiKey?: string;
   negativePrompt?: string;
+  templateVersion: TemplateVersion;
 }
 
 export interface GenerationJob {
@@ -116,6 +121,10 @@ export interface ModeState {
   refStrength: number;
   negativePrompt: string;
   selectedModel: string;
+  // Template Versions
+  templateVersionImageToText: TemplateVersion;
+  templateVersionTextPrompt: TemplateVersion;
+  templateVersionReplicateReference: TemplateVersion;
   // Retry State
   lastParams: Omit<GenerateParams, 'onProgress'> | Omit<PromptGenParams, 'onProgress'> | null;
   hasError: boolean;
