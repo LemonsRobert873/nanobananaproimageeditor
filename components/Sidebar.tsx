@@ -905,10 +905,23 @@ const CollapsibleSection: React.FC<{
     const activeClass = isProTheme ? 'bg-yellow-500/5 ring-1 ring-yellow-500/50' : 'bg-cyan-500/5 ring-1 ring-cyan-500/50';
     const dotColor = isProTheme ? 'bg-yellow-500' : 'bg-cyan-500';
 
+    const [isOverflowVisible, setIsOverflowVisible] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            // Delay allowing overflow to ensure animation has mostly finished
+            // This prevents "popping" of content width during expansion
+            const timer = setTimeout(() => setIsOverflowVisible(true), 300);
+            return () => clearTimeout(timer);
+        } else {
+            setIsOverflowVisible(false);
+        }
+    }, [isOpen]);
+
     return (
         <motion.div
             layout
-            className={`rounded-xl border transition-all duration-200 overflow-hidden ${
+            className={`rounded-xl border transition-all duration-200 ${
                 isActiveDropTarget 
                 ? `${activeClass} border-transparent` 
                 : 'bg-zinc-900/40 border-zinc-800 hover:border-zinc-700'
@@ -957,6 +970,12 @@ const CollapsibleSection: React.FC<{
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
+                        style={{ overflow: isOverflowVisible ? 'visible' : 'hidden' }}
+                        onAnimationComplete={(definition) => {
+                             if (definition === "visible" || (typeof definition === 'object' && definition.height === 'auto')) {
+                                setIsOverflowVisible(true);
+                             }
+                        }}
                     >
                         <div className="px-3 pb-3 pt-0">
                             {children}
