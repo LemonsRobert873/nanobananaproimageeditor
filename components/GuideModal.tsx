@@ -149,7 +149,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                          {[
                             { icon: User, title: 'Apply Clothing', desc: 'Dresses the Subject(s) in the outfit shown in the Reference image.' },
                             { icon: ImagePlus, title: 'Replace Face', desc: 'Swaps faces in the Reference image with the Subject(s).' },
-                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes structure and recreates it featuring the Subject(s).' },
+                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes structure. Switch to Template V2 for precise JSON-based layout matching.' },
                          ].map((item, i) => (
                             <div key={i} className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg">
                                 <div className="flex items-center gap-2 mb-1 text-purple-400">
@@ -172,7 +172,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                       <div>
                           <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 3: Image → Text Prompt</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
-                            Reverse-engineers a prompt from an image. Useful for extracting style, lighting, and camera settings from any reference.
+                            Reverse-engineers a prompt from an image. Switch to <strong>Template V2</strong> for structured JSON outputs that capture precise camera and lighting data.
                           </p>
                       </div>
                    </div>
@@ -183,7 +183,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                       <div>
                           <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 4: Text Prompt</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
-                            Expands simple ideas into professional, paragraph-long prompts. Toggle "Face Feature" to focus on portrait details.
+                            Expands ideas into professional prompts. <strong>Template V2</strong> uses a strict JSON schema for maximum adherence in complex generation workflows.
                           </p>
                       </div>
                    </div>

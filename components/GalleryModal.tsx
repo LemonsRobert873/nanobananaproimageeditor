@@ -836,60 +836,92 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
-                    {/* Common Metadata */}
-                    <div className="space-y-1">
-                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Mode</label>
-                        <div className="text-sm text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
-                            {MODE_LABELS[item.metadata?.mode || ''] || item.metadata?.mode}
-                        </div>
-                    </div>
-
-                    <div className="space-y-1">
-                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Created</label>
-                        <div className="text-sm text-zinc-400">
-                            {new Date(item.timestamp).toLocaleString()}
-                        </div>
-                    </div>
-
-                    {/* Image Specific */}
-                    {item.metadata?.aspectRatio && (
-                        <div className="grid grid-cols-2 gap-2">
-                             <div className="space-y-1">
-                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ratio</label>
-                                <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50">{item.metadata.aspectRatio}</div>
-                             </div>
-                             {item.metadata.resolution && (
-                                <div className="space-y-1">
-                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Quality</label>
-                                    {item.metadata.model?.includes('flash') ? (
-                                        <div className="text-sm text-zinc-500 italic bg-zinc-950/50 p-2 rounded border border-zinc-800/50">Default</div>
-                                    ) : (
-                                        <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50">{item.metadata.resolution}</div>
-                                    )}
-                                </div>
-                             )}
-                        </div>
-                    )}
-
-                    {/* Generation Duration - New Field */}
-                    {item.metadata?.duration && (
+                    {/* 1. Mode + Model Version */}
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
-                            <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono">
-                                {(item.metadata.duration / 1000).toFixed(2)}s
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Mode</label>
+                            <div className="text-xs text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
+                                {MODE_LABELS[item.metadata?.mode || ''] || item.metadata?.mode}
                             </div>
                         </div>
-                    )}
+                        <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Model</label>
+                            <div className="text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono break-all">
+                                {item.metadata?.model?.replace('gemini-', '').replace('-preview', '') || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
 
+                    {/* 2. Ref Operation */}
                     {item.metadata?.mode === GenerationMode.IMAGE_TO_IMAGE && item.metadata?.referenceOperation && (
                         <div className="space-y-1">
                             <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
                             <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
-                                {item.metadata.referenceOperation}
+                                {item.metadata.referenceOperation.replace(/_/g, ' ')}
                             </div>
                         </div>
                     )}
 
+                    {/* 3. Prompt with Template Pill and Buttons */}
+                    {item.metadata?.textPrompt && (
+                        <div className="space-y-2">
+                             <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
+                                    {item.metadata.templateVersion && (
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isProTheme ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'}`}>
+                                            {item.metadata.templateVersion}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {onSendPromptToMode && (
+                                        <>
+                                            <button 
+                                                onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_EDIT)}
+                                                className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                                                title="Send to Image Edit"
+                                            >
+                                                <Type size={14} />
+                                            </button>
+                                            <button 
+                                                onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_TO_IMAGE)}
+                                                className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                                                title="Send to Image → Image"
+                                            >
+                                                <Layers size={14} />
+                                            </button>
+                                        </>
+                                    )}
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(item.metadata?.textPrompt || "");
+                                            addToast('Copied', 'info');
+                                        }}
+                                        className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                                        title="Copy Prompt"
+                                    >
+                                        <Copy size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+                                {item.metadata.textPrompt}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 4. Negative Prompt */}
+                    {item.metadata?.negativePrompt && (
+                         <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
+                            <div className="text-xs text-red-200/70 bg-red-950/10 p-3 rounded border border-red-900/20 leading-relaxed max-h-32 overflow-y-auto custom-scrollbar">
+                                {item.metadata.negativePrompt}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 5. Ref Strength */}
                     {item.metadata?.mode === GenerationMode.IMAGE_TO_IMAGE && item.metadata?.refStrength !== undefined && (
                         <div className="space-y-1">
                             <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
@@ -899,66 +931,49 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                         </div>
                     )}
 
-                    {/* Prompts */}
-                    {item.metadata?.textPrompt && (
+                    {/* 6. Settings */}
+                    {(item.metadata?.aspectRatio || item.metadata?.resolution) && (
                         <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
-                                <button 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(item.metadata?.textPrompt || "");
-                                        addToast('Copied', 'info');
-                                    }}
-                                    className="text-[10px] flex items-center gap-1 text-zinc-500 hover:text-white"
-                                >
-                                    <Copy size={10} /> Copy
-                                </button>
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Settings</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {item.metadata.aspectRatio && (
+                                    <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                        <span className="text-[10px] text-zinc-500 block mb-0.5">Ratio</span>
+                                        <span className="text-xs text-zinc-300">{item.metadata.aspectRatio}</span>
+                                    </div>
+                                )}
+                                {item.metadata.resolution && (
+                                    <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                        <span className="text-[10px] text-zinc-500 block mb-0.5">Quality</span>
+                                        <span className="text-xs text-zinc-300">{item.metadata.resolution}</span>
+                                    </div>
+                                )}
                             </div>
-                            <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
-                                {item.metadata.textPrompt}
-                            </div>
-                            {onSendPromptToMode && (
-                                <div className="flex gap-2 mt-2">
-                                    <button 
-                                        onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_EDIT)}
-                                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
-                                    >
-                                        <Type size={12} /> To Image Edit
-                                    </button>
-                                    <button 
-                                        onClick={() => onSendPromptToMode(item.metadata?.textPrompt || "", GenerationMode.IMAGE_TO_IMAGE)}
-                                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
-                                    >
-                                        <Layers size={12} /> To Image → Image
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     )}
 
-                    {item.metadata?.negativePrompt && (
-                         <div className="space-y-1">
-                            <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
-                            <div className="text-xs text-red-200/70 bg-red-950/10 p-3 rounded border border-red-900/20 leading-relaxed max-h-32 overflow-y-auto custom-scrollbar">
-                                {item.metadata.negativePrompt}
+                    {/* 7. Generation Time */}
+                    {item.metadata?.duration && (
+                        <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
+                            <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono">
+                                {(item.metadata.duration / 1000).toFixed(2)}s
                             </div>
                         </div>
                     )}
+                    
+                    {/* 8. Generated On */}
+                    <div className="space-y-1 pt-4 border-t border-zinc-800/50">
+                        <label className="text-xs uppercase tracking-wider text-zinc-600 font-semibold">Generated On</label>
+                        <div className="text-xs text-zinc-500">
+                            {new Date(item.timestamp).toLocaleString()}
+                        </div>
+                    </div>
+
                 </div>
 
                 {/* Actions Footer */}
                 <div className="p-5 border-t border-zinc-800 bg-zinc-900/50 space-y-3">
-                    {item.type === 'text' && onSendPromptToMode && (
-                        <div className="grid grid-cols-2 gap-3 mb-2">
-                             <Button variant="secondary" isProTheme={isProTheme} onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_EDIT)} className="w-full text-xs h-8">
-                                <Type size={14} className="mr-2" /> To Image Edit
-                            </Button>
-                             <Button variant="secondary" isProTheme={isProTheme} onClick={() => onSendPromptToMode(item.text, GenerationMode.IMAGE_TO_IMAGE)} className="w-full text-xs h-8">
-                                <Layers size={14} className="mr-2" /> To Image → Image
-                            </Button>
-                        </div>
-                    )}
-
                     <Button onClick={onDownload} isProTheme={isProTheme} className="w-full text-sm">
                         <Download size={16} className="mr-2" /> Download
                     </Button>

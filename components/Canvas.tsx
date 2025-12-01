@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -68,6 +69,26 @@ const getModeShortLabel = (mode: GenerationMode) => {
         case GenerationMode.IMG_TO_PROMPT: return 'I2P';
         case GenerationMode.TEXT_TO_PROMPT: return 'TXT';
         default: return 'GEN';
+    }
+};
+
+const getModeTitle = (mode: string) => {
+    switch(mode) {
+        case GenerationMode.IMAGE_EDIT: return 'Image Edit';
+        case GenerationMode.IMAGE_TO_IMAGE: return 'Image → Image';
+        case GenerationMode.IMG_TO_PROMPT: return 'Image → Text Prompt';
+        case GenerationMode.TEXT_TO_PROMPT: return 'Text Prompt';
+        default: return mode;
+    }
+};
+
+const getModeLabel = (mode: GenerationMode) => {
+    switch(mode) {
+        case GenerationMode.IMAGE_EDIT: return 'IMAGE EDIT';
+        case GenerationMode.IMAGE_TO_IMAGE: return 'IMAGE → IMAGE';
+        case GenerationMode.IMG_TO_PROMPT: return 'IMAGE → TEXT PROMPT';
+        case GenerationMode.TEXT_TO_PROMPT: return 'TEXT PROMPT';
+        default: return 'GENERATING...';
     }
 };
 
@@ -239,16 +260,6 @@ const Canvas: React.FC<CanvasProps> = ({
   const handleDeleteClick = () => {
       if (currentHistoryItem && onDeleteCurrent) {
           onDeleteCurrent(currentHistoryItem.id);
-      }
-  };
-
-  const getModeLabel = (mode: GenerationMode) => {
-      switch(mode) {
-          case GenerationMode.IMAGE_EDIT: return 'IMAGE EDIT';
-          case GenerationMode.IMAGE_TO_IMAGE: return 'IMAGE → IMAGE';
-          case GenerationMode.IMG_TO_PROMPT: return 'IMAGE → TEXT PROMPT';
-          case GenerationMode.TEXT_TO_PROMPT: return 'TEXT PROMPT';
-          default: return 'GENERATING...';
       }
   };
 
@@ -569,124 +580,133 @@ const Canvas: React.FC<CanvasProps> = ({
                             </button>
                          </div>
                          <div className="flex-1 overflow-y-auto p-4 space-y-6 w-[320px] custom-scrollbar">
-                            {/* ... Metadata content ... */}
-                            <div className="space-y-1">
-                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Mode</label>
-                                <div className="text-sm text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
-                                    {currentHistoryItem.metadata.mode}
+                            {/* 1. Mode + Model Version */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Mode</label>
+                                    <div className="text-xs text-zinc-300 font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
+                                        {getModeTitle(currentHistoryItem.metadata.mode)}
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Model</label>
+                                    <div className="text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono break-all">
+                                        {currentHistoryItem.metadata.model?.replace('gemini-', '').replace('-preview', '') || 'N/A'}
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Model Version */}
-                            {currentHistoryItem.metadata.model && (
+                            {/* 2. Ref Operation */}
+                            {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.referenceOperation && (
                                 <div className="space-y-1">
-                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Model Version</label>
-                                    <div className="text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono break-all">
-                                        {currentHistoryItem.metadata.model}
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
+                                    <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
+                                        {currentHistoryItem.metadata.referenceOperation.replace(/_/g, ' ')}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Generation Duration */}
-                            {currentHistoryItem.metadata.duration && (
-                                <div className="space-y-1">
-                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
-                                    <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono">
-                                        {(currentHistoryItem.metadata.duration / 1000).toFixed(2)}s
+                            {/* 3. Prompt with Template Pill and Buttons */}
+                            {currentHistoryItem.metadata.textPrompt && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
+                                            {currentHistoryItem.metadata.templateVersion && (
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isProTheme ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'}`}>
+                                                    {currentHistoryItem.metadata.templateVersion}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {onSendPromptToMode && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_EDIT)}
+                                                        className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                                                        title="Send to Image Edit"
+                                                    >
+                                                        <Type size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_TO_IMAGE)}
+                                                        className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                                                        title="Send to Image → Image"
+                                                    >
+                                                        <Layers size={14} />
+                                                    </button>
+                                                </>
+                                            )}
+                                            <button 
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(currentHistoryItem.metadata.textPrompt!);
+                                                    addToast('Copied', 'info');
+                                                }}
+                                                className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                                                title="Copy Prompt"
+                                            >
+                                                <Copy size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap custom-scrollbar">
+                                        {currentHistoryItem.metadata.textPrompt}
                                     </div>
                                 </div>
                             )}
-                            
+
+                            {/* 4. Negative Prompt */}
+                            {currentHistoryItem.metadata.negativePrompt && (
+                                <div className="space-y-1">
+                                    <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
+                                    <div className="text-xs text-red-200/80 bg-red-950/20 p-3 rounded border border-red-900/30 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
+                                        {currentHistoryItem.metadata.negativePrompt}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 5. Ref Strength */}
                             {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.refStrength !== undefined && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Strength</label>
-                                    <div className={`text-sm font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 flex items-center justify-between ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
-                                        <span>{currentHistoryItem.metadata.refStrength}%</span>
-                                        <span className="text-xs text-zinc-500">
-                                            {currentHistoryItem.metadata.refStrength >= 80 ? 'Strict' : currentHistoryItem.metadata.refStrength <= 40 ? 'Creative' : 'Balanced'}
-                                        </span>
+                                    <div className={`text-sm font-medium bg-zinc-950/50 p-2 rounded border border-zinc-800/50 ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
+                                        {currentHistoryItem.metadata.refStrength}%
                                     </div>
                                 </div>
                             )}
 
-                            {currentHistoryItem.metadata.aspectRatio && (
+                            {/* 6. Settings */}
+                            {(currentHistoryItem.metadata.aspectRatio || currentHistoryItem.metadata.resolution) && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Settings</label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
-                                            <div className="text-xs text-zinc-500">Ratio</div>
-                                            <div className="text-sm text-zinc-300">{currentHistoryItem.metadata.aspectRatio}</div>
-                                        </div>
+                                        {currentHistoryItem.metadata.aspectRatio && (
+                                            <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
+                                                <span className="text-[10px] text-zinc-500 block mb-0.5">Ratio</span>
+                                                <span className="text-xs text-zinc-300">{currentHistoryItem.metadata.aspectRatio}</span>
+                                            </div>
+                                        )}
                                         {currentHistoryItem.metadata.resolution && (
                                             <div className="bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
-                                                <div className="text-xs text-zinc-500">Resolution</div>
-                                                {currentHistoryItem.metadata.model?.includes('flash') ? (
-                                                    <div className="text-sm text-zinc-500 italic">Default</div>
-                                                ) : (
-                                                    <div className="text-sm text-zinc-300">{currentHistoryItem.metadata.resolution}</div>
-                                                )}
+                                                <span className="text-[10px] text-zinc-500 block mb-0.5">Quality</span>
+                                                <span className="text-xs text-zinc-300">{currentHistoryItem.metadata.resolution}</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             )}
 
-                            {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.referenceOperation && (
+                            {/* 7. Generation Time */}
+                            {currentHistoryItem.metadata.duration && (
                                 <div className="space-y-1">
-                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
-                                    <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
-                                        {currentHistoryItem.metadata.referenceOperation}
-                                    </div>
-                                </div>
-                            )}
-
-                            {currentHistoryItem.metadata.textPrompt && (
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
-                                        <button 
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(currentHistoryItem.metadata.textPrompt!);
-                                                addToast('Copied to clipboard', 'info');
-                                            }}
-                                            className={`text-[10px] flex items-center gap-1.5 text-zinc-500 transition-colors px-2 py-0.5 rounded bg-zinc-800/50 hover:bg-zinc-800 ${isProTheme ? 'hover:text-yellow-500' : 'hover:text-cyan-400'}`}
-                                        >
-                                            <Copy size={10} /> Copy
-                                        </button>
-                                    </div>
-                                    <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap">
-                                        {currentHistoryItem.metadata.textPrompt}
-                                    </div>
-                                    {onSendPromptToMode && (
-                                         <div className="flex gap-2 mt-2">
-                                            <button 
-                                                onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_EDIT)}
-                                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
-                                            >
-                                                <Type size={12} /> To Image Edit
-                                            </button>
-                                            <button 
-                                                onClick={() => onSendPromptToMode(currentHistoryItem.metadata.textPrompt!, GenerationMode.IMAGE_TO_IMAGE)}
-                                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] text-zinc-300 transition-colors"
-                                            >
-                                                <Layers size={12} /> To Image → Image
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {currentHistoryItem.metadata.negativePrompt && (
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
-                                    </div>
-                                    <div className="text-xs text-red-200/80 bg-red-950/20 p-3 rounded border border-red-900/30 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
-                                        {currentHistoryItem.metadata.negativePrompt}
+                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Generation Time</label>
+                                    <div className="text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 font-mono">
+                                        {(currentHistoryItem.metadata.duration / 1000).toFixed(2)}s
                                     </div>
                                 </div>
                             )}
                             
+                            {/* 8. Generated On */}
                             <div className="space-y-1 pt-4 border-t border-zinc-800/50">
                                 <label className="text-xs uppercase tracking-wider text-zinc-600 font-semibold">Generated On</label>
                                 <div className="text-xs text-zinc-500">
