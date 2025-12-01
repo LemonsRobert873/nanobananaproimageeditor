@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import Header from './components/Header';
@@ -828,7 +826,10 @@ function AppContent() {
              }
         }
         if (activeMode === GenerationMode.IMAGE_TO_IMAGE) {
-            if (activeSubjectsWithFiles.length === 0) {
+            // Check specific operation
+            const isReplicate = activeState.refOperation === ReferenceOperation.REPLICATE_REFERENCE;
+
+            if (activeSubjectsWithFiles.length === 0 && !isReplicate) {
                  const err = "At least one active subject with an image is required.";
                  updateModeState(activeMode, { errorMessage: err });
                  addToast(err, 'error');

@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI } from "@google/genai";
 import { GenerateParams, PromptGenParams, GenerationMode, ReferenceOperation, SubjectItem } from '../types';
 import { 
@@ -175,10 +173,19 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
             ["Analyzing scene structure...", "Detecting lighting...", "Extracting composition...", "Building prompt blueprint..."]
         );
 
+        const hasSubjects = activeSubjects.length > 0;
+
         // SELECT TEMPLATE VERSION FOR REPLICATE REFERENCE
-        const templateToUse = (templateVersion === 'V2') 
-            ? PROMPT_TEMPLATE_WITH_FACE_V2 
-            : PROMPT_TEMPLATE_WITH_FACE_V1;
+        let templateToUse;
+        if (hasSubjects) {
+            templateToUse = (templateVersion === 'V2') 
+                ? PROMPT_TEMPLATE_WITH_FACE_V2 
+                : PROMPT_TEMPLATE_WITH_FACE_V1;
+        } else {
+            templateToUse = (templateVersion === 'V2') 
+                ? PROMPT_TEMPLATE_NO_FACE_V2 
+                : PROMPT_TEMPLATE_NO_FACE_V1;
+        }
 
         const analysisResponse = await ai.models.generateContent({
             model: ANALYSIS_MODEL,
@@ -199,29 +206,44 @@ export const generateImage = async (params: GenerateParams): Promise<string> => 
         updateProgress("Blueprint created.", 42);
         startPct = 45;
 
-        for (const s of activeSubjects) {
-            if (s.file) {
-                const b64 = await fileToBase64(s.file);
-                parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+        if (hasSubjects) {
+            for (const s of activeSubjects) {
+                if (s.file) {
+                    const b64 = await fileToBase64(s.file);
+                    parts.push({ inlineData: { mimeType: s.file.type, data: b64 } });
+                }
             }
-        }
-        
-        const subjectMapping = activeSubjects.map((_, i) => `Image ${i+1} is Subject ${i+1}`).join(', ');
+            
+            const subjectMapping = activeSubjects.map((_, i) => `Image ${i+1} is Subject ${i+1}`).join(', ');
 
-        parts.push({
-          text: `GENERATE A NEW IMAGE. 
-          The provided images are the REFERENCE IDENTITIES (${subjectMapping}).
-          
-          TASK: Create a new image that perfectly matches the scene description below, but replace the characters/faces with the Subject identities provided above.
-          
-          SCENE BLUEPRINT:
-          ${generatedPrompt}
-          
-          ADDITIONAL NOTES: ${textPrompt || "None"}
-          ${negativePromptStr}
-          
-          IMPORTANT: Do NOT return the original reference image. Synthesize a NEW image.`
-        });
+            parts.push({
+              text: `GENERATE A NEW IMAGE. 
+              The provided images are the REFERENCE IDENTITIES (${subjectMapping}).
+              
+              TASK: Create a new image that perfectly matches the scene description below, but replace the characters/faces with the Subject identities provided above.
+              
+              SCENE BLUEPRINT:
+              ${generatedPrompt}
+              
+              ADDITIONAL NOTES: ${textPrompt || "None"}
+              ${negativePromptStr}
+              
+              IMPORTANT: Do NOT return the original reference image. Synthesize a NEW image.`
+            });
+        } else {
+            // New logic: Pure prompt based generation (No subjects)
+             parts.push({
+              text: `GENERATE A NEW IMAGE.
+              
+              TASK: Create a new image that perfectly matches the scene description below.
+              
+              SCENE BLUEPRINT:
+              ${generatedPrompt}
+              
+              ADDITIONAL USER INSTRUCTIONS: ${textPrompt || "None"}
+              ${negativePromptStr}`
+            });
+        }
 
       } else {
         // -- Standard Operations (Apply Clothing, Replace Face) --
