@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2, Layers, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { ModeState, HistoryItem, GenerationMode, ActiveGeneration } from '../types';
+import { ModeState, HistoryItem, GenerationMode, ActiveGeneration, ReferenceOperation } from '../types';
 import { MODELS } from '../constants';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
@@ -599,7 +599,14 @@ const Canvas: React.FC<CanvasProps> = ({
                             {/* 2. Ref Operation */}
                             {currentHistoryItem.metadata.mode === GenerationMode.IMAGE_TO_IMAGE && currentHistoryItem.metadata.referenceOperation && (
                                 <div className="space-y-1">
-                                    <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
+                                        {currentHistoryItem.metadata.referenceOperation === ReferenceOperation.REPLICATE_REFERENCE && currentHistoryItem.metadata.templateVersion && (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isProTheme ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'}`}>
+                                                {currentHistoryItem.metadata.templateVersion}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
                                         {currentHistoryItem.metadata.referenceOperation.replace(/_/g, ' ')}
                                     </div>
@@ -612,7 +619,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
-                                            {currentHistoryItem.metadata.templateVersion && (
+                                            {currentHistoryItem.metadata.templateVersion && currentHistoryItem.metadata.mode !== GenerationMode.IMAGE_TO_IMAGE && (
                                                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isProTheme ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'}`}>
                                                     {currentHistoryItem.metadata.templateVersion}
                                                 </span>

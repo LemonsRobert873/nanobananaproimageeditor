@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, CheckSquare, Square, FileText, Image as ImageIcon, Grid3X3, Copy, Info, Filter, ArrowDownWideNarrow, ArrowUpNarrowWide, Type, Layers } from 'lucide-react';
-import { HistoryItem, GenerationMode } from '../types';
+import { HistoryItem, GenerationMode, ReferenceOperation } from '../types';
 import Button from './Button';
 import { useToast } from '../context/ToastContext';
 import { dataURLtoBlob, createZip, formatDateForFilename } from '../utils/imageUtils';
@@ -855,7 +855,14 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                     {/* 2. Ref Operation */}
                     {item.metadata?.mode === GenerationMode.IMAGE_TO_IMAGE && item.metadata?.referenceOperation && (
                         <div className="space-y-1">
-                            <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Ref Operation</label>
+                                {item.metadata.referenceOperation === ReferenceOperation.REPLICATE_REFERENCE && item.metadata.templateVersion && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isProTheme ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'}`}>
+                                        {item.metadata.templateVersion}
+                                    </span>
+                                )}
+                            </div>
                             <div className="text-sm text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800/50 break-words">
                                 {item.metadata.referenceOperation.replace(/_/g, ' ')}
                             </div>
@@ -868,7 +875,8 @@ const LightboxView: React.FC<LightboxViewProps> = ({ item, isZoomed, setZoomed, 
                              <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <label className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Prompt</label>
-                                    {item.metadata.templateVersion && (
+                                    {/* Only show template version here if NOT Image-to-Image (handled in Ref Operation) */}
+                                    {item.metadata.templateVersion && item.metadata.mode !== GenerationMode.IMAGE_TO_IMAGE && (
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isProTheme ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'}`}>
                                             {item.metadata.templateVersion}
                                         </span>
