@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -207,17 +207,24 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                </span>
                            </li>
                            <li className="flex gap-3 items-start">
+                               <span className="bg-zinc-800 p-1 rounded text-blue-400 mt-0.5"><ArrowRightLeft size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Smart Tab Switching</strong>
+                                   Drag any image file directly onto the <strong>Mode Tabs</strong> (top center) to switch modes and auto-populate the image instantly.
+                               </span>
+                           </li>
+                            <li className="flex gap-3 items-start">
+                               <span className="bg-zinc-800 p-1 rounded text-purple-400 mt-0.5"><ClipboardPaste size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Clipboard Support</strong>
+                                   Simply press <code className="bg-zinc-800 px-1 rounded text-xs">Ctrl+V</code> anywhere in the app to paste an image into the active input slot.
+                               </span>
+                           </li>
+                           <li className="flex gap-3 items-start">
                                <span className="bg-zinc-800 p-1 rounded text-red-400 mt-0.5"><AlertCircle size={12} /></span>
                                <span>
                                    <strong className="text-zinc-200 block mb-0.5">Negative Prompting</strong>
                                    Open the <strong>Advanced Settings</strong> dropdown to add negative prompts (e.g. "blurry", "text") to refine your output.
-                               </span>
-                           </li>
-                           <li className="flex gap-3 items-start">
-                               <span className="bg-zinc-800 p-1 rounded text-blue-400 mt-0.5"><Copy size={12} /></span>
-                               <span>
-                                   <strong className="text-zinc-200 block mb-0.5">Drag & Drop History</strong>
-                                   Drag any generated image from the bottom strip back into a Subject or Reference slot.
                                </span>
                            </li>
                            <li className="flex gap-3 items-start">
