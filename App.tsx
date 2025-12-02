@@ -135,6 +135,8 @@ function AppContent() {
 
   // Track currently processing jobs to prevent double-execution in effect
   const processingJobIdsRef = useRef<Set<string>>(new Set());
+  // Track cancelled jobs to ignore results
+  const cancelledJobIdsRef = useRef<Set<string>>(new Set());
 
   // State for Smooth Visual Progress (mapped by mode)
   const [visualProgressMap, setVisualProgressMap] = useState<Record<GenerationMode, number>>({
@@ -607,15 +609,45 @@ function AppContent() {
       });
   };
 
+  // --- JOB CANCELLATION HANDLER ---
+  const handleCancelJob = (mode: GenerationMode, jobId: string) => {
+    // 1. Mark as cancelled so processJob knows to ignore result
+    cancelledJobIdsRef.current.add(jobId);
+
+    // 2. Remove from queue immediately (UI update)
+    setModeStates(prev => {
+        const queue = prev[mode].queue.filter(j => j.id !== jobId);
+        return { ...prev, [mode]: { ...prev[mode], queue } };
+    });
+    
+    // Mode label helper
+    const modeLabel = mode === GenerationMode.IMAGE_EDIT ? "Image Edit" : 
+                      mode === GenerationMode.IMAGE_TO_IMAGE ? "Image to Image" :
+                      mode === GenerationMode.IMG_TO_PROMPT ? "Image to Prompt" : "Text Prompt";
+                      
+    addToast(`${modeLabel} generation cancelled`, 'info');
+  };
+
   // --- JOB PROCESSING LOGIC ---
   const processJob = useCallback(async (mode: GenerationMode, job: GenerationJob) => {
       if (processingJobIdsRef.current.has(job.id)) return;
       processingJobIdsRef.current.add(job.id);
 
+      // Check cancellation before starting
+      if (cancelledJobIdsRef.current.has(job.id)) {
+          cancelledJobIdsRef.current.delete(job.id);
+          processingJobIdsRef.current.delete(job.id);
+          return;
+      }
+
       const startTime = Date.now();
 
       // 1. Update status to processing
       setModeStates(prev => {
+          // Double check if job still exists in queue
+          const exists = prev[mode].queue.some(j => j.id === job.id);
+          if (!exists) return prev;
+
           const queue = prev[mode].queue.map(j => 
             j.id === job.id ? { ...j, status: 'processing' as const, startedAt: startTime } : j
           );
@@ -626,6 +658,7 @@ function AppContent() {
       
       try {
           const onProgressCallback = (msg: string, val: number) => {
+             // If job removed from queue (cancelled), this state update effectively does nothing relevant
              setModeStates(prev => {
                 const queue = prev[mode].queue.map(j => 
                     j.id === job.id ? { ...j, progress: val, progressStep: msg } : j
@@ -642,6 +675,13 @@ function AppContent() {
 
           if (isImageGen) {
               const imageUrl = await generateImage(paramsToUse as GenerateParams);
+
+              // Check Cancellation
+              if (cancelledJobIdsRef.current.has(job.id)) {
+                  cancelledJobIdsRef.current.delete(job.id);
+                  return;
+              }
+
               const duration = Date.now() - startTime;
               const newItemId = Date.now().toString();
 
@@ -711,6 +751,13 @@ function AppContent() {
 
           } else {
               const promptText = await generatePrompt(paramsToUse as PromptGenParams);
+
+              // Check Cancellation
+              if (cancelledJobIdsRef.current.has(job.id)) {
+                  cancelledJobIdsRef.current.delete(job.id);
+                  return;
+              }
+
               const duration = Date.now() - startTime;
               const newItemId = Date.now().toString();
 
@@ -758,6 +805,12 @@ function AppContent() {
           updateModeState(mode, { hasError: false, errorMessage: null });
 
       } catch (err: any) {
+          // Check cancellation in error block
+          if (cancelledJobIdsRef.current.has(job.id)) {
+             cancelledJobIdsRef.current.delete(job.id);
+             return;
+          }
+
           const msg = err.message || ERRORS.GENERIC;
           if (msg === ERRORS.AUTH_FAILED || msg === ERRORS.MISSING_KEY) {
             setHasKey(false);
@@ -1177,6 +1230,7 @@ function AppContent() {
           onDeleteCurrent={(id) => handleDeleteHistoryItem(null, id)}
           onSendPromptToMode={handleSendPromptToMode}
           isProTheme={isProTheme}
+          onCancelJob={handleCancelJob}
         />
         
         {isResizing && (
