@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -266,11 +264,8 @@ const Canvas: React.FC<CanvasProps> = ({
       }
   };
 
-  // Border color for selected history item
-  const selectedBorder = isProTheme ? 'border-yellow-500' : 'border-cyan-500';
-
   return (
-    <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full">
+    <section className="flex-1 flex flex-col bg-zinc-950 relative overflow-hidden h-full min-w-0">
       <motion.div 
          initial={{ y: -20, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
@@ -363,10 +358,10 @@ const Canvas: React.FC<CanvasProps> = ({
         </div>
       </motion.div>
 
-      <div className="flex-1 min-w-0 relative bg-zinc-950 flex flex-col">
+      <div className="flex-1 min-w-0 relative bg-zinc-950 flex flex-col overflow-hidden">
          <div className="absolute inset-0 bg-[radial-gradient(#1f1f22_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
 
-         <div className="relative w-full h-full overflow-hidden flex">
+         <div className="relative w-full h-full flex overflow-hidden">
             
             {/* Global Progress Pills */}
             <div className={`absolute bottom-6 right-6 z-30 flex flex-col items-end justify-end pointer-events-none ${isCompact ? 'gap-2' : 'gap-4'} max-h-[60%] overflow-visible`}>
@@ -379,21 +374,27 @@ const Canvas: React.FC<CanvasProps> = ({
                          const isQueued = gen.status === 'queued';
                          const isComplete = gen.progress === 100;
 
-                         let accentColor, borderColor, barColor;
+                         let accentColor, borderColor, barColor, shadowColor, iconBg;
 
                          if (isTextGen) {
                             accentColor = 'text-cyan-400';
-                            borderColor = 'border-cyan-500/30';
+                            borderColor = 'border-cyan-500/50';
                             barColor = 'bg-cyan-500';
+                            shadowColor = 'shadow-cyan-900/20';
+                            iconBg = 'bg-cyan-500/10';
                          } else {
                             accentColor = isFlash ? 'text-cyan-400' : 'text-yellow-500';
-                            borderColor = isFlash ? 'border-cyan-500/30' : 'border-yellow-500/30';
+                            borderColor = isFlash ? 'border-cyan-500/50' : 'border-yellow-500/50';
                             barColor = isFlash ? 'bg-cyan-500' : 'bg-yellow-500';
+                            shadowColor = isFlash ? 'shadow-cyan-900/20' : 'shadow-yellow-900/20';
+                            iconBg = isFlash ? 'bg-cyan-500/10' : 'bg-yellow-500/10';
                          }
                          
                          if (isQueued) {
-                             borderColor = 'border-zinc-700';
+                             borderColor = 'border-zinc-800';
                              accentColor = 'text-zinc-500';
+                             shadowColor = 'shadow-black/20';
+                             iconBg = 'bg-zinc-800/50';
                          }
 
                          return (
@@ -401,10 +402,10 @@ const Canvas: React.FC<CanvasProps> = ({
                                 key={gen.id}
                                 layout
                                 initial={{ opacity: 0, x: 20, scale: 0.95 }}
-                                animate={{ opacity: isQueued ? 0.7 : 1, x: 0, scale: 1 }}
+                                animate={{ opacity: isQueued ? 0.8 : 1, x: 0, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                className={`bg-zinc-900/95 border ${borderColor} shadow-2xl backdrop-blur-md pointer-events-auto transition-colors duration-300 origin-bottom-right relative group
+                                className={`bg-zinc-900/95 border ${borderColor} shadow-lg ${shadowColor} backdrop-blur-md pointer-events-auto transition-all duration-300 origin-bottom-right relative group
                                     ${isCompact ? 'p-2.5 rounded-lg w-60' : 'p-4 rounded-xl w-64'}
                                 `}
                              >
@@ -424,7 +425,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                   {isCompact ? (
                                     // Compact Layout
                                     <div className="flex items-center gap-2.5">
-                                        <div className={`shrink-0 flex items-center justify-center w-6 h-6 rounded bg-zinc-800/50 ${accentColor} font-bold text-[9px] tracking-wider border border-white/5`}>
+                                        <div className={`shrink-0 flex items-center justify-center w-6 h-6 rounded ${iconBg} ${accentColor} font-bold text-[9px] tracking-wider border border-white/5`}>
                                             {getModeShortLabel(gen.mode)}
                                         </div>
                                         
@@ -500,9 +501,9 @@ const Canvas: React.FC<CanvasProps> = ({
                  </AnimatePresence>
             </div>
 
-            <div className="flex-1 relative overflow-hidden flex flex-col">
+            <div className="flex-1 relative overflow-hidden flex flex-col min-h-0 min-w-0">
                 {currentState.generatedText && (
-                    <div className="w-full h-full overflow-auto p-8 flex justify-center relative z-10 custom-scrollbar">
+                    <div className="w-full h-full overflow-auto p-8 flex justify-center relative z-10 custom-scrollbar select-text">
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -515,7 +516,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             >
                                 <X size={16} />
                             </button>
-                            <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed">
+                            <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300 leading-relaxed select-text">
                                 {currentState.generatedText}
                             </pre>
                         </motion.div>
@@ -525,13 +526,13 @@ const Canvas: React.FC<CanvasProps> = ({
                 {!currentState.generatedText && (
                     <div 
                         ref={viewportRef}
-                        className="w-full h-full overflow-auto flex relative z-10 custom-scrollbar"
+                        className={`w-full h-full flex relative z-10 custom-scrollbar ${isZoomed ? 'overflow-auto items-start justify-start cursor-zoom-out' : 'overflow-hidden items-center justify-center cursor-zoom-in'}`}
                     >
                         {!currentState.generatedImage && currentState.queue.length === 0 && (
                             <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="m-auto text-center space-y-6 max-w-md w-full opacity-60 p-4"
+                                className="m-auto text-center space-y-6 max-w-md w-full opacity-60 p-4 select-none"
                             >
                                 <div className="space-y-4">
                                     <div className="w-20 h-20 bg-zinc-900 rounded-2xl mx-auto flex items-center justify-center border border-zinc-800 rotate-3 group hover:rotate-6 transition-transform duration-300">
@@ -559,15 +560,15 @@ const Canvas: React.FC<CanvasProps> = ({
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }
                                 }}
-                                className={`m-auto transition-transform duration-200 ease-out shadow-lg block ${
-                                    isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
-                                }`}
+                                className="transition-all duration-200 ease-out shadow-lg block select-none"
                                 style={isZoomed ? {
-                                    height: '200%',
-                                    width: 'auto',
                                     maxWidth: 'none',
                                     maxHeight: 'none',
-                                    flexShrink: 0
+                                    width: 'auto',
+                                    height: 'auto',
+                                    // Ensure it doesn't shrink when zooming
+                                    minWidth: '100%',
+                                    minHeight: '100%'
                                 } : {
                                     maxWidth: '100%',
                                     maxHeight: '100%',
@@ -672,7 +673,7 @@ const Canvas: React.FC<CanvasProps> = ({
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap custom-scrollbar">
+                                    <div className="text-xs text-zinc-400 bg-zinc-950/50 p-3 rounded border border-zinc-800/50 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap custom-scrollbar select-text">
                                         {currentHistoryItem.metadata.textPrompt}
                                     </div>
                                 </div>
@@ -682,7 +683,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             {currentHistoryItem.metadata.negativePrompt && (
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase tracking-wider text-red-400 font-semibold">Negative Prompt</label>
-                                    <div className="text-xs text-red-200/80 bg-red-950/20 p-3 rounded border border-red-900/30 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
+                                    <div className="text-xs text-red-200/80 bg-red-950/20 p-3 rounded border border-red-900/30 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar select-text">
                                         {currentHistoryItem.metadata.negativePrompt}
                                     </div>
                                 </div>
