@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2, Layers, ChevronLeft, ChevronRight
+  Type, Copy, Download, User, Sparkles, X, ImagePlus, MessageSquare, Info, Grid3X3, Trash2, Layers, ChevronLeft, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { ModeState, HistoryItem, GenerationMode, ActiveGeneration, ReferenceOperation } from '../types';
 import { MODELS } from '../constants';
@@ -119,6 +119,19 @@ const Canvas: React.FC<CanvasProps> = ({
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const clickTargetRef = useRef<{ x: number, y: number } | null>(null);
+
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(() => {
+    try {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('nanobanana_historyCollapsed') === 'true';
+        }
+    } catch(e) {}
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nanobanana_historyCollapsed', String(isHistoryCollapsed));
+  }, [isHistoryCollapsed]);
 
   const currentHistoryItem = history.find(item => item.id === currentState.activeHistoryId);
 
@@ -240,13 +253,13 @@ const Canvas: React.FC<CanvasProps> = ({
 
   // Auto-scroll active item into view
   useEffect(() => {
-      if (currentState.activeHistoryId) {
+      if (currentState.activeHistoryId && !isHistoryCollapsed) {
           const el = document.getElementById(`history-thumb-${currentState.activeHistoryId}`);
           if (el) {
               el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
           }
       }
-  }, [currentState.activeHistoryId]);
+  }, [currentState.activeHistoryId, isHistoryCollapsed]);
 
   const onCopyText = () => {
     handleCopyText();
@@ -769,116 +782,134 @@ const Canvas: React.FC<CanvasProps> = ({
          initial={{ y: 50, opacity: 0 }}
          animate={{ y: 0, opacity: 1 }}
          transition={{ delay: 0.3 }}
-         className="flex-none h-24 border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center z-20 relative"
+         className="flex-none z-20 relative"
       >
-         <div className="shrink-0 h-full flex items-center pl-4 pr-2 border-r border-zinc-800/30">
-            <button 
-                onClick={onOpenGallery}
-                className="flex flex-col items-center justify-center gap-1.5 w-16 h-16 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-white text-zinc-500 transition-colors group"
-                title="View Full Gallery"
-            >
-                <Grid3X3 size={18} className={`transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'}`} />
-                <span className="text-[10px] font-medium">View All</span>
-            </button>
-         </div>
+         <button
+            onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+            className="absolute bottom-full left-6 mb-[-1px] bg-zinc-950 border border-zinc-800 border-b-0 rounded-t-lg px-3 py-1 text-[10px] font-medium text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5 transition-colors z-30 shadow-sm"
+            title={isHistoryCollapsed ? "Expand History" : "Collapse History"}
+         >
+            <span>History</span>
+            <ChevronDown size={12} className={`transition-transform duration-300 ${isHistoryCollapsed ? "rotate-180" : ""}`} />
+         </button>
 
-         {/* Navigation Arrows */}
-         <div className="shrink-0 h-full flex items-center px-2 gap-1 border-r border-zinc-800/30">
-            <button 
-               onClick={() => handleNavigateHistory('prev')}
-               disabled={history.length === 0 || (currentState.activeHistoryId !== null && history[0]?.id === currentState.activeHistoryId)}
-               className="p-2 rounded-lg bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-               title="Newer (Previous)"
-            >
-                <ChevronLeft size={18} />
-            </button>
-            <button 
-               onClick={() => handleNavigateHistory('next')}
-               disabled={history.length === 0 || (currentState.activeHistoryId !== null && history[history.length - 1]?.id === currentState.activeHistoryId)}
-               className="p-2 rounded-lg bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-               title="Older (Next)"
-            >
-                <ChevronRight size={18} />
-            </button>
-         </div>
+         <motion.div 
+            initial={false}
+            animate={{ height: isHistoryCollapsed ? 0 : 96 }}
+            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1.0] }}
+            className="border-t border-zinc-800 bg-zinc-900/50 backdrop-blur-sm overflow-hidden"
+         >
+             <div className="h-24 flex items-center w-full">
+                 <div className="shrink-0 h-full flex items-center pl-4 pr-2 border-r border-zinc-800/30">
+                    <button 
+                        onClick={onOpenGallery}
+                        className="flex flex-col items-center justify-center gap-1.5 w-16 h-16 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-white text-zinc-500 transition-colors group"
+                        title="View Full Gallery"
+                    >
+                        <Grid3X3 size={18} className={`transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'}`} />
+                        <span className="text-[10px] font-medium">View All</span>
+                    </button>
+                 </div>
 
-         <div className="flex-1 overflow-x-auto h-full flex items-center px-4 gap-4 custom-scrollbar">
-            {isHistoryLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="shrink-0 w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 relative overflow-hidden">
-                        <motion.div 
-                            className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-800/30 to-transparent"
-                            animate={{ x: ['-100%', '100%'] }}
-                            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                        />
-                    </div>
-                ))
-            ) : history.length === 0 ? (
-                <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
-            ) : (
-                history.map(item => {
-                    const isActive = item.id === currentState.activeHistoryId;
-                    // Strong active styling
-                    const activeClass = isProTheme 
-                        ? 'ring-2 ring-yellow-500 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)] scale-105 z-10 opacity-100'
-                        : 'ring-2 ring-cyan-500 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105 z-10 opacity-100';
-                    const inactiveClass = 'border-zinc-800 opacity-60 hover:opacity-100 hover:scale-105 hover:border-zinc-600 hover:z-10';
+                 {/* Navigation Arrows */}
+                 <div className="shrink-0 h-full flex items-center px-2 gap-1 border-r border-zinc-800/30">
+                    <button 
+                    onClick={() => handleNavigateHistory('prev')}
+                    disabled={history.length === 0 || (currentState.activeHistoryId !== null && history[0]?.id === currentState.activeHistoryId)}
+                    className="p-2 rounded-lg bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Newer (Previous)"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <button 
+                    onClick={() => handleNavigateHistory('next')}
+                    disabled={history.length === 0 || (currentState.activeHistoryId !== null && history[history.length - 1]?.id === currentState.activeHistoryId)}
+                    className="p-2 rounded-lg bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Older (Next)"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                 </div>
 
-                    return (
-                        <motion.button 
-                            layout
-                            key={item.id}
-                            id={`history-thumb-${item.id}`}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: isActive ? 1 : 0.6, scale: isActive ? 1.05 : 1 }}
-                            whileHover={{ scale: 1.05 }}
-                            onClick={() => handleHistorySelect(item)}
-                            className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-300 relative group flex flex-col items-center justify-center cursor-pointer ${
-                                isActive ? activeClass : inactiveClass
-                            }`}
-                            title={`View in ${item.metadata?.mode}`}
-                            draggable={item.type === 'image'}
-                            onDragStart={(e) => {
-                                if (item.type === 'image') {
-                                const dragEvent = e as unknown as React.DragEvent;
-                                dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
-                                dragEvent.dataTransfer.effectAllowed = 'copy';
-                                }
-                            }}
-                        >
-                        {item.type === 'image' ? (
-                            <img src={item.url} draggable="false" className="w-full h-full object-cover" alt="History" />
-                        ) : (
-                            <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
-                                <MessageSquare size={20} className={`mb-1 text-zinc-600 transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'} ${isActive ? (isProTheme ? 'text-yellow-500' : 'text-cyan-400') : ''}`} />
-                                <div className="w-full space-y-1">
-                                    <div className="h-1 w-full bg-zinc-800 rounded-full" />
-                                    <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
-                                </div>
+                 <div className="flex-1 overflow-x-auto h-full flex items-center px-4 gap-4 custom-scrollbar">
+                    {isHistoryLoading ? (
+                        Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="shrink-0 w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 relative overflow-hidden">
+                                <motion.div 
+                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-800/30 to-transparent"
+                                    animate={{ x: ['-100%', '100%'] }}
+                                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                                />
                             </div>
-                        )}
-                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            {item.type === 'text' && (
-                                <div className={`bg-zinc-950/80 p-1 rounded shadow-sm flex items-center justify-center ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
-                                    <Type size={10} />
-                                </div>
-                            )}
-                        </div>
-                        </motion.button>
-                    );
-                })
-            )}
-         </div>
+                        ))
+                    ) : history.length === 0 ? (
+                        <div className="text-xs text-zinc-600 font-medium w-full text-center">Your generated history will appear here</div>
+                    ) : (
+                        history.map(item => {
+                            const isActive = item.id === currentState.activeHistoryId;
+                            // Strong active styling
+                            const activeClass = isProTheme 
+                                ? 'ring-2 ring-yellow-500 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)] scale-105 z-10 opacity-100'
+                                : 'ring-2 ring-cyan-500 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105 z-10 opacity-100';
+                            const inactiveClass = 'border-zinc-800 opacity-60 hover:opacity-100 hover:scale-105 hover:border-zinc-600 hover:z-10';
 
-         <div className="shrink-0 h-full flex items-center px-6 border-l border-zinc-800/30 bg-zinc-900/10">
-              <div 
-                 className="scale-90 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl shadow-lg flex flex-col items-center justify-center gap-1 cursor-help min-w-[140px]"
-                 title="Pro Model Daily Quota resets at 12:00 AM PT (Pacific Time)"
-              >
-                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-tight text-center">Today Generated</span>
-                 <span className="text-zinc-200 font-bold text-sm leading-none text-center">Images : {dailyImageCount}</span>
-              </div>
-         </div>
+                            return (
+                                <motion.button 
+                                    layout
+                                    key={item.id}
+                                    id={`history-thumb-${item.id}`}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: isActive ? 1 : 0.6, scale: isActive ? 1.05 : 1 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    onClick={() => handleHistorySelect(item)}
+                                    className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-300 relative group flex flex-col items-center justify-center cursor-pointer ${
+                                        isActive ? activeClass : inactiveClass
+                                    }`}
+                                    title={`View in ${item.metadata?.mode}`}
+                                    draggable={item.type === 'image'}
+                                    onDragStart={(e) => {
+                                        if (item.type === 'image') {
+                                        const dragEvent = e as unknown as React.DragEvent;
+                                        dragEvent.dataTransfer.setData('application/x-nanobanana-image', item.url);
+                                        dragEvent.dataTransfer.effectAllowed = 'copy';
+                                        }
+                                    }}
+                                >
+                                {item.type === 'image' ? (
+                                    <img src={item.url} draggable="false" className="w-full h-full object-cover" alt="History" />
+                                ) : (
+                                    <div className="w-full h-full bg-zinc-900 p-2 flex flex-col items-center justify-center text-zinc-500">
+                                        <MessageSquare size={20} className={`mb-1 text-zinc-600 transition-colors ${isProTheme ? 'group-hover:text-yellow-500' : 'group-hover:text-cyan-400'} ${isActive ? (isProTheme ? 'text-yellow-500' : 'text-cyan-400') : ''}`} />
+                                        <div className="w-full space-y-1">
+                                            <div className="h-1 w-full bg-zinc-800 rounded-full" />
+                                            <div className="h-1 w-3/4 bg-zinc-800 rounded-full" />
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    {item.type === 'text' && (
+                                        <div className={`bg-zinc-950/80 p-1 rounded shadow-sm flex items-center justify-center ${isProTheme ? 'text-yellow-500' : 'text-cyan-400'}`}>
+                                            <Type size={10} />
+                                        </div>
+                                    )}
+                                </div>
+                                </motion.button>
+                            );
+                        })
+                    )}
+                 </div>
+
+                 <div className="shrink-0 h-full flex items-center px-6 border-l border-zinc-800/30 bg-zinc-900/10">
+                      <div 
+                         className="scale-90 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl shadow-lg flex flex-col items-center justify-center gap-1 cursor-help min-w-[140px]"
+                         title="Pro Model Daily Quota resets at 12:00 AM PT (Pacific Time)"
+                      >
+                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-tight text-center">Today Generated</span>
+                         <span className="text-zinc-200 font-bold text-sm leading-none text-center">Images : {dailyImageCount}</span>
+                      </div>
+                 </div>
+             </div>
+         </motion.div>
       </motion.div>
 
     </section>
