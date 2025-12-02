@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft, CheckSquare, Grid3X3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
@@ -149,7 +149,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                          {[
                             { icon: User, title: 'Apply Clothing', desc: 'Dresses the Subject(s) in the outfit shown in the Reference image.' },
                             { icon: ImagePlus, title: 'Replace Face', desc: 'Swaps faces in the Reference image with the Subject(s).' },
-                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes structure. Switch to Template V2 for precise JSON-based layout matching.' },
+                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes composition. Use V2 Template for JSON structure matching.' },
                          ].map((item, i) => (
                             <div key={i} className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg">
                                 <div className="flex items-center gap-2 mb-1 text-purple-400">
@@ -161,6 +161,34 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                          ))}
                       </div>
                   </div>
+               </section>
+
+               <hr className="border-zinc-800" />
+
+               {/* New Section: Template Intelligence */}
+               <section>
+                   <div className="flex items-center gap-2 mb-4 text-zinc-100">
+                       <Layers className={accentText} size={20} />
+                       <h4 className="text-lg font-semibold">Prompt Templates</h4>
+                   </div>
+                   <div className="grid md:grid-cols-2 gap-4">
+                       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                           <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
+                               Template V1: Narrative
+                           </div>
+                           <p className="text-xs text-zinc-400 leading-relaxed">
+                               Generates prompts in natural, descriptive prose. Best for <strong>artistic interpretation</strong>, fluid composition, and standard generative workflows where "vibes" matter more than technical specs.
+                           </p>
+                       </div>
+                       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                           <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">
+                               Template V2: Structured JSON
+                           </div>
+                           <p className="text-xs text-zinc-400 leading-relaxed">
+                               Constructs prompts using a strict JSON schema. Explicitly defines <strong>Camera, Lens, ISO, Lighting, and Texture</strong>. Use this when you need precise control over the photographic look or when replicating complex reference scenes in Mode 2, 3, or 4.
+                           </p>
+                       </div>
+                   </div>
                </section>
 
                {/* 4. Utilities */}
@@ -211,6 +239,13 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                <span>
                                    <strong className="text-zinc-200 block mb-0.5">Smart Tab Switching</strong>
                                    Drag any image file directly onto the <strong>Mode Tabs</strong> (top center) to switch modes and auto-populate the image instantly.
+                               </span>
+                           </li>
+                           <li className="flex gap-3 items-start">
+                               <span className="bg-zinc-800 p-1 rounded text-green-400 mt-0.5"><Grid3X3 size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Bulk Actions</strong>
+                                   Open the <strong>Gallery</strong> to select multiple items. You can batch download as a ZIP file or bulk delete to clean up your workspace.
                                </span>
                            </li>
                             <li className="flex gap-3 items-start">
