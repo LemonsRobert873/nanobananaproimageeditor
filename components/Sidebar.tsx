@@ -424,6 +424,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     return () => window.removeEventListener('paste', handlePaste as EventListener);
   }, [activeTarget, focusedSubjectId, currentState, mode]);
 
+  // Handle Enter key in Prompt Textareas
+  const handleTextAreaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Trigger generation on Enter (without modifiers)
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          e.preventDefault();
+          handleGenerate();
+      }
+  };
+
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const shortcutLabel = isMac ? 'Cmd+Enter' : 'Ctrl+Enter';
   const displayError = error || currentState.errorMessage;
@@ -750,6 +759,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                             ref={textAreaRef}
                             value={currentState.textPrompt}
                             onChange={(e) => updateCurrentState({ textPrompt: e.target.value })}
+                            onKeyDown={handleTextAreaKeyDown}
                             placeholder={
                                 mode === GenerationMode.TEXT_TO_PROMPT ? "e.g. A futuristic samurai..." :
                                 mode === GenerationMode.IMG_TO_PROMPT ? "Context (Optional)..." :
@@ -791,6 +801,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                                         <textarea
                                             value={currentState.negativePrompt}
                                             onChange={(e) => updateCurrentState({ negativePrompt: e.target.value })}
+                                            onKeyDown={handleTextAreaKeyDown}
                                             placeholder="blurry, distorted, bad hands..."
                                             className={`w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-700 focus:ring-1 outline-none resize-none min-h-[60px] ${focusRing}`}
                                         />
