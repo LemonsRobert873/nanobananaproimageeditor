@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft, CheckSquare, Grid3X3, Info } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Sparkles, Sliders, Command, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft, Grid3X3, Info, PanelLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 import { MAX_SUBJECTS } from '../constants';
@@ -151,7 +151,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                          {[
                             { icon: User, title: 'Apply Clothing', desc: 'Dresses the Subject(s) in the outfit shown in the Reference image.' },
                             { icon: ImagePlus, title: 'Replace Face', desc: 'Swaps faces in the Reference image with the Subject(s).' },
-                            { icon: Copy, title: 'Replicate Reference', desc: 'Analyzes composition. Use V2 Template for JSON structure matching.' },
+                            { icon: Copy, title: 'Replicate Reference', desc: 'Uses AI analysis to clone scene structure. Switch to V2 Template for precise JSON matching.' },
                          ].map((item, i) => (
                             <div key={i} className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg">
                                 <div className="flex items-center gap-2 mb-1 text-purple-400">
@@ -187,7 +187,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                Template V2: Structured JSON
                            </div>
                            <p className="text-xs text-zinc-400 leading-relaxed">
-                               Constructs prompts using a strict JSON schema. Explicitly defines <strong>Camera, Lens, ISO, Lighting, and Texture</strong>. Use this when you need precise control over the photographic look or when replicating complex reference scenes in Mode 2, 3, or 4.
+                               Constructs prompts using a strict JSON schema. Explicitly defines <strong>Camera, Lens, ISO, Lighting, and Texture</strong>. Use this when you need precise control over the photographic look or when replicating complex reference scenes.
                            </p>
                        </div>
                    </div>
@@ -202,7 +202,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                       <div>
                           <h5 className="text-sm font-medium text-zinc-200 mb-1">Mode 3: Image → Text Prompt</h5>
                           <p className="text-xs text-zinc-400 leading-relaxed">
-                            Reverse-engineers a prompt from an image. Switch to <strong>Template V2</strong> for structured JSON outputs that capture precise camera and lighting data.
+                            Reverse-engineers a detailed prompt from an image. Switch to <strong>Template V2</strong> for structured JSON outputs that capture precise camera and lighting data.
                           </p>
                       </div>
                    </div>
@@ -276,6 +276,13 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                <span>
                                    <strong className="text-zinc-200 block mb-0.5">Deep Zoom</strong>
                                    Click any result in the canvas to enter high-res inspection mode. Pan by moving your mouse.
+                               </span>
+                           </li>
+                            <li className="flex gap-3 items-start">
+                               <span className="bg-zinc-800 p-1 rounded text-orange-400 mt-0.5"><PanelLeft size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Resizable Interface</strong>
+                                   Drag the sidebar edge to resize it. Click the "History" tab at the bottom to collapse/expand the history panel.
                                </span>
                            </li>
                            <li className="flex gap-3 items-start">

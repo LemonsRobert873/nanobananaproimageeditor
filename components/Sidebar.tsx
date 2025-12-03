@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -340,7 +338,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       
       // 2. External Files - Multi-file support
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-           const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+           // Explicitly cast to fix TS error about 'unknown' type
+           const files = Array.from(e.dataTransfer.files).filter((f: any) => f.type && f.type.startsWith('image/')) as File[];
            
            if (files.length === 0) return;
 
