@@ -13,7 +13,7 @@ import {
   SubjectItem,
   TemplateVersion
 } from '../types';
-import { MODELS } from '../constants';
+import { MODELS, MAX_SUBJECTS } from '../constants';
 import Button from './Button';
 import FileUpload from './FileUpload';
 import AspectRatioSelector from './AspectRatioSelector';
@@ -260,8 +260,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   };
 
   const handleAddEmptySubject = () => {
-      if (currentState.subjects.length >= 5) {
-          addToast("Maximum 5 subjects allowed", 'warning');
+      if (currentState.subjects.length >= MAX_SUBJECTS) {
+          addToast(`Maximum ${MAX_SUBJECTS} subjects allowed`, 'warning');
           return;
       }
       const newSubject: SubjectItem = {
@@ -295,7 +295,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
   // Section Drag Handlers
   const handleSectionDragOver = (e: React.DragEvent) => {
-      if (currentState.subjects.length < 5) {
+      if (currentState.subjects.length < MAX_SUBJECTS) {
           e.preventDefault();
           e.stopPropagation();
           setIsDragOverSubjectSection(true);
@@ -316,27 +316,52 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       e.stopPropagation();
       setIsDragOverSubjectSection(false);
 
-      if (currentState.subjects.length >= 5) {
-          addToast("Maximum 5 subjects allowed", 'warning');
+      const currentSubjectCount = currentState.subjects.length;
+      if (currentSubjectCount >= MAX_SUBJECTS) {
+          addToast(`Maximum ${MAX_SUBJECTS} subjects allowed`, 'warning');
           return;
       }
 
-      let file: File | null = null;
+      // 1. Internal Drag (History/Canvas) - Single Image
       const internalUrl = e.dataTransfer.getData('application/x-nanobanana-image');
       if (internalUrl) {
-           file = dataURLtoFile(internalUrl, `dropped-subject-${Date.now()}.png`);
-      } else if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-           file = e.dataTransfer.files[0];
-      }
+           const file = dataURLtoFile(internalUrl, `dropped-subject-${Date.now()}.png`);
+           if (file && file.type.startsWith('image/')) {
+                const newSubject: SubjectItem = {
+                    id: Date.now().toString() + Math.random().toString().slice(2, 5),
+                    file: file,
+                    isActive: true
+                };
+                updateCurrentState({ subjects: [...currentState.subjects, newSubject] });
+                addToast("Subject added", 'success');
+           }
+           return;
+      } 
+      
+      // 2. External Files - Multi-file support
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+           const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+           
+           if (files.length === 0) return;
 
-      if (file && file.type.startsWith('image/')) {
-          const newSubject: SubjectItem = {
-              id: Date.now().toString() + Math.random().toString().slice(2, 5),
-              file: file,
-              isActive: true
-          };
-          updateCurrentState({ subjects: [...currentState.subjects, newSubject] });
-          addToast("Subject added", 'success');
+           const availableSlots = MAX_SUBJECTS - currentSubjectCount;
+           const filesToAdd = files.slice(0, availableSlots);
+           
+           const newSubjects: SubjectItem[] = filesToAdd.map((file, index) => ({
+                id: Date.now().toString() + Math.random().toString().slice(2, 5) + index,
+                file: file,
+                isActive: true
+           }));
+
+           if (newSubjects.length > 0) {
+                updateCurrentState({ subjects: [...currentState.subjects, ...newSubjects] });
+                
+                if (files.length > availableSlots) {
+                    addToast(`Added ${filesToAdd.length} subjects. Limit reached.`, 'warning');
+                } else {
+                    addToast(`${filesToAdd.length} subject${filesToAdd.length > 1 ? 's' : ''} added`, 'success');
+                }
+           }
       }
   };
 
@@ -352,8 +377,9 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   
         let file: File | null = null;
         for (let i = 0; i < items.length; i++) {
-          if (items[i].type.indexOf('image') !== -1) {
-            const blob = items[i].getAsFile();
+          const item = items[i] as DataTransferItem;
+          if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
             if (blob) {
                file = new File([blob], "pasted-image.png", { type: blob.type });
                break;
@@ -366,7 +392,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
              // Handle Image -> Text Prompt Source Paste
              if (activeTarget === 'imageToText') {
-                 const newSub = { id: '0', file, isActive: true };
+                 const newSub: SubjectItem = { id: '0', file, isActive: true };
                  updateCurrentState({ subjects: [newSub] });
                  addToast("Source image set", 'success');
                  return;
@@ -383,7 +409,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                  handleReferenceSelect(file);
                  return;
              }
-             if (currentState.subjects.length < 5 && (!activeTarget || activeTarget === 'subject')) {
+             if (currentState.subjects.length < MAX_SUBJECTS && (!activeTarget || activeTarget === 'subject')) {
                   const newSubject: SubjectItem = {
                       id: Date.now().toString() + Math.random().toString().slice(2, 5),
                       file: file,
@@ -395,8 +421,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
              }
         }
     };
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
+    window.addEventListener('paste', handlePaste as EventListener);
+    return () => window.removeEventListener('paste', handlePaste as EventListener);
   }, [activeTarget, focusedSubjectId, currentState, mode]);
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -509,16 +535,16 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                     <div className="space-y-3 pt-2">
                         <div className="flex items-center justify-between px-1">
                              <div className="text-xs text-zinc-500">
-                                {currentState.subjects.length} / 5 Subjects
+                                {currentState.subjects.length} / {MAX_SUBJECTS} Subjects
                              </div>
                              <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleAddEmptySubject();
                                 }}
-                                disabled={currentState.subjects.length >= 5}
+                                disabled={currentState.subjects.length >= MAX_SUBJECTS}
                                 className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all ${
-                                    currentState.subjects.length >= 5 
+                                    currentState.subjects.length >= MAX_SUBJECTS 
                                     ? 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed' 
                                     : `bg-zinc-900 border-zinc-700 text-zinc-300 ${accentHover}`
                                 }`}

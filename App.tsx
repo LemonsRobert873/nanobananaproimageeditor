@@ -19,7 +19,7 @@ import {
   ActiveGeneration,
   GenerationJob
 } from './types';
-import { ERRORS, MODELS } from './constants';
+import { ERRORS, MODELS, MAX_SUBJECTS } from './constants';
 import { generateImage, generatePrompt } from './services/geminiService';
 import { 
   getHistoryItems, 
@@ -568,12 +568,12 @@ function AppContent() {
           let message = "";
           
           if (targetMode === GenerationMode.IMAGE_EDIT) {
-               if (state.subjects.length < 5) {
+               if (state.subjects.length < MAX_SUBJECTS) {
                    const newSub = { id: Date.now().toString(), file, isActive: true };
                    updates.subjects = [...state.subjects, newSub];
                    message = "Image added to Subjects";
                } else {
-                   addToast("Max 5 subjects allowed", 'warning');
+                   addToast(`Max ${MAX_SUBJECTS} subjects allowed`, 'warning');
                    return prev; // No changes
                }
           } else if (targetMode === GenerationMode.IMAGE_TO_IMAGE) {
@@ -1130,8 +1130,8 @@ function AppContent() {
   };
 
   const handleUseAsSubject = (url: string) => {
-    if (currentState.subjects.length >= 5) {
-        addToast('Max 5 subjects allowed. Remove one to add new.', 'warning');
+    if (currentState.subjects.length >= MAX_SUBJECTS) {
+        addToast(`Max ${MAX_SUBJECTS} subjects allowed. Remove one to add new.`, 'warning');
         return;
     }
     const file = dataURLtoFile(url, 'generated-subject.png');

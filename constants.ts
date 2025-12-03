@@ -9,6 +9,8 @@ export const MODELS = {
   FLASH: 'gemini-2.5-flash-image'
 };
 
+export const MAX_SUBJECTS = 10;
+
 export const ANALYSIS_MODEL = 'gemini-2.5-flash';
 
 export const ASPECT_RATIOS = [

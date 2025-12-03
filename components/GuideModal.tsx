@@ -1,8 +1,10 @@
 
+
 import React from 'react';
-import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft, CheckSquare, Grid3X3 } from 'lucide-react';
+import { X, BookOpen, Layers, Type, Wand2, FileText, User, ImagePlus, Copy, Key, Sparkles, Sliders, Command, MousePointerClick, RotateCcw, Clock, Monitor, Zap, ShieldCheck, Scale, AlertCircle, ClipboardPaste, ArrowRightLeft, CheckSquare, Grid3X3, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
+import { MAX_SUBJECTS } from '../constants';
 
 interface GuideModalProps {
   isOpen: boolean;
@@ -123,7 +125,7 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                 <User size={14} /> Identity Preservation
                             </div>
                             <p className="text-xs text-zinc-400 leading-relaxed">
-                                Upload up to 5 <strong>Subject Faces</strong>. The model generates new scenes while rigorously maintaining the facial features of your subjects.
+                                Upload up to {MAX_SUBJECTS} <strong>Subject Faces</strong>. The model generates new scenes while rigorously maintaining the facial features of your subjects.
                             </p>
                         </div>
                         <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
@@ -274,6 +276,20 @@ const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose, isProTheme = t
                                <span>
                                    <strong className="text-zinc-200 block mb-0.5">Deep Zoom</strong>
                                    Click any result in the canvas to enter high-res inspection mode. Pan by moving your mouse.
+                               </span>
+                           </li>
+                           <li className="flex gap-3 items-start">
+                               <span className={`bg-zinc-800 p-1 rounded ${accentText} mt-0.5`}><Info size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Metadata Inspector</strong>
+                                   Toggle the <strong>Info</strong> button on any result canvas to view full prompt details and generation settings.
+                               </span>
+                           </li>
+                           <li className="flex gap-3 items-start">
+                               <span className="bg-zinc-800 p-1 rounded text-red-400 mt-0.5"><X size={12} /></span>
+                               <span>
+                                   <strong className="text-zinc-200 block mb-0.5">Queue Control</strong>
+                                   Hover over any active job card in the progress stack to reveal a cancel button.
                                </span>
                            </li>
                        </ul>
